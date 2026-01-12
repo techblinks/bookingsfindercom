@@ -1,41 +1,30 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { validateRequest, ValidationError } from "../_shared/validation.ts";
+import { safeJsonParse } from "../_shared/helpers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// Hotellook cached prices endpoint (matches the original Express /v2/cache.json approach)
+// Hotellook cached prices endpoint
 const HOTELLOOK_ENGINE_BASE = "https://engine.hotellook.com/api/v2";
 
-interface HotelSearchRequest {
-  destination: string;
-  checkIn: string;
-  checkOut: string;
-  guests?: number;
-  rooms?: number;
-  currency?: string;
-  limit?: number;
-}
+// Zod schema for hotel search request
+const HotelSearchSchema = z.object({
+  destination: z.string().min(1, "Destination is required"),
+  checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+  checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+  guests: z.number().int().min(1).max(10).default(2),
+  rooms: z.number().int().min(1).max(5).default(1),
+  currency: z.string().length(3).default("USD"),
+  limit: z.number().int().min(1).max(100).default(20),
+});
 
-function safeJsonParse(text: string): any | null {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
+type HotelSearchRequest = z.infer<typeof HotelSearchSchema>;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return errorResponse("Method not allowed", 405);
   }
 
   try {
@@ -46,24 +35,16 @@ Deno.serve(async (req) => {
       throw new Error("TRAVELPAYOUTS_API_KEY or MARKER_ID not configured");
     }
 
-    const body: HotelSearchRequest = await req.json();
-
-    if (!body.destination || !body.checkIn || !body.checkOut) {
-      return new Response(
-        JSON.stringify({
-          error: "Missing required fields: destination, checkIn, checkOut",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Validate request body with Zod
+    const body = await validateRequest(req, HotelSearchSchema);
 
     const params = new URLSearchParams({
       location: body.destination,
       checkIn: body.checkIn,
       checkOut: body.checkOut,
-      adults: String(body.guests ?? 2),
-      limit: String(body.limit ?? 20),
-      currency: body.currency || "USD",
+      adults: String(body.guests),
+      limit: String(body.limit),
+      currency: body.currency,
       lang: "en",
       token: apiToken,
       marker: markerId,
@@ -75,62 +56,53 @@ Deno.serve(async (req) => {
     const apiResponse = await fetch(url, {
       method: "GET",
       headers: {
-        "Accept": "application/json",
-        // Some providers return HTML unless a UA is set
+        Accept: "application/json",
         "User-Agent": "LovableHotelSearch/1.0",
       },
     });
 
     const text = await apiResponse.text();
-    const data = safeJsonParse(text);
+    const data = safeJsonParse<any>(text);
 
     if (!data) {
-      console.error(`Hotellook cache returned non-JSON (status ${apiResponse.status}). Body preview:`, text.slice(0, 120));
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Hotel API returned non-JSON response; returning empty results",
-          searchParams: {
-            destination: body.destination,
-            checkIn: body.checkIn,
-            checkOut: body.checkOut,
-            guests: body.guests || 2,
-            rooms: body.rooms || 1,
-          },
-          results: [],
-          totalResults: 0,
-          currency: body.currency || "USD",
-          timestamp: new Date().toISOString(),
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      console.error(
+        `Hotellook cache returned non-JSON (status ${apiResponse.status}). Body preview:`,
+        text.slice(0, 120)
       );
+      return jsonResponse({
+        success: true,
+        message: "Hotel API returned non-JSON response; returning empty results",
+        searchParams: {
+          destination: body.destination,
+          checkIn: body.checkIn,
+          checkOut: body.checkOut,
+          guests: body.guests,
+          rooms: body.rooms,
+        },
+        results: [],
+        totalResults: 0,
+        currency: body.currency,
+        timestamp: new Date().toISOString(),
+      });
     }
 
-    if (!apiResponse.ok || data.status === "error") {
+    if (!apiResponse.ok || (data as any).status === "error") {
       console.error("Hotellook cache error:", data);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Hotel search failed",
-          details: data,
-        }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return errorResponse("Hotel search failed", 502, data);
     }
 
     const items: any[] = Array.isArray(data)
       ? data
-      : Array.isArray(data.result)
-        ? data.result
-        : Array.isArray(data.results)
-          ? data.results
+      : Array.isArray((data as any).result)
+        ? (data as any).result
+        : Array.isArray((data as any).results)
+          ? (data as any).results
           : [];
 
     const hotels = items.map((hotel: any, index: number) => {
       const hotelId = hotel.hotelId ?? hotel.id ?? hotel.hotel_id;
       const name = hotel.hotelName ?? hotel.name ?? hotel.hotel_name ?? `Hotel ${index + 1}`;
 
-      // price fields vary by endpoint
       const price =
         hotel.minPriceTotal ??
         hotel.min_price_total ??
@@ -144,7 +116,6 @@ Deno.serve(async (req) => {
       const stars = hotel.stars ?? hotel.stars_count ?? 3;
       const rating = hotel.guestScore ?? hotel.guest_score ?? hotel.rating;
 
-      // Hotellook returns url/fullUrl sometimes
       const fullUrl = hotel.fullUrl || (hotel.fullBookingURL ? hotel.fullBookingURL : null);
       const urlPath = hotel.url;
 
@@ -155,7 +126,7 @@ Deno.serve(async (req) => {
           : `https://search.hotellook.com/hotels?destination=${encodeURIComponent(body.destination)}` +
             `&checkIn=${encodeURIComponent(body.checkIn)}` +
             `&checkOut=${encodeURIComponent(body.checkOut)}` +
-            `&adults=${encodeURIComponent(String(body.guests ?? 2))}` +
+            `&adults=${encodeURIComponent(String(body.guests))}` +
             (hotelId ? `&hotelId=${encodeURIComponent(String(hotelId))}` : "") +
             `&marker=${encodeURIComponent(markerId)}`);
 
@@ -173,7 +144,7 @@ Deno.serve(async (req) => {
         reviewCount: hotel.reviews ?? hotel.reviews_count ?? hotel.popularity ?? 0,
         price: typeof price === "number" ? price : Number(price) || 0,
         originalPrice: hotel.maxPricePerNight ?? hotel.max_price_per_night,
-        currency: body.currency || "USD",
+        currency: body.currency,
         amenities: Array.isArray(hotel.amenities) && hotel.amenities.length ? hotel.amenities : ["wifi"],
         isDeal: Boolean(hotel.discount) || false,
         redirectId: `redir-ht-${hotelId ?? index}`,
@@ -181,31 +152,30 @@ Deno.serve(async (req) => {
       };
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        searchParams: {
-          destination: body.destination,
-          checkIn: body.checkIn,
-          checkOut: body.checkOut,
-          guests: body.guests || 2,
-          rooms: body.rooms || 1,
-        },
-        results: hotels,
-        totalResults: hotels.length,
-        currency: body.currency || "USD",
-        timestamp: new Date().toISOString(),
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return jsonResponse({
+      success: true,
+      searchParams: {
+        destination: body.destination,
+        checkIn: body.checkIn,
+        checkOut: body.checkOut,
+        guests: body.guests,
+        rooms: body.rooms,
+      },
+      results: hotels,
+      totalResults: hotels.length,
+      currency: body.currency,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     console.error("Hotel search error:", error);
-    return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+
+    if (error instanceof ValidationError) {
+      return errorResponse("Validation failed", 400, error.errors);
+    }
+
+    return errorResponse(
+      error instanceof Error ? error.message : "Unknown error",
+      500
     );
   }
 });

@@ -1,74 +1,86 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { validateRequest, ValidationError } from "../_shared/validation.ts";
+import { formatDate, formatCurrency, calculatePercentageDiff } from "../_shared/helpers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Zod schema for price alert email request
+const PriceAlertEmailSchema = z.object({
+  to: z.string().email("Invalid email address"),
+  origin: z.string().min(3).max(3),
+  destination: z.string().min(3).max(3),
+  departureDate: z.string(),
+  returnDate: z.string().optional(),
+  previousPrice: z.number().positive(),
+  currentPrice: z.number().positive(),
+  targetPrice: z.number().positive().optional(),
+  currency: z.string().length(3).default("AUD"),
+  searchUrl: z.string().optional(),
+});
 
-interface PriceAlertEmailRequest {
-  to: string;
-  origin: string;
-  destination: string;
-  departureDate: string;
-  returnDate?: string;
-  previousPrice: number;
-  currentPrice: number;
-  targetPrice?: number;
-  currency?: string;
-  searchUrl?: string;
-}
+type PriceAlertEmailRequest = z.infer<typeof PriceAlertEmailSchema>;
 
-const formatDate = (dateStr: string): string => {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
-  } catch {
-    return dateStr;
-  }
-};
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    
+
     if (!resendApiKey) {
       throw new Error("RESEND_API_KEY not configured");
     }
 
     const resend = new Resend(resendApiKey);
 
-    const {
-      to,
-      origin,
-      destination,
-      departureDate,
-      returnDate,
-      previousPrice,
-      currentPrice,
-      targetPrice,
-      currency = "AUD",
-      searchUrl,
-    }: PriceAlertEmailRequest = await req.json();
+    // Validate request body with Zod
+    const body = await validateRequest(req, PriceAlertEmailSchema);
 
-    const savings = previousPrice - currentPrice;
-    const savingsPercent = Math.round((savings / previousPrice) * 100);
-    const targetReached = targetPrice && currentPrice <= targetPrice;
+    const savings = body.previousPrice - body.currentPrice;
+    const savingsPercent = calculatePercentageDiff(body.previousPrice, body.currentPrice);
+    const targetReached = body.targetPrice && body.currentPrice <= body.targetPrice;
 
     const subject = targetReached
-      ? `🎯 Target Price Reached! ${origin} → ${destination} now ${currency}$${currentPrice}`
-      : `✈️ Price Drop Alert! ${origin} → ${destination} dropped ${savingsPercent}%`;
+      ? `🎯 Target Price Reached! ${body.origin} → ${body.destination} now ${formatCurrency(body.currentPrice, body.currency)}`
+      : `✈️ Price Drop Alert! ${body.origin} → ${body.destination} dropped ${savingsPercent}%`;
 
-    const html = `
+    const html = generateEmailHtml({
+      ...body,
+      savings,
+      savingsPercent,
+      targetReached: !!targetReached,
+    });
+
+    const emailResponse = await resend.emails.send({
+      from: "TravelHub <alerts@resend.dev>",
+      to: [body.to],
+      subject,
+      html,
+    });
+
+    console.log("Price alert email sent successfully:", emailResponse);
+
+    return jsonResponse({ success: true, data: emailResponse });
+  } catch (error) {
+    console.error("Error sending price alert email:", error);
+
+    if (error instanceof ValidationError) {
+      return errorResponse("Validation failed", 400, error.errors);
+    }
+
+    return errorResponse(
+      error instanceof Error ? error.message : "Unknown error",
+      500
+    );
+  }
+});
+
+function generateEmailHtml(params: PriceAlertEmailRequest & {
+  savings: number;
+  savingsPercent: number;
+  targetReached: boolean;
+}): string {
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -86,7 +98,7 @@ serve(async (req) => {
           <tr>
             <td style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 32px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                ${targetReached ? '🎯 Target Price Reached!' : '✈️ Price Drop Alert!'}
+                ${params.targetReached ? '🎯 Target Price Reached!' : '✈️ Price Drop Alert!'}
               </h1>
               <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">
                 Great news about your flight alert
@@ -101,10 +113,10 @@ serve(async (req) => {
                 <tr>
                   <td style="text-align: center; padding-bottom: 24px;">
                     <p style="margin: 0; font-size: 24px; font-weight: 600; color: #18181b;">
-                      ${origin} → ${destination}
+                      ${params.origin} → ${params.destination}
                     </p>
                     <p style="margin: 8px 0 0; color: #71717a; font-size: 14px;">
-                      ${formatDate(departureDate)}${returnDate ? ` - ${formatDate(returnDate)}` : ' (One way)'}
+                      ${formatDate(params.departureDate)}${params.returnDate ? ` - ${formatDate(params.returnDate)}` : ' (One way)'}
                     </p>
                   </td>
                 </tr>
@@ -119,7 +131,7 @@ serve(async (req) => {
                         <td style="text-align: center; padding: 0 24px;">
                           <p style="margin: 0; color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Previous Price</p>
                           <p style="margin: 4px 0 0; color: #a1a1aa; font-size: 20px; text-decoration: line-through;">
-                            ${currency}$${previousPrice.toLocaleString()}
+                            ${formatCurrency(params.previousPrice, params.currency)}
                           </p>
                         </td>
                         <td style="width: 40px; text-align: center;">
@@ -128,19 +140,19 @@ serve(async (req) => {
                         <td style="text-align: center; padding: 0 24px;">
                           <p style="margin: 0; color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">New Price</p>
                           <p style="margin: 4px 0 0; color: #16a34a; font-size: 28px; font-weight: 700;">
-                            ${currency}$${currentPrice.toLocaleString()}
+                            ${formatCurrency(params.currentPrice, params.currency)}
                           </p>
                         </td>
                       </tr>
                     </table>
                     
                     <div style="margin-top: 16px; display: inline-block; background-color: #16a34a; color: #ffffff; padding: 8px 16px; border-radius: 20px; font-weight: 600;">
-                      You Save ${currency}$${savings.toLocaleString()} (${savingsPercent}% off)
+                      You Save ${formatCurrency(params.savings, params.currency)} (${params.savingsPercent}% off)
                     </div>
                     
-                    ${targetPrice ? `
+                    ${params.targetPrice ? `
                     <p style="margin: 16px 0 0; color: #71717a; font-size: 14px;">
-                      Your target: ${currency}$${targetPrice.toLocaleString()} ${targetReached ? '✓ Reached!' : ''}
+                      Your target: ${formatCurrency(params.targetPrice, params.currency)} ${params.targetReached ? '✓ Reached!' : ''}
                     </p>
                     ` : ''}
                   </td>
@@ -151,7 +163,7 @@ serve(async (req) => {
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${searchUrl || '#'}" style="display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+                    <a href="${params.searchUrl || '#'}" style="display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
                       Book This Flight Now →
                     </a>
                   </td>
@@ -182,33 +194,5 @@ serve(async (req) => {
   </table>
 </body>
 </html>
-    `;
-
-    const emailResponse = await resend.emails.send({
-      from: "TravelHub <alerts@resend.dev>",
-      to: [to],
-      subject,
-      html,
-    });
-
-    console.log("Price alert email sent successfully:", emailResponse);
-
-    return new Response(
-      JSON.stringify({ success: true, data: emailResponse }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
-  } catch (error) {
-    console.error("Error sending price alert email:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
-  }
-});
+  `;
+}

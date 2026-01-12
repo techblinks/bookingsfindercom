@@ -1,9 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { validateQuery, ValidationError } from "../_shared/validation.ts";
 
 // Comprehensive airport database with major international airports
 const airports = [
@@ -43,7 +40,7 @@ const airports = [
   { code: "CAN", city: "Guangzhou", country: "China", name: "Guangzhou Baiyun International Airport" },
   { code: "SZX", city: "Shenzhen", country: "China", name: "Shenzhen Bao'an International Airport" },
   { code: "MLE", city: "Male", country: "Maldives", name: "Velana International Airport" },
-  
+
   // Middle East
   { code: "DXB", city: "Dubai", country: "UAE", name: "Dubai International Airport" },
   { code: "AUH", city: "Abu Dhabi", country: "UAE", name: "Abu Dhabi International Airport" },
@@ -58,7 +55,7 @@ const airports = [
   { code: "BEY", city: "Beirut", country: "Lebanon", name: "Beirut–Rafic Hariri International Airport" },
   { code: "IST", city: "Istanbul", country: "Turkey", name: "Istanbul Airport" },
   { code: "SAW", city: "Istanbul", country: "Turkey", name: "Sabiha Gökçen International Airport" },
-  
+
   // Oceania
   { code: "SYD", city: "Sydney", country: "Australia", name: "Sydney Kingsford Smith Airport" },
   { code: "MEL", city: "Melbourne", country: "Australia", name: "Melbourne Airport" },
@@ -69,7 +66,7 @@ const airports = [
   { code: "CHC", city: "Christchurch", country: "New Zealand", name: "Christchurch International Airport" },
   { code: "WLG", city: "Wellington", country: "New Zealand", name: "Wellington International Airport" },
   { code: "NAN", city: "Nadi", country: "Fiji", name: "Nadi International Airport" },
-  
+
   // Europe
   { code: "LHR", city: "London", country: "UK", name: "Heathrow Airport" },
   { code: "LGW", city: "London", country: "UK", name: "Gatwick Airport" },
@@ -107,7 +104,7 @@ const airports = [
   { code: "SVO", city: "Moscow", country: "Russia", name: "Sheremetyevo International Airport" },
   { code: "DME", city: "Moscow", country: "Russia", name: "Domodedovo International Airport" },
   { code: "LED", city: "Saint Petersburg", country: "Russia", name: "Pulkovo Airport" },
-  
+
   // North America
   { code: "JFK", city: "New York", country: "USA", name: "John F. Kennedy International Airport" },
   { code: "LGA", city: "New York", country: "USA", name: "LaGuardia Airport" },
@@ -134,7 +131,7 @@ const airports = [
   { code: "YYC", city: "Calgary", country: "Canada", name: "Calgary International Airport" },
   { code: "MEX", city: "Mexico City", country: "Mexico", name: "Benito Juárez International Airport" },
   { code: "CUN", city: "Cancun", country: "Mexico", name: "Cancún International Airport" },
-  
+
   // South America
   { code: "GRU", city: "São Paulo", country: "Brazil", name: "São Paulo–Guarulhos International Airport" },
   { code: "GIG", city: "Rio de Janeiro", country: "Brazil", name: "Rio de Janeiro–Galeão International Airport" },
@@ -144,7 +141,7 @@ const airports = [
   { code: "BOG", city: "Bogota", country: "Colombia", name: "El Dorado International Airport" },
   { code: "UIO", city: "Quito", country: "Ecuador", name: "Mariscal Sucre International Airport" },
   { code: "CCS", city: "Caracas", country: "Venezuela", name: "Simón Bolívar International Airport" },
-  
+
   // Africa
   { code: "JNB", city: "Johannesburg", country: "South Africa", name: "O. R. Tambo International Airport" },
   { code: "CPT", city: "Cape Town", country: "South Africa", name: "Cape Town International Airport" },
@@ -158,11 +155,19 @@ const airports = [
   { code: "MRU", city: "Mauritius", country: "Mauritius", name: "Sir Seewoosagur Ramgoolam International Airport" },
 ];
 
+// Query validation schema
+const AirportSearchSchema = z.object({
+  q: z.string().default(""),
+  limit: z.string().transform((v) => Math.min(parseInt(v) || 8, 20)).default("8"),
+});
+
 // Fuzzy matching function using Levenshtein distance
 function levenshteinDistance(str1: string, str2: string): number {
   const m = str1.length;
   const n = str2.length;
-  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  const dp: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0));
 
   for (let i = 0; i <= m; i++) dp[i][0] = i;
   for (let j = 0; j <= n; j++) dp[0][j] = j;
@@ -183,70 +188,70 @@ function levenshteinDistance(str1: string, str2: string): number {
 function getSimilarityScore(query: string, target: string): number {
   const q = query.toLowerCase();
   const t = target.toLowerCase();
-  
+
   // Exact match
   if (t === q) return 1;
-  
+
   // Starts with query (high priority)
   if (t.startsWith(q)) return 0.9;
-  
+
   // Contains query
   if (t.includes(q)) return 0.7;
-  
+
   // Fuzzy match using Levenshtein distance
   const distance = levenshteinDistance(q, t.substring(0, Math.min(t.length, q.length + 2)));
   const maxLen = Math.max(q.length, t.length);
-  const similarity = 1 - (distance / maxLen);
-  
+  const similarity = 1 - distance / maxLen;
+
   return Math.max(0, similarity * 0.5); // Scale down fuzzy matches
 }
 
 function searchAirports(query: string, limit = 8): typeof airports {
   if (!query || query.length < 1) return [];
-  
+
   const q = query.toLowerCase().trim();
-  
+
   // Score each airport
-  const scored = airports.map(airport => {
+  const scored = airports.map((airport) => {
     const codeScore = getSimilarityScore(q, airport.code);
     const cityScore = getSimilarityScore(q, airport.city);
     const countryScore = getSimilarityScore(q, airport.country) * 0.5; // Lower weight for country
     const nameScore = getSimilarityScore(q, airport.name) * 0.3; // Lower weight for full name
-    
+
     // Take the best matching field
     const bestScore = Math.max(codeScore, cityScore, countryScore, nameScore);
-    
+
     return { airport, score: bestScore };
   });
-  
+
   // Filter and sort by score
   return scored
-    .filter(item => item.score > 0.2)
+    .filter((item) => item.score > 0.2)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(item => item.airport);
+    .map((item) => item.airport);
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const url = new URL(req.url);
-    const query = url.searchParams.get('q') || '';
-    const limit = parseInt(url.searchParams.get('limit') || '8', 10);
 
-    const results = searchAirports(query, Math.min(limit, 20));
+    // Validate query parameters with Zod
+    const params = validateQuery(url, AirportSearchSchema);
 
-    return new Response(JSON.stringify(results), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    const results = searchAirports(params.q, params.limit);
+
+    return jsonResponse(results);
   } catch (error) {
-    console.error('Airport search error:', error);
-    return new Response(JSON.stringify({ error: 'Search failed' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error("Airport search error:", error);
+
+    if (error instanceof ValidationError) {
+      return errorResponse("Validation failed", 400, error.errors);
+    }
+
+    return errorResponse("Search failed", 500);
   }
 });

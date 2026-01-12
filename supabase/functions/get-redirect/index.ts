@@ -1,134 +1,100 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { validateQuery, ValidationError } from "../_shared/validation.ts";
 
 // Travelpayouts affiliate base URLs
 const AVIASALES_BASE = "https://www.aviasales.com";
 const HOTELLOOK_BASE = "https://search.hotellook.com";
 
-interface RedirectRequest {
-  id: string;
-  type?: 'flight' | 'hotel';
-  // Flight params
-  origin?: string;
-  destination?: string;
-  departureDate?: string;
-  returnDate?: string;
-  airline?: string;
-  // Hotel params
-  hotelId?: string;
-  checkIn?: string;
-  checkOut?: string;
-  guests?: number;
-}
+// Zod schema for redirect query parameters
+const RedirectQuerySchema = z.object({
+  id: z.string().min(1, "ID is required"),
+  type: z.enum(["flight", "hotel"]).optional(),
+  origin: z.string().optional(),
+  destination: z.string().optional(),
+  departureDate: z.string().optional(),
+  returnDate: z.string().optional(),
+  airline: z.string().optional(),
+  hotelId: z.string().optional(),
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+  guests: z.string().optional(),
+  link: z.string().optional(),
+});
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
-  if (req.method !== 'GET') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  if (req.method !== "GET") {
+    return errorResponse("Method not allowed", 405);
   }
 
   try {
-    const markerId = Deno.env.get('MARKER_ID') || '';
+    const markerId = Deno.env.get("MARKER_ID") || "";
     const url = new URL(req.url);
-    
-    const id = url.searchParams.get('id');
-    const type = url.searchParams.get('type') as 'flight' | 'hotel' | null;
-    
-    if (!id) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameter: id' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
-    // Parse redirect parameters from query string
-    const origin = url.searchParams.get('origin');
-    const destination = url.searchParams.get('destination');
-    const departureDate = url.searchParams.get('departureDate');
-    const returnDate = url.searchParams.get('returnDate');
-    const airline = url.searchParams.get('airline');
-    const hotelId = url.searchParams.get('hotelId');
-    const checkIn = url.searchParams.get('checkIn');
-    const checkOut = url.searchParams.get('checkOut');
-    const guests = url.searchParams.get('guests');
-    const directLink = url.searchParams.get('link');
+    // Validate query parameters with Zod
+    const params = validateQuery(url, RedirectQuerySchema);
 
-    let redirectUrl = '';
-    let partner = '';
+    let redirectUrl = "";
+    let partner = "";
 
     // If a direct link was provided (from API response), use it
-    if (directLink) {
-      redirectUrl = decodeURIComponent(directLink);
-      partner = type === 'hotel' ? 'Hotellook' : 'Aviasales';
-    } else if (type === 'flight' || id.startsWith('redir-fl')) {
+    if (params.link) {
+      redirectUrl = decodeURIComponent(params.link);
+      partner = params.type === "hotel" ? "Hotellook" : "Aviasales";
+    } else if (params.type === "flight" || params.id.startsWith("redir-fl")) {
       // Build Aviasales search URL
       const flightParams = new URLSearchParams();
-      if (origin) flightParams.append('origin_iata', origin);
-      if (destination) flightParams.append('destination_iata', destination);
-      if (departureDate) flightParams.append('depart_date', departureDate);
-      if (returnDate) flightParams.append('return_date', returnDate);
-      if (markerId) flightParams.append('marker', markerId);
-      
-      redirectUrl = `${AVIASALES_BASE}/search/${origin}${departureDate?.replace(/-/g, '')}${destination}${returnDate ? returnDate.replace(/-/g, '') : ''}1?${flightParams.toString()}`;
-      partner = 'Aviasales';
-    } else if (type === 'hotel' || id.startsWith('redir-ht')) {
+      if (params.origin) flightParams.append("origin_iata", params.origin);
+      if (params.destination) flightParams.append("destination_iata", params.destination);
+      if (params.departureDate) flightParams.append("depart_date", params.departureDate);
+      if (params.returnDate) flightParams.append("return_date", params.returnDate);
+      if (markerId) flightParams.append("marker", markerId);
+
+      const depDate = params.departureDate?.replace(/-/g, "") || "";
+      const retDate = params.returnDate?.replace(/-/g, "") || "";
+      redirectUrl = `${AVIASALES_BASE}/search/${params.origin}${depDate}${params.destination}${retDate}1?${flightParams.toString()}`;
+      partner = "Aviasales";
+    } else if (params.type === "hotel" || params.id.startsWith("redir-ht")) {
       // Build Hotellook search URL
       const hotelParams = new URLSearchParams();
-      if (destination) hotelParams.append('destination', destination);
-      if (checkIn) hotelParams.append('checkIn', checkIn);
-      if (checkOut) hotelParams.append('checkOut', checkOut);
-      if (guests) hotelParams.append('adults', guests);
-      if (hotelId) hotelParams.append('hotelId', hotelId);
-      if (markerId) hotelParams.append('marker', markerId);
-      
+      if (params.destination) hotelParams.append("destination", params.destination);
+      if (params.checkIn) hotelParams.append("checkIn", params.checkIn);
+      if (params.checkOut) hotelParams.append("checkOut", params.checkOut);
+      if (params.guests) hotelParams.append("adults", params.guests);
+      if (params.hotelId) hotelParams.append("hotelId", params.hotelId);
+      if (markerId) hotelParams.append("marker", markerId);
+
       redirectUrl = `${HOTELLOOK_BASE}/hotels?${hotelParams.toString()}`;
-      partner = 'Hotellook';
+      partner = "Hotellook";
     } else {
-      return new Response(
-        JSON.stringify({ error: 'Unable to determine redirect type' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse("Unable to determine redirect type", 400);
     }
 
     // Log the click for analytics
-    console.log(`Redirect click: ${id} -> ${partner} | ${redirectUrl}`);
+    console.log(`Redirect click: ${params.id} -> ${partner} | ${redirectUrl}`);
 
-    const response = {
+    return jsonResponse({
       success: true,
-      id: id,
-      redirectUrl: redirectUrl,
-      partner: partner,
-      type: type || (id.startsWith('redir-fl') ? 'flight' : 'hotel'),
+      id: params.id,
+      redirectUrl,
+      partner,
+      type: params.type || (params.id.startsWith("redir-fl") ? "flight" : "hotel"),
       timestamp: new Date().toISOString(),
-    };
-
-    return new Response(
-      JSON.stringify(response),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
-
+    });
   } catch (error) {
-    console.error('Redirect error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    console.error("Redirect error:", error);
+
+    if (error instanceof ValidationError) {
+      return errorResponse("Validation failed", 400, error.errors);
+    }
+
+    return errorResponse(
+      error instanceof Error ? error.message : "Unknown error",
+      500
     );
   }
 });
