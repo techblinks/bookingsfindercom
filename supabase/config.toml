@@ -1,1 +1,4 @@
 project_id = "nrxupicbzblbxolyxksg"
+
+[functions.search-airports]
+verify_jwt = false
