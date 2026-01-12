@@ -5,88 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mock hotel search data - replace with actual API calls
-const mockHotelResults = [
-  {
-    id: "ht-1",
-    name: "The Grand Plaza Hotel",
-    image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
-    location: "Downtown, 0.5 mi from center",
-    stars: 5,
-    guestScore: 9.2,
-    reviewCount: 2341,
-    price: 289,
-    originalPrice: 349,
-    currency: "USD",
-    amenities: ["wifi", "parking", "breakfast", "gym", "pool"],
-    isDeal: true,
-    redirectId: "redir-ht-1",
-  },
-  {
-    id: "ht-2",
-    name: "Oceanview Resort & Spa",
-    image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=80",
-    location: "Beach Area, 2.1 mi from center",
-    stars: 4,
-    guestScore: 8.8,
-    reviewCount: 1892,
-    price: 245,
-    currency: "USD",
-    amenities: ["wifi", "parking", "pool", "restaurant"],
-    isDeal: false,
-    redirectId: "redir-ht-2",
-  },
-  {
-    id: "ht-3",
-    name: "Urban Boutique Suites",
-    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=80",
-    location: "Arts District, 1.8 mi from center",
-    stars: 4,
-    guestScore: 8.4,
-    reviewCount: 967,
-    price: 159,
-    currency: "USD",
-    amenities: ["wifi", "breakfast"],
-    isDeal: false,
-    redirectId: "redir-ht-3",
-  },
-  {
-    id: "ht-4",
-    name: "Sunset Tower Hotel",
-    image: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80",
-    location: "West Side, 1.2 mi from center",
-    stars: 5,
-    guestScore: 9.5,
-    reviewCount: 3156,
-    price: 425,
-    originalPrice: 499,
-    currency: "USD",
-    amenities: ["wifi", "parking", "breakfast", "gym", "pool", "restaurant"],
-    isDeal: true,
-    redirectId: "redir-ht-4",
-  },
-  {
-    id: "ht-5",
-    name: "Marina Bay Inn",
-    image: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=800&q=80",
-    location: "Marina, 3.5 mi from center",
-    stars: 3,
-    guestScore: 7.8,
-    reviewCount: 542,
-    price: 119,
-    currency: "USD",
-    amenities: ["wifi", "parking"],
-    isDeal: false,
-    redirectId: "redir-ht-5",
-  },
-];
+const TRAVELPAYOUTS_API = "https://engine.hotellook.com/api/v2";
 
 interface HotelSearchRequest {
   destination: string;
   checkIn: string;
   checkOut: string;
-  guests: number;
+  guests?: number;
   rooms?: number;
+  currency?: string;
+  limit?: number;
 }
 
 Deno.serve(async (req) => {
@@ -103,6 +31,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const apiToken = Deno.env.get('TRAVELPAYOUTS_API_TOKEN');
+    if (!apiToken) {
+      throw new Error('TRAVELPAYOUTS_API_TOKEN not configured');
+    }
+
     const body: HotelSearchRequest = await req.json();
     
     // Validate required fields
@@ -115,25 +48,90 @@ Deno.serve(async (req) => {
       );
     }
 
-    // TODO: Replace with actual API calls to hotel providers
-    // For now, return mock data with search params applied
-    const results = mockHotelResults.map(hotel => ({
-      ...hotel,
-      location: `${body.destination}, ${hotel.location}`,
+    // First, lookup the location ID for the destination
+    const lookupParams = new URLSearchParams({
+      query: body.destination,
+      lang: 'en',
+      lookFor: 'both',
+      limit: '1',
+      token: apiToken,
+    });
+
+    const lookupUrl = `${TRAVELPAYOUTS_API}/lookup.json?${lookupParams.toString()}`;
+    console.log(`Looking up location: ${body.destination}`);
+    
+    const lookupResponse = await fetch(lookupUrl);
+    const lookupData = await lookupResponse.json();
+
+    let locationId = null;
+    let locationType = 'city';
+
+    if (lookupData.results?.locations?.[0]) {
+      locationId = lookupData.results.locations[0].id;
+      locationType = lookupData.results.locations[0].locationType || 'city';
+    } else if (lookupData.results?.hotels?.[0]) {
+      locationId = lookupData.results.hotels[0].locationId;
+    }
+
+    if (!locationId) {
+      // Fallback: try to use destination as city code
+      locationId = body.destination;
+    }
+
+    // Fetch hotel prices from Travelpayouts/Hotellook
+    const hotelParams = new URLSearchParams({
+      location: locationId.toString(),
+      checkIn: body.checkIn,
+      checkOut: body.checkOut,
+      adults: (body.guests || 2).toString(),
+      limit: (body.limit || 20).toString(),
+      currency: body.currency || 'USD',
+      token: apiToken,
+    });
+
+    const hotelsUrl = `${TRAVELPAYOUTS_API}/cache.json?${hotelParams.toString()}`;
+    console.log(`Fetching hotels for location: ${locationId}`);
+    
+    const apiResponse = await fetch(hotelsUrl);
+    const apiData = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+      console.error('Travelpayouts API error:', apiData);
+      throw new Error(apiData.error || 'Failed to fetch hotel data');
+    }
+
+    // Transform Travelpayouts response to our format
+    const hotels = (Array.isArray(apiData) ? apiData : []).map((hotel: any, index: number) => ({
+      id: `ht-${hotel.hotelId || index + 1}`,
+      hotelId: hotel.hotelId,
+      name: hotel.hotelName || `Hotel ${index + 1}`,
+      image: hotel.photoUrl || `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80`,
+      location: `${body.destination}`,
+      stars: hotel.stars || 3,
+      guestScore: hotel.rating ? (hotel.rating / 10) : 7.5,
+      reviewCount: hotel.reviews || 0,
+      price: hotel.priceFrom || hotel.price || 0,
+      originalPrice: hotel.priceAvg && hotel.priceAvg > hotel.priceFrom ? hotel.priceAvg : undefined,
+      currency: body.currency || 'USD',
+      amenities: ['wifi'], // Travelpayouts doesn't provide amenities in cache endpoint
+      isDeal: hotel.priceFrom < hotel.priceAvg,
+      redirectId: `redir-ht-${hotel.hotelId || index}`,
+      link: `https://search.hotellook.com/hotels?destination=${encodeURIComponent(body.destination)}&checkIn=${body.checkIn}&checkOut=${body.checkOut}&hotelId=${hotel.hotelId}`,
     }));
 
     const response = {
       success: true,
       searchParams: {
         destination: body.destination,
+        locationId: locationId,
         checkIn: body.checkIn,
         checkOut: body.checkOut,
         guests: body.guests || 2,
         rooms: body.rooms || 1,
       },
-      results: results,
-      totalResults: results.length,
-      currency: 'USD',
+      results: hotels,
+      totalResults: hotels.length,
+      currency: body.currency || 'USD',
       timestamp: new Date().toISOString(),
     };
 

@@ -5,92 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mock flight search data - replace with actual API calls
-const mockFlightResults = [
-  {
-    id: "fl-1",
-    airline: "Delta Air Lines",
-    airlineCode: "DL",
-    departureTime: "06:30",
-    arrivalTime: "09:45",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "5h 15m",
-    stops: 0,
-    price: 289,
-    currency: "USD",
-    isDeal: true,
-    redirectId: "redir-fl-1",
-  },
-  {
-    id: "fl-2",
-    airline: "United Airlines",
-    airlineCode: "UA",
-    departureTime: "08:15",
-    arrivalTime: "14:30",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "6h 15m",
-    stops: 1,
-    price: 245,
-    currency: "USD",
-    isDeal: false,
-    redirectId: "redir-fl-2",
-  },
-  {
-    id: "fl-3",
-    airline: "American Airlines",
-    airlineCode: "AA",
-    departureTime: "10:00",
-    arrivalTime: "13:20",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "5h 20m",
-    stops: 0,
-    price: 312,
-    currency: "USD",
-    isDeal: false,
-    redirectId: "redir-fl-3",
-  },
-  {
-    id: "fl-4",
-    airline: "Southwest Airlines",
-    airlineCode: "WN",
-    departureTime: "14:45",
-    arrivalTime: "21:15",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "6h 30m",
-    stops: 1,
-    price: 198,
-    currency: "USD",
-    isDeal: true,
-    redirectId: "redir-fl-4",
-  },
-  {
-    id: "fl-5",
-    airline: "JetBlue Airways",
-    airlineCode: "B6",
-    departureTime: "16:30",
-    arrivalTime: "19:50",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "5h 20m",
-    stops: 0,
-    price: 329,
-    currency: "USD",
-    isDeal: false,
-    redirectId: "redir-fl-5",
-  },
-];
+const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
 
 interface FlightSearchRequest {
   origin: string;
   destination: string;
   departureDate: string;
   returnDate?: string;
-  passengers: number;
-  cabinClass: string;
+  passengers?: number;
+  cabinClass?: string;
+  currency?: string;
 }
 
 Deno.serve(async (req) => {
@@ -107,6 +31,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const apiToken = Deno.env.get('TRAVELPAYOUTS_API_TOKEN');
+    if (!apiToken) {
+      throw new Error('TRAVELPAYOUTS_API_TOKEN not configured');
+    }
+
     const body: FlightSearchRequest = await req.json();
     
     // Validate required fields
@@ -119,13 +48,50 @@ Deno.serve(async (req) => {
       );
     }
 
-    // TODO: Replace with actual API calls to flight providers
-    // For now, return mock data with search params applied
-    const results = mockFlightResults.map(flight => ({
-      ...flight,
-      departureAirport: body.origin.toUpperCase().slice(0, 3),
-      arrivalAirport: body.destination.toUpperCase().slice(0, 3),
-      searchDate: body.departureDate,
+    // Build Travelpayouts API URL for flight prices
+    // Using the prices/cheap endpoint for one-way/round-trip cheap prices
+    const params = new URLSearchParams({
+      origin: body.origin.toUpperCase(),
+      destination: body.destination.toUpperCase(),
+      depart_date: body.departureDate,
+      currency: body.currency || 'USD',
+      token: apiToken,
+    });
+
+    if (body.returnDate) {
+      params.append('return_date', body.returnDate);
+    }
+
+    // Fetch cheap flight prices from Travelpayouts
+    const pricesUrl = `${TRAVELPAYOUTS_API}/aviasales/v3/prices_for_dates?${params.toString()}`;
+    
+    console.log(`Fetching flights: ${body.origin} -> ${body.destination}`);
+    
+    const apiResponse = await fetch(pricesUrl);
+    const apiData = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+      console.error('Travelpayouts API error:', apiData);
+      throw new Error(apiData.error || 'Failed to fetch flight data');
+    }
+
+    // Transform Travelpayouts response to our format
+    const flights = (apiData.data || []).map((flight: any, index: number) => ({
+      id: `fl-${index + 1}`,
+      airline: flight.airline || 'Unknown',
+      airlineCode: flight.airline,
+      departureTime: flight.departure_at ? new Date(flight.departure_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--',
+      arrivalTime: flight.return_at ? new Date(flight.return_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--',
+      departureAirport: flight.origin || body.origin.toUpperCase(),
+      arrivalAirport: flight.destination || body.destination.toUpperCase(),
+      duration: flight.duration ? `${Math.floor(flight.duration / 60)}h ${flight.duration % 60}m` : 'N/A',
+      stops: flight.transfers || 0,
+      price: flight.price,
+      currency: body.currency || 'USD',
+      isDeal: index < 3, // Mark top 3 as deals
+      redirectId: `redir-fl-${flight.airline}-${flight.flight_number || index}`,
+      flightNumber: flight.flight_number,
+      link: flight.link, // Travelpayouts affiliate link
     }));
 
     const response = {
@@ -138,9 +104,9 @@ Deno.serve(async (req) => {
         passengers: body.passengers || 1,
         cabinClass: body.cabinClass || 'economy',
       },
-      results: results,
-      totalResults: results.length,
-      currency: 'USD',
+      results: flights,
+      totalResults: flights.length,
+      currency: body.currency || 'USD',
       timestamp: new Date().toISOString(),
     };
 

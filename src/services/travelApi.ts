@@ -10,6 +10,7 @@ export interface FlightSearchParams {
   returnDate?: string;
   passengers?: number;
   cabinClass?: string;
+  currency?: string;
 }
 
 export interface HotelSearchParams {
@@ -18,6 +19,7 @@ export interface HotelSearchParams {
   checkOut: string;
   guests?: number;
   rooms?: number;
+  currency?: string;
 }
 
 export interface FlightResult {
@@ -34,10 +36,13 @@ export interface FlightResult {
   currency: string;
   isDeal: boolean;
   redirectId: string;
+  flightNumber?: string;
+  link?: string;
 }
 
 export interface HotelResult {
   id: string;
+  hotelId?: number;
   name: string;
   image: string;
   location: string;
@@ -50,6 +55,7 @@ export interface HotelResult {
   amenities: string[];
   isDeal: boolean;
   redirectId: string;
+  link?: string;
 }
 
 export interface RedirectData {
