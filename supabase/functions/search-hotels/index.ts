@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TRAVELPAYOUTS_API = "https://engine.hotellook.com/api/v2";
+const HOTELLOOK_API = "https://engine.hotellook.com/api/v2";
 
 interface HotelSearchRequest {
   destination: string;
@@ -16,6 +17,44 @@ interface HotelSearchRequest {
   currency?: string;
   limit?: number;
 }
+
+// Helper to create MD5 hash
+async function md5(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest("MD5", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Map city names to IATA codes (common ones)
+const cityToIata: Record<string, string> = {
+  'paris': 'PAR',
+  'london': 'LON',
+  'new york': 'NYC',
+  'los angeles': 'LAX',
+  'tokyo': 'TYO',
+  'rome': 'ROM',
+  'barcelona': 'BCN',
+  'amsterdam': 'AMS',
+  'berlin': 'BER',
+  'dubai': 'DXB',
+  'singapore': 'SIN',
+  'sydney': 'SYD',
+  'miami': 'MIA',
+  'las vegas': 'LAS',
+  'san francisco': 'SFO',
+  'chicago': 'CHI',
+  'boston': 'BOS',
+  'seattle': 'SEA',
+  'washington': 'WAS',
+  'bangkok': 'BKK',
+  'hong kong': 'HKG',
+  'bali': 'DPS',
+  'phuket': 'HKT',
+  'maldives': 'MLE',
+  'cancun': 'CUN',
+};
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -33,8 +72,9 @@ Deno.serve(async (req) => {
   try {
     const apiToken = Deno.env.get('TRAVELPAYOUTS_API_KEY');
     const markerId = Deno.env.get('MARKER_ID');
-    if (!apiToken) {
-      throw new Error('TRAVELPAYOUTS_API_KEY not configured');
+    
+    if (!apiToken || !markerId) {
+      throw new Error('TRAVELPAYOUTS_API_KEY or MARKER_ID not configured');
     }
 
     const body: HotelSearchRequest = await req.json();
@@ -49,90 +89,170 @@ Deno.serve(async (req) => {
       );
     }
 
-    // First, lookup the location ID for the destination
-    const lookupParams = new URLSearchParams({
-      query: body.destination,
-      lang: 'en',
-      lookFor: 'both',
-      limit: '1',
-      token: apiToken,
-    });
-
-    const lookupUrl = `${TRAVELPAYOUTS_API}/lookup.json?${lookupParams.toString()}`;
-    console.log(`Looking up location: ${body.destination}`);
+    const adultsCount = body.guests || 2;
+    const currency = body.currency || 'USD';
+    const lang = 'en';
     
-    const lookupResponse = await fetch(lookupUrl);
-    const lookupData = await lookupResponse.json();
-
-    let locationId = null;
-    let locationType = 'city';
-
-    if (lookupData.results?.locations?.[0]) {
-      locationId = lookupData.results.locations[0].id;
-      locationType = lookupData.results.locations[0].locationType || 'city';
-    } else if (lookupData.results?.hotels?.[0]) {
-      locationId = lookupData.results.hotels[0].locationId;
+    // Convert city name to IATA code if possible
+    const destinationLower = body.destination.toLowerCase().trim();
+    let iata = cityToIata[destinationLower] || body.destination.toUpperCase();
+    
+    // If destination is 3 chars, assume it's already an IATA code
+    if (body.destination.length === 3) {
+      iata = body.destination.toUpperCase();
     }
 
-    if (!locationId) {
-      // Fallback: try to use destination as city code
-      locationId = body.destination;
-    }
+    console.log(`Searching hotels in: ${body.destination} (IATA: ${iata})`);
 
-    // Fetch hotel prices from Travelpayouts/Hotellook
-    const hotelParams = new URLSearchParams({
-      location: locationId.toString(),
+    // Create signature for start search
+    // Format: token:marker:adultsCount:checkIn:checkOut:currency:customerIP:iata:lang:waitForResult
+    const customerIP = '127.0.0.1'; // Using localhost as we're server-side
+    const waitForResult = '1'; // Wait for immediate results
+    
+    const signatureString = `${apiToken}:${markerId}:${adultsCount}:${body.checkIn}:${body.checkOut}:${currency}:${customerIP}:${iata}:${lang}:${waitForResult}`;
+    const signature = await md5(signatureString);
+
+    console.log(`Starting hotel search with signature...`);
+
+    // Start search request
+    const startParams = new URLSearchParams({
+      iata: iata,
       checkIn: body.checkIn,
       checkOut: body.checkOut,
-      adults: (body.guests || 2).toString(),
-      limit: (body.limit || 20).toString(),
-      currency: body.currency || 'USD',
-      token: apiToken,
+      adultsCount: adultsCount.toString(),
+      customerIP: customerIP,
+      lang: lang,
+      currency: currency,
+      waitForResult: waitForResult,
+      marker: markerId,
+      signature: signature,
     });
 
-    const hotelsUrl = `${TRAVELPAYOUTS_API}/cache.json?${hotelParams.toString()}`;
-    console.log(`Fetching hotels for location: ${locationId}`);
+    const startUrl = `${HOTELLOOK_API}/search/start.json?${startParams.toString()}`;
     
-    const apiResponse = await fetch(hotelsUrl);
-    const apiData = await apiResponse.json();
+    const startResponse = await fetch(startUrl);
+    const startText = await startResponse.text();
+    
+    console.log(`Start search response: ${startText.substring(0, 200)}`);
 
-    if (!apiResponse.ok) {
-      console.error('Travelpayouts API error:', apiData);
-      throw new Error(apiData.error || 'Failed to fetch hotel data');
+    // Check if response is valid JSON
+    if (!startText.startsWith('{') && !startText.startsWith('[')) {
+      console.error('Non-JSON response from start search:', startText.substring(0, 100));
+      // Return empty results gracefully
+      return new Response(
+        JSON.stringify({
+          success: true,
+          searchParams: {
+            destination: body.destination,
+            iata: iata,
+            checkIn: body.checkIn,
+            checkOut: body.checkOut,
+            guests: adultsCount,
+            rooms: body.rooms || 1,
+          },
+          results: [],
+          totalResults: 0,
+          currency: currency,
+          message: 'Hotel search API unavailable or no results',
+          timestamp: new Date().toISOString(),
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Transform Travelpayouts response to our format
-    const hotels = (Array.isArray(apiData) ? apiData : []).map((hotel: any, index: number) => ({
-      id: `ht-${hotel.hotelId || index + 1}`,
-      hotelId: hotel.hotelId,
-      name: hotel.hotelName || `Hotel ${index + 1}`,
-      image: hotel.photoUrl || `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80`,
-      location: `${body.destination}`,
-      stars: hotel.stars || 3,
-      guestScore: hotel.rating ? (hotel.rating / 10) : 7.5,
-      reviewCount: hotel.reviews || 0,
-      price: hotel.priceFrom || hotel.price || 0,
-      originalPrice: hotel.priceAvg && hotel.priceAvg > hotel.priceFrom ? hotel.priceAvg : undefined,
-      currency: body.currency || 'USD',
-      amenities: ['wifi'], // Travelpayouts doesn't provide amenities in cache endpoint
-      isDeal: hotel.priceFrom < hotel.priceAvg,
-      redirectId: `redir-ht-${hotel.hotelId || index}`,
-      link: `https://search.hotellook.com/hotels?destination=${encodeURIComponent(body.destination)}&checkIn=${body.checkIn}&checkOut=${body.checkOut}&hotelId=${hotel.hotelId}`,
-    }));
+    const startData = JSON.parse(startText);
+
+    // If we got results with waitForResult=1
+    let hotels: any[] = [];
+    
+    if (startData.result && Array.isArray(startData.result)) {
+      hotels = startData.result.slice(0, body.limit || 20).map((hotel: any, index: number) => ({
+        id: `ht-${hotel.id || index + 1}`,
+        hotelId: hotel.id,
+        name: hotel.name || `Hotel ${index + 1}`,
+        image: hotel.photos?.[0] ? `https://photo.hotellook.com/image_v2/limit/${hotel.photos[0]}/800/520.auto` : `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80`,
+        location: `${body.destination}`,
+        stars: hotel.stars || 3,
+        guestScore: hotel.rating ? hotel.rating / 10 : 7.5,
+        reviewCount: hotel.popularity || 0,
+        price: hotel.minPriceTotal || hotel.minPrice || 0,
+        originalPrice: hotel.fullPrice && hotel.fullPrice > hotel.minPriceTotal ? hotel.fullPrice : undefined,
+        currency: currency,
+        amenities: hotel.amenities?.slice(0, 5) || ['wifi'],
+        isDeal: hotel.discount && hotel.discount > 0,
+        redirectId: `redir-ht-${hotel.id || index}`,
+        link: `https://search.hotellook.com/hotels?destination=${encodeURIComponent(body.destination)}&checkIn=${body.checkIn}&checkOut=${body.checkOut}&adults=${adultsCount}&marker=${markerId}${hotel.id ? `&hotelId=${hotel.id}` : ''}`,
+      }));
+    } else if (startData.searchId) {
+      // Need to poll for results
+      console.log(`Got searchId: ${startData.searchId}, fetching results...`);
+      
+      // Create signature for getResult
+      const limit = body.limit || 20;
+      const offset = 0;
+      const roomsCount = body.rooms || 1;
+      const sortBy = 'popularity';
+      const sortAsc = '0';
+      
+      const resultSignatureString = `${apiToken}:${markerId}:${limit}:${offset}:${roomsCount}:${startData.searchId}:${sortAsc}:${sortBy}`;
+      const resultSignature = await md5(resultSignatureString);
+
+      // Wait a moment for results to be ready
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const resultParams = new URLSearchParams({
+        searchId: startData.searchId,
+        marker: markerId,
+        signature: resultSignature,
+        limit: limit.toString(),
+        offset: offset.toString(),
+        roomsCount: roomsCount.toString(),
+        sortBy: sortBy,
+        sortAsc: sortAsc,
+      });
+
+      const resultUrl = `${HOTELLOOK_API}/search/getResult.json?${resultParams.toString()}`;
+      const resultResponse = await fetch(resultUrl);
+      const resultText = await resultResponse.text();
+
+      if (resultText.startsWith('{') || resultText.startsWith('[')) {
+        const resultData = JSON.parse(resultText);
+        
+        if (resultData.result && Array.isArray(resultData.result)) {
+          hotels = resultData.result.slice(0, limit).map((hotel: any, index: number) => ({
+            id: `ht-${hotel.id || index + 1}`,
+            hotelId: hotel.id,
+            name: hotel.name || `Hotel ${index + 1}`,
+            image: hotel.photos?.[0] ? `https://photo.hotellook.com/image_v2/limit/${hotel.photos[0]}/800/520.auto` : `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80`,
+            location: `${body.destination}`,
+            stars: hotel.stars || 3,
+            guestScore: hotel.rating ? hotel.rating / 10 : 7.5,
+            reviewCount: hotel.popularity || 0,
+            price: hotel.minPriceTotal || hotel.minPrice || 0,
+            originalPrice: hotel.fullPrice && hotel.fullPrice > hotel.minPriceTotal ? hotel.fullPrice : undefined,
+            currency: currency,
+            amenities: hotel.amenities?.slice(0, 5) || ['wifi'],
+            isDeal: hotel.discount && hotel.discount > 0,
+            redirectId: `redir-ht-${hotel.id || index}`,
+            link: `https://search.hotellook.com/hotels?destination=${encodeURIComponent(body.destination)}&checkIn=${body.checkIn}&checkOut=${body.checkOut}&adults=${adultsCount}&marker=${markerId}${hotel.id ? `&hotelId=${hotel.id}` : ''}`,
+          }));
+        }
+      }
+    }
 
     const response = {
       success: true,
       searchParams: {
         destination: body.destination,
-        locationId: locationId,
+        iata: iata,
         checkIn: body.checkIn,
         checkOut: body.checkOut,
-        guests: body.guests || 2,
+        guests: adultsCount,
         rooms: body.rooms || 1,
       },
       results: hotels,
       totalResults: hotels.length,
-      currency: body.currency || 'USD',
+      currency: currency,
       timestamp: new Date().toISOString(),
     };
 
