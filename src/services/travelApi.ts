@@ -284,12 +284,12 @@ export async function getRedirectUrl(params: RedirectParams): Promise<{
   }
 }
 
-// Helper to redirect to booking page
+// Helper to redirect to booking page (always via interstitial)
 export async function redirectToBooking(redirectId: string): Promise<void> {
   const result = await getRedirectUrl({ id: redirectId });
-  
+
   if (result.success && result.redirectUrl) {
-    window.open(result.redirectUrl, '_blank');
+    window.location.href = `/redirect?url=${encodeURIComponent(result.redirectUrl)}`;
   } else {
     console.error('No redirect URL found for:', redirectId);
   }

@@ -13,18 +13,49 @@ const partnerLogos = [
 
 const BookingRedirect = () => {
   const [searchParams] = useSearchParams();
-  const [countdown, setCountdown] = useState(3);
+
+  const REDIRECT_DELAY_MS = 2500;
+  const COUNTDOWN_START = 2;
+
+  const [countdown, setCountdown] = useState(COUNTDOWN_START);
   const [progress, setProgress] = useState(0);
-  
+
   // Get redirect URL from query parameter
-  const redirectUrl = searchParams.get("url") || searchParams.get("redirect") || "";
-  const partnerName = searchParams.get("partner") || "our partner";
-  const type = searchParams.get("type") || "flight";
-  const origin = searchParams.get("origin") || "";
-  const destination = searchParams.get("destination") || "";
-  const price = searchParams.get("price") || "";
+  const urlParam = searchParams.get("url") || searchParams.get("redirect") || "";
+
+  const normalizeAffiliateUrl = (input: string): string => {
+    let v = (input || "").trim();
+    if (!v) return "";
+
+    // Handle occasional double-encoding
+    try {
+      if (!v.includes("://") && (v.includes("%3A") || v.includes("%2F"))) {
+        v = decodeURIComponent(v);
+      }
+    } catch {
+      // ignore
+    }
+
+    // If it's a relative partner path (common culprit of internal 404s)
+    if (v.startsWith("/search/")) return `https://www.aviasales.com${v}`;
+    if (v.startsWith("/hotels")) return `https://search.hotellook.com${v}`;
+
+    // Protocol-relative
+    if (v.startsWith("//")) return `https:${v}`;
+
+    // Missing scheme (e.g. www.aviasales.com/...)
+    if (!/^https?:\/\//i.test(v) && /^[\w.-]+\.[a-z]{2,}/i.test(v)) {
+      return `https://${v}`;
+    }
+
+    return v;
+  };
+
+  const redirectUrl = normalizeAffiliateUrl(urlParam);
 
   useEffect(() => {
+    const totalTicks = Math.max(1, Math.round(REDIRECT_DELAY_MS / 100));
+
     // Progress animation
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
@@ -32,7 +63,7 @@ const BookingRedirect = () => {
           clearInterval(progressInterval);
           return 100;
         }
-        return prev + (100 / 30); // Complete in ~3 seconds
+        return Math.min(100, prev + (100 / totalTicks));
       });
     }, 100);
 
@@ -47,25 +78,29 @@ const BookingRedirect = () => {
       });
     }, 1000);
 
-    // Auto redirect after 3 seconds
+    // Auto redirect after ~2.5 seconds
     const redirectTimer = setTimeout(() => {
-      if (redirectUrl) {
+      if (!redirectUrl) return;
+
+      // Normalize spaces for URL() parsing
+      const safeUrl = redirectUrl.replace(/\s/g, "%20");
+      try {
         // Validate URL before redirecting
-        try {
-          const url = new URL(redirectUrl);
-          window.location.href = url.toString();
-        } catch {
-          console.error("Invalid redirect URL");
-        }
+        // (If this fails, user can use the manual link below)
+        // eslint-disable-next-line no-new
+        new URL(safeUrl);
+        window.location.assign(safeUrl);
+      } catch {
+        console.error("Invalid redirect URL", { urlParam, redirectUrl });
       }
-    }, 3000);
+    }, REDIRECT_DELAY_MS);
 
     return () => {
       clearInterval(progressInterval);
       clearInterval(countdownInterval);
       clearTimeout(redirectTimer);
     };
-  }, [redirectUrl]);
+  }, [REDIRECT_DELAY_MS, redirectUrl, urlParam]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background flex flex-col items-center justify-center px-4">
@@ -131,20 +166,12 @@ const BookingRedirect = () => {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-            Finding the best deal for you...
+            Finding best deal
           </h1>
           <p className="text-muted-foreground mb-2">
-            Connecting you to <span className="font-semibold text-foreground">{partnerName}</span>
+            Please wait while we take you to the booking site.
           </p>
-          
-          {/* Route info if available */}
-          {origin && destination && (
-            <p className="text-sm text-muted-foreground mb-2">
-              {origin} → {destination}
-              {price && <span className="font-semibold text-foreground ml-2">${price}</span>}
-            </p>
-          )}
-          
+
           {countdown > 0 && (
             <motion.p
               key={countdown}
@@ -241,8 +268,9 @@ const BookingRedirect = () => {
             Not redirecting?{" "}
             <a
               href={redirectUrl}
-              className="text-primary hover:underline font-medium"
+              target="_blank"
               rel="noopener noreferrer"
+              className="text-primary hover:underline font-medium"
             >
               Click here to continue
             </a>

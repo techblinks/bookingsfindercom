@@ -188,16 +188,9 @@ const FlightResults = () => {
       });
 
       if (result.success && result.redirectUrl) {
-        // Navigate to the interstitial redirect page instead of opening directly
-        const redirectParams = new URLSearchParams({
-          url: result.redirectUrl,
-          partner: 'Aviasales',
-          type: 'flight',
-          origin: origin || '',
-          destination: destination || '',
-          price: flight.price?.toString() || '',
-        });
-        window.open(`/redirect?${redirectParams.toString()}`, '_blank');
+        // Always route through the interstitial page (production-safe)
+        const interstitialUrl = `/redirect?url=${encodeURIComponent(result.redirectUrl)}`;
+        window.location.href = interstitialUrl;
       } else {
         toast.error("Could not generate booking link");
       }
