@@ -1,4 +1,4 @@
-import { Plane, Menu } from "lucide-react";
+import { Plane, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -6,10 +6,10 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { label: "Flights", href: "#" },
-    { label: "Hotels", href: "#" },
-    { label: "Car Rentals", href: "#" },
-    { label: "Deals", href: "#" },
+    { label: "Flights", href: "#flights" },
+    { label: "Hotels", href: "#hotels" },
+    { label: "Deals", href: "#deals" },
+    { label: "Destinations", href: "#destinations" },
   ];
 
   return (
@@ -51,7 +51,7 @@ const Header = () => {
           className="md:hidden"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
-          <Menu className="h-5 w-5" />
+          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
       </div>
 
@@ -64,6 +64,7 @@ const Header = () => {
                 key={item.label}
                 href={item.href}
                 className="px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
+                onClick={() => setMobileMenuOpen(false)}
               >
                 {item.label}
               </a>

@@ -2,6 +2,12 @@ import { Plane } from "lucide-react";
 
 const Footer = () => {
   const footerLinks = {
+    explore: [
+      { label: "Flights", href: "#flights" },
+      { label: "Hotels", href: "#hotels" },
+      { label: "Deals", href: "#deals" },
+      { label: "Destinations", href: "#destinations" },
+    ],
     company: [
       { label: "About Us", href: "#" },
       { label: "Careers", href: "#" },
@@ -12,18 +18,12 @@ const Footer = () => {
       { label: "Help Center", href: "#" },
       { label: "Contact Us", href: "#" },
       { label: "FAQs", href: "#" },
-      { label: "Feedback", href: "#" },
     ],
     legal: [
-      { label: "Terms of Service", href: "#" },
-      { label: "Privacy Policy", href: "#" },
-      { label: "Cookie Policy", href: "#" },
-      { label: "Accessibility", href: "#" },
-    ],
-    partners: [
-      { label: "Affiliate Program", href: "#" },
-      { label: "Advertise", href: "#" },
-      { label: "Travel Agents", href: "#" },
+      { label: "Privacy Policy", href: "#privacy" },
+      { label: "Terms of Service", href: "#terms" },
+      { label: "Cookie Policy", href: "#cookies" },
+      { label: "Affiliate Disclosure", href: "#affiliate" },
     ],
   };
 
@@ -42,7 +42,24 @@ const Footer = () => {
             </p>
           </div>
 
-          {/* Links */}
+          {/* Explore */}
+          <div>
+            <h4 className="font-semibold text-foreground mb-4">Explore</h4>
+            <ul className="space-y-2">
+              {footerLinks.explore.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company */}
           <div>
             <h4 className="font-semibold text-foreground mb-4">Company</h4>
             <ul className="space-y-2">
@@ -59,6 +76,7 @@ const Footer = () => {
             </ul>
           </div>
 
+          {/* Support */}
           <div>
             <h4 className="font-semibold text-foreground mb-4">Support</h4>
             <ul className="space-y-2">
@@ -75,26 +93,11 @@ const Footer = () => {
             </ul>
           </div>
 
+          {/* Legal */}
           <div>
             <h4 className="font-semibold text-foreground mb-4">Legal</h4>
             <ul className="space-y-2">
               {footerLinks.legal.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-foreground mb-4">Partners</h4>
-            <ul className="space-y-2">
-              {footerLinks.partners.map((link) => (
                 <li key={link.label}>
                   <a
                     href={link.href}
@@ -111,11 +114,12 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2024 TravelHub. All rights reserved.
+            © {new Date().getFullYear()} TravelHub. All rights reserved.
           </p>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">🌍 English (US)</span>
-            <span className="text-sm text-muted-foreground">$ USD</span>
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <a href="#privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+            <a href="#terms" className="hover:text-foreground transition-colors">Terms</a>
+            <a href="#affiliate" className="hover:text-foreground transition-colors">Affiliate Disclosure</a>
           </div>
         </div>
       </div>
