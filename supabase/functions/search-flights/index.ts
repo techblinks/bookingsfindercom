@@ -10,11 +10,111 @@ const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
 interface FlightSearchRequest {
   origin: string;
   destination: string;
-  departureDate: string;
-  returnDate?: string;
-  passengers?: number;
-  cabinClass?: string;
+  depart_date: string;
+  return_date?: string;
+  adults?: number;
   currency?: string;
+}
+
+async function createFlightSearch(params: {
+  origin: string;
+  destination: string;
+  depart_date: string;
+  return_date?: string;
+  adults: number;
+  currency: string;
+  token: string;
+  marker: string;
+}): Promise<{ search_id: string }> {
+  const searchParams = new URLSearchParams({
+    origin: params.origin.toUpperCase(),
+    destination: params.destination.toUpperCase(),
+    depart_date: params.depart_date,
+    adults: params.adults.toString(),
+    currency: params.currency,
+    token: params.token,
+    marker: params.marker,
+  });
+
+  if (params.return_date) {
+    searchParams.append('return_date', params.return_date);
+  }
+
+  const url = `${TRAVELPAYOUTS_API}/aviasales/v3/prices_for_dates?${searchParams.toString()}`;
+  console.log(`Creating flight search: ${params.origin} -> ${params.destination}`);
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to create flight search');
+  }
+
+  // For prices_for_dates endpoint, we get results directly
+  // Return a synthetic search_id based on the request
+  return {
+    search_id: `${params.origin}-${params.destination}-${params.depart_date}-${Date.now()}`,
+    ...data
+  };
+}
+
+async function getFlightResults(searchId: string, params: {
+  origin: string;
+  destination: string;
+  depart_date: string;
+  return_date?: string;
+  currency: string;
+  token: string;
+}): Promise<{ flights: any[]; meta: { is_complete: boolean } }> {
+  const searchParams = new URLSearchParams({
+    origin: params.origin.toUpperCase(),
+    destination: params.destination.toUpperCase(),
+    depart_date: params.depart_date,
+    currency: params.currency,
+    token: params.token,
+  });
+
+  if (params.return_date) {
+    searchParams.append('return_date', params.return_date);
+  }
+
+  const url = `${TRAVELPAYOUTS_API}/aviasales/v3/prices_for_dates?${searchParams.toString()}`;
+  
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to fetch flight results');
+  }
+
+  const flights = (data.data || []).map((flight: any, index: number) => ({
+    id: `${flight.origin}-${flight.destination}-${flight.departure_at}-${flight.airline}-${index}`,
+    airline: flight.airline || 'Unknown',
+    airline_code: flight.airline,
+    price: flight.price,
+    currency: params.currency,
+    duration_minutes: flight.duration || 0,
+    stops: flight.transfers || 0,
+    segments: [
+      {
+        from: flight.origin || params.origin.toUpperCase(),
+        to: flight.destination || params.destination.toUpperCase(),
+        depart_time: flight.departure_at,
+        arrive_time: flight.return_at || null,
+        airline: flight.airline,
+        flight_number: flight.flight_number,
+      }
+    ],
+    link: flight.link,
+    flight_number: flight.flight_number,
+  }));
+
+  return {
+    flights,
+    meta: {
+      is_complete: true // prices_for_dates returns complete results
+    }
+  };
 }
 
 Deno.serve(async (req) => {
@@ -32,83 +132,90 @@ Deno.serve(async (req) => {
 
   try {
     const apiToken = Deno.env.get('TRAVELPAYOUTS_API_KEY');
-    const markerId = Deno.env.get('MARKER_ID');
+    const markerId = Deno.env.get('MARKER_ID') || '';
+    
     if (!apiToken) {
       throw new Error('TRAVELPAYOUTS_API_KEY not configured');
     }
 
     const body: FlightSearchRequest = await req.json();
-    
+    const {
+      origin,
+      destination,
+      depart_date,
+      return_date,
+      adults = 1,
+      currency = 'AUD'
+    } = body;
+
     // Validate required fields
-    if (!body.origin || !body.destination || !body.departureDate) {
+    if (!origin || !destination || !depart_date) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required fields: origin, destination, departureDate' 
+          error: 'Missing required fields: origin, destination, depart_date' 
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Build Travelpayouts API URL for flight prices
-    // Using the prices/cheap endpoint for one-way/round-trip cheap prices
-    const params = new URLSearchParams({
-      origin: body.origin.toUpperCase(),
-      destination: body.destination.toUpperCase(),
-      depart_date: body.departureDate,
-      currency: body.currency || 'USD',
+    // 1️⃣ Create search
+    console.log(`Starting flight search: ${origin} -> ${destination} on ${depart_date}`);
+    
+    const searchResp = await createFlightSearch({
+      origin,
+      destination,
+      depart_date,
+      return_date,
+      adults,
+      currency,
       token: apiToken,
+      marker: markerId,
     });
 
-    if (body.returnDate) {
-      params.append('return_date', body.returnDate);
+    const searchId = searchResp.search_id;
+    let allFlights: any[] = [];
+    let isComplete = false;
+    let attempts = 0;
+
+    // 2️⃣ Poll until complete (max 30 attempts, 1.5s delay)
+    while (!isComplete && attempts < 30) {
+      const resultResp = await getFlightResults(searchId, {
+        origin,
+        destination,
+        depart_date,
+        return_date,
+        currency,
+        token: apiToken,
+      });
+
+      if (Array.isArray(resultResp.flights)) {
+        allFlights.push(...resultResp.flights);
+      }
+
+      isComplete = resultResp.meta?.is_complete === true;
+      attempts++;
+
+      if (!isComplete) {
+        await new Promise(r => setTimeout(r, 1500));
+      }
     }
 
-    // Fetch cheap flight prices from Travelpayouts
-    const pricesUrl = `${TRAVELPAYOUTS_API}/aviasales/v3/prices_for_dates?${params.toString()}`;
-    
-    console.log(`Fetching flights: ${body.origin} -> ${body.destination}`);
-    
-    const apiResponse = await fetch(pricesUrl);
-    const apiData = await apiResponse.json();
+    // 3️⃣ Deduplicate flights by ID
+    const uniqueFlights = Object.values(
+      allFlights.reduce((acc: Record<string, any>, flight) => {
+        acc[flight.id] = flight;
+        return acc;
+      }, {})
+    );
 
-    if (!apiResponse.ok) {
-      console.error('Travelpayouts API error:', apiData);
-      throw new Error(apiData.error || 'Failed to fetch flight data');
-    }
-
-    // Transform Travelpayouts response to our format
-    const flights = (apiData.data || []).map((flight: any, index: number) => ({
-      id: `fl-${index + 1}`,
-      airline: flight.airline || 'Unknown',
-      airlineCode: flight.airline,
-      departureTime: flight.departure_at ? new Date(flight.departure_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--',
-      arrivalTime: flight.return_at ? new Date(flight.return_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--',
-      departureAirport: flight.origin || body.origin.toUpperCase(),
-      arrivalAirport: flight.destination || body.destination.toUpperCase(),
-      duration: flight.duration ? `${Math.floor(flight.duration / 60)}h ${flight.duration % 60}m` : 'N/A',
-      stops: flight.transfers || 0,
-      price: flight.price,
-      currency: body.currency || 'USD',
-      isDeal: index < 3, // Mark top 3 as deals
-      redirectId: `redir-fl-${flight.airline}-${flight.flight_number || index}`,
-      flightNumber: flight.flight_number,
-      link: flight.link, // Travelpayouts affiliate link
-    }));
+    console.log(`Search complete: found ${uniqueFlights.length} unique flights after ${attempts} attempts`);
 
     const response = {
-      success: true,
-      searchParams: {
-        origin: body.origin,
-        destination: body.destination,
-        departureDate: body.departureDate,
-        returnDate: body.returnDate || null,
-        passengers: body.passengers || 1,
-        cabinClass: body.cabinClass || 'economy',
-      },
-      results: flights,
-      totalResults: flights.length,
-      currency: body.currency || 'USD',
-      timestamp: new Date().toISOString(),
+      flights: uniqueFlights,
+      meta: {
+        total_found: uniqueFlights.length,
+        is_complete: isComplete
+      }
     };
 
     return new Response(
@@ -123,7 +230,7 @@ Deno.serve(async (req) => {
     console.error('Flight search error:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'Internal server error', 
+        error: 'Flight search failed', 
         message: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
