@@ -12,6 +12,7 @@ import SortDropdown from "@/components/flights/SortDropdown";
 import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
 import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
+import FlightSearchSchema from "@/components/seo/FlightSearchSchema";
 import { Button } from "@/components/ui/button";
 import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
@@ -226,6 +227,19 @@ const FlightResults = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* SEO Schema Markup */}
+      <FlightSearchSchema
+        origin={origin}
+        destination={destination}
+        departureDate={departureDate}
+        returnDate={returnDate || undefined}
+        passengers={passengers}
+        cabinClass={cabinClass}
+        lowestPrice={cheapestPrice > 0 ? cheapestPrice : undefined}
+        currency="AUD"
+        totalResults={filteredFlights.length}
+      />
+
       <Header />
 
       {/* Search Summary Bar - Sticky */}

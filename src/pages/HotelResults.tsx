@@ -7,6 +7,7 @@ import HotelFilters from "@/components/filters/HotelFilters";
 import HotelResultCard from "@/components/cards/HotelResultCard";
 import HotelCardSkeleton from "@/components/skeletons/HotelCardSkeleton";
 import EmptyHotelResults from "@/components/states/EmptyHotelResults";
+import HotelSearchSchema from "@/components/seo/HotelSearchSchema";
 import { Button } from "@/components/ui/button";
 import {
   Pagination,
@@ -139,8 +140,25 @@ const HotelResults = () => {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
+  // Get cheapest price for SEO
+  const cheapestPrice = filteredHotels.length > 0 
+    ? Math.min(...filteredHotels.map(h => h.price))
+    : undefined;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* SEO Schema Markup */}
+      <HotelSearchSchema
+        destination={destination}
+        checkIn={checkIn}
+        checkOut={checkOut}
+        guests={parseInt(guests)}
+        rooms={parseInt(rooms)}
+        lowestPrice={cheapestPrice}
+        currency="USD"
+        totalResults={totalResults}
+      />
+
       <Header />
 
       {/* Search Summary Bar */}
