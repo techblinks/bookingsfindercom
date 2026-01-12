@@ -1,152 +1,144 @@
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import SearchBox from "@/components/search/SearchBox";
-import FlightCard from "@/components/cards/FlightCard";
-import HotelCard from "@/components/cards/HotelCard";
+import HeroSearch from "@/components/search/HeroSearch";
+import DestinationCard from "@/components/cards/DestinationCard";
+import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
+import { destinations } from "@/data/placeholderData";
 
 const Index = () => {
-  // Sample flight data
-  const flights = [
-    {
-      airline: "Delta",
-      departureTime: "08:30",
-      arrivalTime: "11:45",
-      departureAirport: "JFK",
-      arrivalAirport: "LAX",
-      duration: "5h 15m",
-      stops: 0,
-      price: 299,
-      isDeal: true,
-    },
-    {
-      airline: "United",
-      departureTime: "14:20",
-      arrivalTime: "18:10",
-      departureAirport: "JFK",
-      arrivalAirport: "LAX",
-      duration: "5h 50m",
-      stops: 1,
-      price: 245,
-    },
-    {
-      airline: "American",
-      departureTime: "06:00",
-      arrivalTime: "09:05",
-      departureAirport: "JFK",
-      arrivalAirport: "LAX",
-      duration: "5h 05m",
-      stops: 0,
-      price: 329,
-    },
-  ];
-
-  // Sample hotel data
-  const hotels = [
-    {
-      name: "The Grand Plaza Hotel",
-      image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
-      location: "Downtown Los Angeles, CA",
-      rating: 4.8,
-      reviewCount: 2341,
-      price: 189,
-      amenities: ["wifi", "parking", "breakfast"],
-      isDeal: true,
-    },
-    {
-      name: "Oceanview Resort & Spa",
-      image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=80",
-      location: "Santa Monica Beach, CA",
-      rating: 4.6,
-      reviewCount: 1892,
-      price: 245,
-      amenities: ["wifi", "parking"],
-    },
-    {
-      name: "Urban Boutique Suites",
-      image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=80",
-      location: "Hollywood, Los Angeles, CA",
-      rating: 4.4,
-      reviewCount: 967,
-      price: 159,
-      amenities: ["wifi", "breakfast"],
-    },
-  ];
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative py-16 md:py-24 bg-gradient-to-b from-primary/5 to-background">
+        <section className="relative py-12 md:py-20 bg-gradient-to-b from-primary/5 via-primary/5 to-background">
           <div className="container">
-            <div className="text-center mb-8 md:mb-12">
-              <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
+            <div className="text-center mb-8 md:mb-10">
+              <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
                 Find your next adventure
               </h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Search hundreds of airlines, hotels, and car rentals to find the best deals for your trip.
+                Compare prices from hundreds of airlines and hotels to get the best deals.
               </p>
             </div>
 
-            <SearchBox />
+            <HeroSearch />
           </div>
         </section>
 
-        {/* Popular Flights Section */}
-        <section className="py-12 md:py-16">
+        {/* Popular Destinations Section */}
+        <section id="destinations" className="py-12 md:py-16">
           <div className="container">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-foreground">Popular Flights</h2>
-              <a href="#" className="text-sm font-medium text-primary hover:underline">
-                View all
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+                  Popular Destinations
+                </h2>
+                <p className="text-muted-foreground">
+                  Explore trending destinations loved by travelers
+                </p>
+              </div>
+              <a 
+                href="#" 
+                className="hidden sm:inline-flex text-sm font-medium text-primary hover:underline"
+              >
+                View all destinations →
               </a>
             </div>
 
-            <div className="space-y-4">
-              {flights.map((flight, index) => (
-                <FlightCard key={index} {...flight} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {destinations.map((destination) => (
+                <DestinationCard
+                  key={destination.id}
+                  city={destination.city}
+                  country={destination.country}
+                  image={destination.image}
+                  price={destination.price}
+                  currency={destination.currency}
+                />
               ))}
             </div>
-          </div>
-        </section>
 
-        {/* Featured Hotels Section */}
-        <section className="py-12 md:py-16 bg-secondary/50">
-          <div className="container">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-foreground">Featured Hotels</h2>
+            <div className="mt-6 text-center sm:hidden">
               <a href="#" className="text-sm font-medium text-primary hover:underline">
-                View all
+                View all destinations →
               </a>
             </div>
+          </div>
+        </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {hotels.map((hotel, index) => (
-                <HotelCard key={index} {...hotel} />
-              ))}
+        {/* Why Book With Us */}
+        <WhyBookWithUs />
+
+        {/* Deals Section Placeholder */}
+        <section id="deals" className="py-12 md:py-16 bg-secondary/30">
+          <div className="container">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+                Today's Best Deals
+              </h2>
+              <p className="text-muted-foreground">
+                Limited time offers on flights and hotels
+              </p>
+            </div>
+
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="grid md:grid-cols-2 gap-0">
+                <div className="aspect-video md:aspect-auto relative">
+                  <img
+                    src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=1200&q=80"
+                    alt="Flash sale destination"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="deal-badge text-sm px-3 py-1">Flash Sale</span>
+                  </div>
+                </div>
+                <div className="p-6 md:p-8 flex flex-col justify-center">
+                  <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2">
+                    Tokyo & Kyoto Adventure
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    7 nights including round-trip flights and premium hotels
+                  </p>
+                  <div className="flex items-baseline gap-3 mb-6">
+                    <span className="text-3xl font-bold text-foreground">$1,299</span>
+                    <span className="text-lg text-muted-foreground line-through">$1,899</span>
+                    <span className="text-sm font-medium text-success">Save 32%</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button className="inline-flex items-center justify-center h-12 px-6 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors">
+                      View Deal
+                    </button>
+                    <p className="text-sm text-muted-foreground self-center">
+                      Offer ends in 2 days
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Trust Badges */}
+        {/* Trust Stats */}
         <section className="py-12 md:py-16">
           <div className="container">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               <div className="p-6">
-                <p className="text-3xl font-bold text-primary mb-2">500+</p>
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">500+</p>
                 <p className="text-sm text-muted-foreground">Airlines</p>
               </div>
               <div className="p-6">
-                <p className="text-3xl font-bold text-primary mb-2">1M+</p>
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">1M+</p>
                 <p className="text-sm text-muted-foreground">Hotels</p>
               </div>
               <div className="p-6">
-                <p className="text-3xl font-bold text-primary mb-2">50M+</p>
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">50M+</p>
                 <p className="text-sm text-muted-foreground">Happy Travelers</p>
               </div>
               <div className="p-6">
-                <p className="text-3xl font-bold text-primary mb-2">24/7</p>
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">24/7</p>
                 <p className="text-sm text-muted-foreground">Customer Support</p>
               </div>
             </div>
