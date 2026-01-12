@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plane, Building2, MapPin, Calendar, Users, Search, ArrowLeftRight, ChevronDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plane, Building2, MapPin, Calendar, Users, Search, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,16 +10,79 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 type SearchType = "flights" | "hotels";
 
 const HeroSearch = () => {
+  const navigate = useNavigate();
   const [searchType, setSearchType] = useState<SearchType>("flights");
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Flight form state
+  const [flightFrom, setFlightFrom] = useState("");
+  const [flightTo, setFlightTo] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [passengers, setPassengers] = useState("1");
+  const [cabinClass, setCabinClass] = useState("economy");
+
+  // Hotel form state
+  const [hotelDestination, setHotelDestination] = useState("");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [guestsRooms, setGuestsRooms] = useState("2-1");
 
   const tabs = [
     { id: "flights" as const, label: "Flights", icon: Plane },
     { id: "hotels" as const, label: "Hotels", icon: Building2 },
   ];
+
+  const swapLocations = () => {
+    const temp = flightFrom;
+    setFlightFrom(flightTo);
+    setFlightTo(temp);
+  };
+
+  const handleFlightSearch = () => {
+    if (!flightFrom || !flightTo || !departureDate) {
+      toast.error("Please fill in origin, destination, and departure date");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      origin: flightFrom.toUpperCase(),
+      destination: flightTo.toUpperCase(),
+      departureDate,
+      passengers,
+      cabinClass,
+    });
+
+    if (returnDate) {
+      params.append("returnDate", returnDate);
+    }
+
+    navigate(`/flights?${params.toString()}`);
+  };
+
+  const handleHotelSearch = () => {
+    if (!hotelDestination || !checkIn || !checkOut) {
+      toast.error("Please fill in destination, check-in, and check-out dates");
+      return;
+    }
+
+    const [guests, rooms] = guestsRooms.split("-");
+
+    const params = new URLSearchParams({
+      destination: hotelDestination,
+      checkIn,
+      checkOut,
+      guests,
+      rooms,
+    });
+
+    navigate(`/hotels?${params.toString()}`);
+  };
 
   return (
     <div className="search-container w-full max-w-5xl mx-auto">
@@ -49,21 +113,28 @@ const HeroSearch = () => {
               <div className="flex-1 relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="From (city or airport)"
+                  placeholder="From (e.g., JFK, NYC)"
                   className="pl-10 h-12"
-                  defaultValue=""
+                  value={flightFrom}
+                  onChange={(e) => setFlightFrom(e.target.value)}
                 />
               </div>
-              <Button variant="ghost" size="icon" className="absolute right-1/2 translate-x-1/2 z-10 bg-card border border-border rounded-full h-8 w-8 hidden md:flex">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute right-1/2 translate-x-1/2 z-10 bg-card border border-border rounded-full h-8 w-8 hidden md:flex"
+                onClick={swapLocations}
+              >
                 <ArrowLeftRight className="h-4 w-4" />
               </Button>
             </div>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="To (city or airport)"
+                placeholder="To (e.g., LAX, Los Angeles)"
                 className="pl-10 h-12"
-                defaultValue=""
+                value={flightTo}
+                onChange={(e) => setFlightTo(e.target.value)}
               />
             </div>
           </div>
@@ -76,6 +147,8 @@ const HeroSearch = () => {
                 type="date"
                 placeholder="Departure"
                 className="pl-10 h-12"
+                value={departureDate}
+                onChange={(e) => setDepartureDate(e.target.value)}
               />
             </div>
             <div className="relative">
@@ -84,11 +157,13 @@ const HeroSearch = () => {
                 type="date"
                 placeholder="Return"
                 className="pl-10 h-12"
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
               />
             </div>
             <div className="relative">
               <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-              <Select defaultValue="1">
+              <Select value={passengers} onValueChange={setPassengers}>
                 <SelectTrigger className="pl-10 h-12">
                   <SelectValue placeholder="Passengers" />
                 </SelectTrigger>
@@ -101,7 +176,7 @@ const HeroSearch = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Select defaultValue="economy">
+            <Select value={cabinClass} onValueChange={setCabinClass}>
               <SelectTrigger className="h-12">
                 <SelectValue placeholder="Cabin class" />
               </SelectTrigger>
@@ -116,7 +191,13 @@ const HeroSearch = () => {
 
           {/* Search Button */}
           <div className="pt-2">
-            <Button variant="search" size="lg" className="w-full sm:w-auto h-12 px-12">
+            <Button 
+              variant="search" 
+              size="lg" 
+              className="w-full sm:w-auto h-12 px-12"
+              onClick={handleFlightSearch}
+              disabled={isLoading}
+            >
               <Search className="h-4 w-4" />
               Search Flights
             </Button>
@@ -131,9 +212,10 @@ const HeroSearch = () => {
           <div className="relative">
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Where are you going? (city, hotel, or destination)"
+              placeholder="Where are you going? (e.g., Paris, New York)"
               className="pl-10 h-12"
-              defaultValue=""
+              value={hotelDestination}
+              onChange={(e) => setHotelDestination(e.target.value)}
             />
           </div>
 
@@ -145,6 +227,8 @@ const HeroSearch = () => {
                 type="date"
                 placeholder="Check-in"
                 className="pl-10 h-12"
+                value={checkIn}
+                onChange={(e) => setCheckIn(e.target.value)}
               />
             </div>
             <div className="relative">
@@ -153,11 +237,13 @@ const HeroSearch = () => {
                 type="date"
                 placeholder="Check-out"
                 className="pl-10 h-12"
+                value={checkOut}
+                onChange={(e) => setCheckOut(e.target.value)}
               />
             </div>
             <div className="relative">
               <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-              <Select defaultValue="2-1">
+              <Select value={guestsRooms} onValueChange={setGuestsRooms}>
                 <SelectTrigger className="pl-10 h-12">
                   <SelectValue placeholder="Guests" />
                 </SelectTrigger>
@@ -174,7 +260,13 @@ const HeroSearch = () => {
 
           {/* Search Button */}
           <div className="pt-2">
-            <Button variant="search" size="lg" className="w-full sm:w-auto h-12 px-12">
+            <Button 
+              variant="search" 
+              size="lg" 
+              className="w-full sm:w-auto h-12 px-12"
+              onClick={handleHotelSearch}
+              disabled={isLoading}
+            >
               <Search className="h-4 w-4" />
               Search Hotels
             </Button>

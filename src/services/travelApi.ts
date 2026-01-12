@@ -144,10 +144,43 @@ export async function searchHotels(params: HotelSearchParams): Promise<{
   }
 }
 
+export interface RedirectParams {
+  id: string;
+  type?: 'flight' | 'hotel';
+  origin?: string;
+  destination?: string;
+  departureDate?: string;
+  returnDate?: string;
+  airline?: string;
+  hotelId?: string;
+  checkIn?: string;
+  checkOut?: string;
+  guests?: number;
+  link?: string;
+}
+
 // Get redirect URL for booking
-export async function getRedirect(id: string): Promise<RedirectData | null> {
+export async function getRedirectUrl(params: RedirectParams): Promise<{
+  success: boolean;
+  redirectUrl?: string;
+  error?: string;
+}> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/get-redirect?id=${encodeURIComponent(id)}`, {
+    const searchParams = new URLSearchParams();
+    searchParams.append('id', params.id);
+    if (params.type) searchParams.append('type', params.type);
+    if (params.origin) searchParams.append('origin', params.origin);
+    if (params.destination) searchParams.append('destination', params.destination);
+    if (params.departureDate) searchParams.append('departureDate', params.departureDate);
+    if (params.returnDate) searchParams.append('returnDate', params.returnDate);
+    if (params.airline) searchParams.append('airline', params.airline);
+    if (params.hotelId) searchParams.append('hotelId', params.hotelId);
+    if (params.checkIn) searchParams.append('checkIn', params.checkIn);
+    if (params.checkOut) searchParams.append('checkOut', params.checkOut);
+    if (params.guests) searchParams.append('guests', params.guests.toString());
+    if (params.link) searchParams.append('link', encodeURIComponent(params.link));
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/get-redirect?${searchParams.toString()}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -160,20 +193,25 @@ export async function getRedirect(id: string): Promise<RedirectData | null> {
       throw new Error(data.error || 'Failed to get redirect');
     }
 
-    return data;
+    return {
+      success: true,
+      redirectUrl: data.redirectUrl,
+    };
   } catch (error) {
     console.error('Redirect error:', error);
-    return null;
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
 
 // Helper to redirect to booking page
 export async function redirectToBooking(redirectId: string): Promise<void> {
-  const data = await getRedirect(redirectId);
+  const result = await getRedirectUrl({ id: redirectId });
   
-  if (data?.redirectUrl) {
-    // Navigate to our redirect page with the URL
-    window.location.href = `/redirect?url=${encodeURIComponent(data.redirectUrl)}&partner=${encodeURIComponent(data.partner)}`;
+  if (result.success && result.redirectUrl) {
+    window.open(result.redirectUrl, '_blank');
   } else {
     console.error('No redirect URL found for:', redirectId);
   }

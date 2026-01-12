@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, SlidersHorizontal, X, Grid, List } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import HotelFilters from "@/components/filters/HotelFilters";
@@ -15,105 +15,24 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-  PaginationEllipsis,
 } from "@/components/ui/pagination";
-
-// Mock hotel data - ready for API injection
-const mockHotels = [
-  {
-    id: "ht-1",
-    name: "The Grand Plaza Hotel",
-    image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
-    location: "Downtown Los Angeles, 0.5 mi from center",
-    stars: 5,
-    guestScore: 9.2,
-    reviewCount: 2341,
-    price: 289,
-    originalPrice: 349,
-    currency: "$",
-    amenities: ["wifi", "parking", "breakfast", "gym", "pool"],
-    isDeal: true,
-  },
-  {
-    id: "ht-2",
-    name: "Oceanview Resort & Spa",
-    image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=80",
-    location: "Santa Monica Beach, 2.1 mi from center",
-    stars: 4,
-    guestScore: 8.8,
-    reviewCount: 1892,
-    price: 245,
-    currency: "$",
-    amenities: ["wifi", "parking", "pool", "restaurant"],
-    isDeal: false,
-  },
-  {
-    id: "ht-3",
-    name: "Urban Boutique Suites",
-    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=80",
-    location: "Hollywood, 1.8 mi from center",
-    stars: 4,
-    guestScore: 8.4,
-    reviewCount: 967,
-    price: 159,
-    currency: "$",
-    amenities: ["wifi", "breakfast"],
-    isDeal: false,
-  },
-  {
-    id: "ht-4",
-    name: "Sunset Tower Hotel",
-    image: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80",
-    location: "West Hollywood, 1.2 mi from center",
-    stars: 5,
-    guestScore: 9.5,
-    reviewCount: 3156,
-    price: 425,
-    originalPrice: 499,
-    currency: "$",
-    amenities: ["wifi", "parking", "breakfast", "gym", "pool", "restaurant"],
-    isDeal: true,
-  },
-  {
-    id: "ht-5",
-    name: "Marina Bay Inn",
-    image: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=800&q=80",
-    location: "Marina del Rey, 3.5 mi from center",
-    stars: 3,
-    guestScore: 7.8,
-    reviewCount: 542,
-    price: 119,
-    currency: "$",
-    amenities: ["wifi", "parking"],
-    isDeal: false,
-  },
-  {
-    id: "ht-6",
-    name: "Beverly Hills Luxury Suites",
-    image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&q=80",
-    location: "Beverly Hills, 4.2 mi from center",
-    stars: 5,
-    guestScore: 9.1,
-    reviewCount: 1823,
-    price: 599,
-    currency: "$",
-    amenities: ["wifi", "parking", "breakfast", "gym", "pool", "restaurant"],
-    isDeal: false,
-  },
-];
-
-// Placeholder redirect function - ready for implementation
-const handleViewDeal = (hotelId: string) => {
-  console.log(`Redirecting to hotel details page: ${hotelId}`);
-  // TODO: Implement actual redirect logic
-  // window.location.href = `/hotels/${hotelId}`;
-};
+import { searchHotels, getRedirectUrl, HotelResult } from "@/services/travelApi";
+import { toast } from "sonner";
 
 const HotelResults = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [hotels, setHotels] = useState<HotelResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  // Search params
+  const destination = searchParams.get("destination") || "";
+  const checkIn = searchParams.get("checkIn") || "";
+  const checkOut = searchParams.get("checkOut") || "";
+  const guests = searchParams.get("guests") || "2";
+  const rooms = searchParams.get("rooms") || "1";
 
   // Filter states
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
@@ -121,8 +40,38 @@ const HotelResults = () => {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [guestRating, setGuestRating] = useState(0);
 
-  // Simulate empty state for testing - set to true to see empty state
-  const [showEmptyState] = useState(false);
+  useEffect(() => {
+    const fetchHotels = async () => {
+      if (!destination || !checkIn || !checkOut) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const result = await searchHotels({
+          destination,
+          checkIn,
+          checkOut,
+          guests: parseInt(guests),
+          rooms: parseInt(rooms),
+        });
+
+        if (result.success) {
+          setHotels(result.results);
+        } else {
+          toast.error(result.error || "Failed to search hotels");
+        }
+      } catch (error) {
+        console.error("Hotel search error:", error);
+        toast.error("An error occurred while searching for hotels");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHotels();
+  }, [destination, checkIn, checkOut, guests, rooms]);
 
   const clearFilters = () => {
     setPriceRange([0, 1000]);
@@ -131,8 +80,64 @@ const HotelResults = () => {
     setGuestRating(0);
   };
 
-  const hotels = showEmptyState ? [] : mockHotels;
-  const totalResults = hotels.length;
+  // Apply filters
+  const filteredHotels = hotels.filter((hotel) => {
+    // Price filter
+    if (hotel.price < priceRange[0] || hotel.price > priceRange[1]) {
+      return false;
+    }
+    // Stars filter
+    if (selectedStars.length > 0 && !selectedStars.includes(hotel.stars)) {
+      return false;
+    }
+    // Guest rating filter
+    if (guestRating > 0 && hotel.guestScore < guestRating) {
+      return false;
+    }
+    return true;
+  });
+
+  const handleViewDeal = async (hotelId: string) => {
+    const hotel = hotels.find(h => h.id === hotelId);
+    if (!hotel) return;
+
+    try {
+      // If the API returned a direct link, use it
+      if (hotel.link) {
+        window.open(hotel.link, '_blank');
+        return;
+      }
+
+      // Fallback: build redirect URL with search params
+      const result = await getRedirectUrl({
+        id: hotelId,
+        type: 'hotel',
+        destination,
+        checkIn,
+        checkOut,
+        guests: parseInt(guests),
+        hotelId: hotel.hotelId?.toString(),
+      });
+
+      if (result.success && result.redirectUrl) {
+        window.open(result.redirectUrl, '_blank');
+      } else {
+        toast.error("Could not generate booking link");
+      }
+    } catch (error) {
+      console.error("Redirect error:", error);
+      toast.error("An error occurred");
+    }
+  };
+
+  const totalResults = filteredHotels.length;
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -151,10 +156,10 @@ const HotelResults = () => {
               </Link>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  Hotels in Los Angeles
+                  Hotels in {destination}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Jan 15 - Jan 18 · 2 Guests · 1 Room
+                  {formatDate(checkIn)} - {formatDate(checkOut)} · {guests} {parseInt(guests) === 1 ? "Guest" : "Guests"} · {rooms} {parseInt(rooms) === 1 ? "Room" : "Rooms"}
                 </p>
               </div>
             </div>
@@ -177,9 +182,11 @@ const HotelResults = () => {
                   <Grid className="h-4 w-4" />
                 </Button>
               </div>
-              <Button variant="outline" size="sm">
-                Modify Search
-              </Button>
+              <Link to="/">
+                <Button variant="outline" size="sm">
+                  Modify Search
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -296,15 +303,16 @@ const HotelResults = () => {
                 Array.from({ length: 4 }).map((_, index) => (
                   <HotelCardSkeleton key={index} />
                 ))
-              ) : hotels.length === 0 ? (
+              ) : filteredHotels.length === 0 ? (
                 // Empty state
                 <EmptyHotelResults onClearFilters={clearFilters} />
               ) : (
                 // Hotel results
-                hotels.map((hotel) => (
+                filteredHotels.map((hotel) => (
                   <HotelResultCard
                     key={hotel.id}
                     {...hotel}
+                    currency="$"
                     onViewDeal={handleViewDeal}
                   />
                 ))
@@ -312,7 +320,7 @@ const HotelResults = () => {
             </div>
 
             {/* Pagination */}
-            {!isLoading && hotels.length > 0 && (
+            {!isLoading && filteredHotels.length > 0 && (
               <div className="mt-8">
                 <Pagination>
                   <PaginationContent>
@@ -336,33 +344,6 @@ const HotelResults = () => {
                       >
                         1
                       </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink
-                        href="#"
-                        isActive={currentPage === 2}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(2);
-                        }}
-                      >
-                        2
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink
-                        href="#"
-                        isActive={currentPage === 3}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(3);
-                        }}
-                      >
-                        3
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationEllipsis />
                     </PaginationItem>
                     <PaginationItem>
                       <PaginationNext
