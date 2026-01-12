@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plane, Building2, MapPin, Calendar, Users, Search, ArrowLeftRight } from "lucide-react";
+import { Plane, Building2, MapPin, Calendar, Users, Search, ArrowLeftRight, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,10 +14,12 @@ import { toast } from "sonner";
 import LocationCombobox from "./LocationCombobox";
 
 type SearchType = "flights" | "hotels";
+type TripType = "roundtrip" | "oneway";
 
 const HeroSearch = () => {
   const navigate = useNavigate();
   const [searchType, setSearchType] = useState<SearchType>("flights");
+  const [tripType, setTripType] = useState<TripType>("roundtrip");
   const [isLoading, setIsLoading] = useState(false);
 
   // Flight form state
@@ -48,6 +50,14 @@ const HeroSearch = () => {
     setFlightFromDisplay(flightToDisplay);
     setFlightTo(tempCode);
     setFlightToDisplay(tempDisplay);
+  };
+
+  // Clear return date when switching to one-way
+  const handleTripTypeChange = (type: TripType) => {
+    setTripType(type);
+    if (type === "oneway") {
+      setReturnDate("");
+    }
   };
 
   const handleFlightSearch = () => {
@@ -113,6 +123,32 @@ const HeroSearch = () => {
       {/* Flight Search Form */}
       {searchType === "flights" && (
         <div className="space-y-4">
+          {/* Trip Type Toggle */}
+          <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-lg w-fit">
+            <button
+              onClick={() => handleTripTypeChange("roundtrip")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                tripType === "roundtrip"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Round Trip
+            </button>
+            <button
+              onClick={() => handleTripTypeChange("oneway")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                tripType === "oneway"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ArrowRight className="h-4 w-4" />
+              One Way
+            </button>
+          </div>
+
           {/* Row 1: From/To */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="relative flex items-center">
@@ -148,7 +184,11 @@ const HeroSearch = () => {
           </div>
 
           {/* Row 2: Dates, Passengers, Class */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-1 gap-3 ${
+            tripType === "roundtrip" 
+              ? "sm:grid-cols-2 lg:grid-cols-4" 
+              : "sm:grid-cols-2 lg:grid-cols-3"
+          }`}>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -159,16 +199,19 @@ const HeroSearch = () => {
                 onChange={(e) => setDepartureDate(e.target.value)}
               />
             </div>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="date"
-                placeholder="Return"
-                className="pl-10 h-12"
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
-              />
-            </div>
+            {tripType === "roundtrip" && (
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  placeholder="Return"
+                  className="pl-10 h-12"
+                  value={returnDate}
+                  min={departureDate || undefined}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                />
+              </div>
+            )}
             <div className="relative">
               <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
               <Select value={passengers} onValueChange={setPassengers}>
