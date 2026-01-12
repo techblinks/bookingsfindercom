@@ -68,6 +68,86 @@ export type Database = {
         }
         Relationships: []
       }
+      price_history: {
+        Row: {
+          id: string
+          price: number
+          recorded_at: string
+          saved_search_id: string
+        }
+        Insert: {
+          id?: string
+          price: number
+          recorded_at?: string
+          saved_search_id: string
+        }
+        Update: {
+          id?: string
+          price?: number
+          recorded_at?: string
+          saved_search_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_history_saved_search_id_fkey"
+            columns: ["saved_search_id"]
+            isOneToOne: false
+            referencedRelation: "saved_searches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_searches: {
+        Row: {
+          cabin_class: string
+          created_at: string
+          current_lowest_price: number | null
+          departure_date: string
+          destination: string
+          email: string
+          id: string
+          is_active: boolean
+          last_checked_at: string | null
+          origin: string
+          passengers: number
+          return_date: string | null
+          target_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          cabin_class?: string
+          created_at?: string
+          current_lowest_price?: number | null
+          departure_date: string
+          destination: string
+          email: string
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          origin: string
+          passengers?: number
+          return_date?: string | null
+          target_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cabin_class?: string
+          created_at?: string
+          current_lowest_price?: number | null
+          departure_date?: string
+          destination?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          origin?: string
+          passengers?: number
+          return_date?: string | null
+          target_price?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

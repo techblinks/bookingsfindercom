@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, Bell } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -11,6 +11,7 @@ import SearchingIndicator from "@/components/flights/SearchingIndicator";
 import SortDropdown from "@/components/flights/SortDropdown";
 import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
+import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 import { Button } from "@/components/ui/button";
 import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
@@ -261,6 +262,19 @@ const FlightResults = () => {
                   <span className="w-px h-4 bg-border" />
                   <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
                 </div>
+              )}
+              {/* Price Alert Button */}
+              {!isLoading && cheapestPrice > 0 && (
+                <PriceAlertDialog
+                  origin={origin}
+                  destination={destination}
+                  departureDate={departureDate}
+                  returnDate={returnDate || undefined}
+                  passengers={passengers}
+                  cabinClass={cabinClass}
+                  currentLowestPrice={cheapestPrice}
+                  currency="AUD"
+                />
               )}
               <Link to="/" className="shrink-0">
                 <Button variant="outline" size="sm" className="h-9">
