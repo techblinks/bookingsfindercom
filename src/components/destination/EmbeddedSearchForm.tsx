@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plane, Building2, Calendar, Users, Search, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import LocationCombobox from "@/components/search/LocationCombobox";
 
 interface EmbeddedSearchFormProps {
   type: "flights" | "hotels";
@@ -15,7 +16,9 @@ const EmbeddedSearchForm = ({
   defaultDestination = "",
 }: EmbeddedSearchFormProps) => {
   const [origin, setOrigin] = useState(defaultOrigin);
+  const [originDisplay, setOriginDisplay] = useState(defaultOrigin);
   const [destination, setDestination] = useState(defaultDestination);
+  const [destinationDisplay, setDestinationDisplay] = useState(defaultDestination);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState("2");
@@ -27,9 +30,12 @@ const EmbeddedSearchForm = ({
   };
 
   const swapLocations = () => {
-    const temp = origin;
+    const tempCode = origin;
+    const tempDisplay = originDisplay;
     setOrigin(destination);
-    setDestination(temp);
+    setOriginDisplay(destinationDisplay);
+    setDestination(tempCode);
+    setDestinationDisplay(tempDisplay);
   };
 
   return (
@@ -57,26 +63,30 @@ const EmbeddedSearchForm = ({
                       <label htmlFor="origin" className="block text-sm font-medium text-foreground mb-1.5">
                         From
                       </label>
-                      <Input
+                      <LocationCombobox
                         id="origin"
-                        type="text"
+                        value={originDisplay}
+                        onChange={(code, airport) => {
+                          setOrigin(code);
+                          setOriginDisplay(airport ? `${airport.city} (${airport.code})` : code);
+                        }}
                         placeholder="City or airport"
-                        value={origin}
-                        onChange={(e) => setOrigin(e.target.value)}
-                        className="bg-background"
+                        className="bg-background h-10"
                       />
                     </div>
                     <div className="relative">
                       <label htmlFor="destination" className="block text-sm font-medium text-foreground mb-1.5">
                         To
                       </label>
-                      <Input
+                      <LocationCombobox
                         id="destination"
-                        type="text"
+                        value={destinationDisplay}
+                        onChange={(code, airport) => {
+                          setDestination(code);
+                          setDestinationDisplay(airport ? `${airport.city} (${airport.code})` : code);
+                        }}
                         placeholder="City or airport"
-                        value={destination}
-                        onChange={(e) => setDestination(e.target.value)}
-                        className="bg-background"
+                        className="bg-background h-10"
                       />
                       <button
                         type="button"
