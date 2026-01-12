@@ -125,15 +125,9 @@ const HotelResults = () => {
         }
       }
 
-      // Navigate to the interstitial redirect page
-      const redirectParams = new URLSearchParams({
-        url: affiliateUrl,
-        partner: 'Hotellook',
-        type: 'hotel',
-        destination: destination || '',
-        price: hotel.price?.toString() || '',
-      });
-      window.open(`/redirect?${redirectParams.toString()}`, '_blank');
+      // Always route through the interstitial page (production-safe)
+      const interstitialUrl = `/redirect?url=${encodeURIComponent(affiliateUrl)}`;
+      window.location.href = interstitialUrl;
     } catch (error) {
       console.error("Redirect error:", error);
       toast.error("An error occurred");
