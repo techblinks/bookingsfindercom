@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Flight, FlightSearchMeta, FilterState, SortOption, DEPARTURE_TIME_SLOTS } from "@/types/flight";
+import { Flight, FlightSearchMeta, FilterState, SortOption, DEPARTURE_TIME_SLOTS, FlightWarning, PriceConfidence } from "@/types/flight";
 import { supabase } from "@/integrations/supabase/client";
 import { trackAffiliateEvent } from "@/services/travelApi";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
-
-// Polling configuration
-const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_ATTEMPTS = 30;
 
 interface UseFlightSearchParams {
   origin: string;
@@ -32,7 +28,9 @@ interface UseFlightSearchReturn {
   resetFilters: () => void;
   filteredFlights: Flight[];
   airlines: { code: string; name: string; count: number }[];
-  searchProgress: number; // 0-100 progress percentage
+  searchProgress: number;
+  cheapestPrice: number;
+  fastestDuration: number;
 }
 
 // Helper to format minutes to "Xh Ym"
@@ -53,9 +51,114 @@ function getHourFromISO(isoString: string): number {
   }
 }
 
-// Convert API flight format to internal Flight format
-function convertApiFlight(apiFlight: any): Flight {
-  return {
+// Calculate deal score based on price, duration, and stops relative to other flights
+function calculateDealScore(flight: Flight, allFlights: Flight[]): number {
+  if (allFlights.length === 0) return 50;
+
+  const prices = allFlights.map(f => f.price).filter(p => p > 0);
+  const durations = allFlights.map(f => f.duration_minutes).filter(d => d > 0);
+  
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const minDuration = Math.min(...durations);
+  const maxDuration = Math.max(...durations);
+
+  // Normalize values (0 = best, 1 = worst)
+  const priceScore = maxPrice > minPrice 
+    ? (flight.price - minPrice) / (maxPrice - minPrice) 
+    : 0;
+  const durationScore = maxDuration > minDuration 
+    ? (flight.duration_minutes - minDuration) / (maxDuration - minDuration) 
+    : 0;
+  const stopsScore = Math.min(flight.stops / 2, 1);
+
+  // Weighted combination (lower = better deal)
+  const weightedScore = priceScore * 0.5 + durationScore * 0.3 + stopsScore * 0.2;
+  
+  // Convert to 0-100 scale where 100 = best deal
+  return Math.round((1 - weightedScore) * 100);
+}
+
+// Determine price confidence based on simulated historical comparison
+function calculatePriceConfidence(flight: Flight, allFlights: Flight[]): { 
+  confidence: PriceConfidence; 
+  trend: 'rising' | 'stable' | 'falling';
+  averagePrice: number;
+} {
+  const prices = allFlights.map(f => f.price).filter(p => p > 0);
+  const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+  
+  const deviation = (flight.price - avgPrice) / avgPrice;
+  
+  let confidence: PriceConfidence;
+  let trend: 'rising' | 'stable' | 'falling';
+
+  if (deviation < -0.15) {
+    confidence = 'high';
+    trend = 'falling';
+  } else if (deviation < 0.05) {
+    confidence = 'average';
+    trend = 'stable';
+  } else {
+    confidence = 'low';
+    trend = 'rising';
+  }
+
+  return { confidence, trend, averagePrice: Math.round(avgPrice) };
+}
+
+// Detect flight warnings
+function detectWarnings(flight: Flight): FlightWarning[] {
+  const warnings: FlightWarning[] = [];
+
+  if (flight.segments.length > 1) {
+    for (let i = 0; i < flight.segments.length - 1; i++) {
+      const current = flight.segments[i];
+      const next = flight.segments[i + 1];
+      
+      // Calculate layover time if possible
+      if (current.arrive_time && next.depart_time) {
+        try {
+          const arriveTime = new Date(current.arrive_time).getTime();
+          const departTime = new Date(next.depart_time).getTime();
+          const layoverMinutes = (departTime - arriveTime) / (1000 * 60);
+          
+          // Long layover (>8 hours)
+          if (layoverMinutes > 480) {
+            if (!warnings.includes('long_layover')) {
+              warnings.push('long_layover');
+            }
+          }
+          
+          // Overnight stop (arriving after 10pm, departing after 6am next day)
+          const arriveHour = new Date(current.arrive_time).getHours();
+          const departHour = new Date(next.depart_time).getHours();
+          if (arriveHour >= 22 && departHour >= 6 && layoverMinutes > 360) {
+            if (!warnings.includes('overnight_stop')) {
+              warnings.push('overnight_stop');
+            }
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+      
+      // Self-transfer: different airlines
+      if (current.airline_code && next.airline_code && 
+          current.airline_code !== next.airline_code) {
+        if (!warnings.includes('self_transfer')) {
+          warnings.push('self_transfer');
+        }
+      }
+    }
+  }
+
+  return warnings;
+}
+
+// Convert API flight format to internal Flight format with enhancements
+function convertApiFlight(apiFlight: any, allApiFlights: any[]): Flight {
+  const baseFlight: Flight = {
     id: apiFlight.id,
     airline: apiFlight.airline || "Unknown",
     airline_code: apiFlight.airline_code || apiFlight.airline || "",
@@ -71,17 +174,23 @@ function convertApiFlight(apiFlight: any): Flight {
       airline: seg.airline || apiFlight.airline,
       airline_code: seg.airline_code || apiFlight.airline_code,
       flight_number: seg.flight_number,
+      aircraft: seg.aircraft,
+      duration_minutes: seg.duration_minutes,
+      layover_minutes: seg.layover_minutes,
     })),
     is_deal: apiFlight.is_deal,
     link: apiFlight.link,
   };
+
+  // Add warnings
+  baseFlight.warnings = apiFlight.warnings || detectWarnings(baseFlight);
+
+  return baseFlight;
 }
 
 // Update filter ranges based on current flights
 function calculateFilterRanges(flights: Flight[]): Partial<FilterState> {
-  if (flights.length === 0) {
-    return {};
-  }
+  if (flights.length === 0) return {};
   
   const prices = flights.map(f => f.price).filter(p => p > 0);
   const durations = flights.map(f => f.duration_minutes).filter(d => d > 0);
@@ -101,6 +210,22 @@ function calculateFilterRanges(flights: Flight[]): Partial<FilterState> {
   };
 }
 
+// Enhance flights with deal scores and price confidence after all flights loaded
+function enhanceFlights(flights: Flight[]): Flight[] {
+  return flights.map(flight => {
+    const dealScore = calculateDealScore(flight, flights);
+    const priceInfo = calculatePriceConfidence(flight, flights);
+    
+    return {
+      ...flight,
+      deal_score: flight.deal_score ?? dealScore,
+      price_confidence: flight.price_confidence ?? priceInfo.confidence,
+      price_trend: flight.price_trend ?? priceInfo.trend,
+      average_price: priceInfo.averagePrice,
+    };
+  });
+}
+
 export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchReturn {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [meta, setMeta] = useState<FlightSearchMeta>({ total_found: 0, is_complete: false });
@@ -111,7 +236,6 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
   const [searchProgress, setSearchProgress] = useState(0);
   
   const abortControllerRef = useRef<AbortController | null>(null);
-  const pollAttemptsRef = useRef(0);
   const hasInitializedFiltersRef = useRef(false);
 
   // Filter state
@@ -151,6 +275,14 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     }
     return acc;
   }, []).sort((a, b) => b.count - a.count);
+
+  // Calculate cheapest and fastest
+  const cheapestPrice = flights.length > 0 
+    ? Math.min(...flights.map(f => f.price).filter(p => p > 0))
+    : 0;
+  const fastestDuration = flights.length > 0
+    ? Math.min(...flights.map(f => f.duration_minutes).filter(d => d > 0))
+    : 0;
 
   // Apply filters and sorting
   const filteredFlights = flights
@@ -202,10 +334,10 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
           return a.duration_minutes - b.duration_minutes;
         case "best":
         default:
-          // Best = weighted score of price, duration, and stops
-          const scoreA = a.price * 0.5 + a.duration_minutes * 0.3 + a.stops * 100;
-          const scoreB = b.price * 0.5 + b.duration_minutes * 0.3 + b.stops * 100;
-          return scoreA - scoreB;
+          // Best = use deal score if available, otherwise calculate weighted score
+          const scoreA = a.deal_score ?? (100 - calculateDealScore(a, flights));
+          const scoreB = b.deal_score ?? (100 - calculateDealScore(b, flights));
+          return scoreB - scoreA; // Higher score = better
       }
     });
 
@@ -220,7 +352,6 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
-    pollAttemptsRef.current = 0;
     hasInitializedFiltersRef.current = false;
 
     setIsLoading(true);
@@ -266,23 +397,28 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
 
       // Handle new API format: { flights: [], meta: { total_found, is_complete } }
       const apiFlights = data.flights || data.results || [];
-      const convertedFlights = apiFlights.map(convertApiFlight);
+      const convertedFlights = apiFlights.map((f: any) => convertApiFlight(f, apiFlights));
       
       // Deduplicate by ID
       const uniqueFlights = Array.from(
         new Map(convertedFlights.map((f: Flight) => [f.id, f])).values()
       ) as Flight[];
       
-      setFlights(uniqueFlights);
+      // Enhance flights with deal scores and price confidence
+      const enhancedFlights = enhanceFlights(uniqueFlights);
+      
+      setFlights(enhancedFlights);
       setMeta({
-        total_found: data.meta?.total_found || uniqueFlights.length,
+        total_found: data.meta?.total_found || enhancedFlights.length,
         is_complete: data.meta?.is_complete ?? true,
+        cheapest_price: Math.min(...enhancedFlights.map(f => f.price).filter(p => p > 0)),
+        fastest_duration: Math.min(...enhancedFlights.map(f => f.duration_minutes).filter(d => d > 0)),
       });
       setSearchProgress(100);
 
       // Update filter ranges based on results
-      if (uniqueFlights.length > 0 && !hasInitializedFiltersRef.current) {
-        const ranges = calculateFilterRanges(uniqueFlights);
+      if (enhancedFlights.length > 0 && !hasInitializedFiltersRef.current) {
+        const ranges = calculateFilterRanges(enhancedFlights);
         setFilters(prev => ({ ...prev, ...ranges }));
         hasInitializedFiltersRef.current = true;
       }
@@ -323,5 +459,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     filteredFlights,
     airlines,
     searchProgress,
+    cheapestPrice,
+    fastestDuration,
   };
 }
