@@ -31,9 +31,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiToken = Deno.env.get('TRAVELPAYOUTS_API_TOKEN');
+    const apiToken = Deno.env.get('TRAVELPAYOUTS_API_KEY');
+    const markerId = Deno.env.get('MARKER_ID');
     if (!apiToken) {
-      throw new Error('TRAVELPAYOUTS_API_TOKEN not configured');
+      throw new Error('TRAVELPAYOUTS_API_KEY not configured');
     }
 
     const body: HotelSearchRequest = await req.json();

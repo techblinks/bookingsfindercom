@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiToken = Deno.env.get('TRAVELPAYOUTS_API_TOKEN');
+    const markerId = Deno.env.get('MARKER_ID') || '';
     const url = new URL(req.url);
     
     const id = url.searchParams.get('id');
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       if (destination) flightParams.append('destination_iata', destination);
       if (departureDate) flightParams.append('depart_date', departureDate);
       if (returnDate) flightParams.append('return_date', returnDate);
-      if (apiToken) flightParams.append('marker', apiToken);
+      if (markerId) flightParams.append('marker', markerId);
       
       redirectUrl = `${AVIASALES_BASE}/search/${origin}${departureDate?.replace(/-/g, '')}${destination}${returnDate ? returnDate.replace(/-/g, '') : ''}1?${flightParams.toString()}`;
       partner = 'Aviasales';
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       if (checkOut) hotelParams.append('checkOut', checkOut);
       if (guests) hotelParams.append('adults', guests);
       if (hotelId) hotelParams.append('hotelId', hotelId);
-      if (apiToken) hotelParams.append('marker', apiToken);
+      if (markerId) hotelParams.append('marker', markerId);
       
       redirectUrl = `${HOTELLOOK_BASE}/hotels?${hotelParams.toString()}`;
       partner = 'Hotellook';
