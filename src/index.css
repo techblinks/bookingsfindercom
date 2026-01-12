@@ -2,95 +2,116 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Travel Website Design System - Clean, Modern, Trustworthy */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    /* Primary Blue - Trustworthy travel brand color */
+    --primary: 214 85% 51%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 214 85% 45%;
+    
+    /* Background tones */
+    --background: 210 20% 98%;
+    --foreground: 220 20% 10%;
+    
+    /* Card surfaces */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 220 20% 10%;
+    --card-hover: 210 20% 97%;
+    
+    /* Muted surfaces */
+    --muted: 210 15% 95%;
+    --muted-foreground: 220 10% 45%;
+    
+    /* Secondary - light gray */
+    --secondary: 210 15% 96%;
+    --secondary-foreground: 220 15% 25%;
+    
+    /* Accent for highlights */
+    --accent: 214 85% 51%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Success - for deals/savings */
+    --success: 142 70% 40%;
+    --success-foreground: 0 0% 100%;
+    
+    /* Warning - for alerts */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Popover */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --popover-foreground: 220 20% 10%;
+    
+    /* Border and input */
+    --border: 210 15% 90%;
+    --input: 210 15% 90%;
+    --ring: 214 85% 51%;
+    
+    /* Radius - rounded but not too much */
+    --radius: 0.75rem;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-elevated: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-modal: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 20% 10%;
+    --sidebar-primary: 214 85% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 15% 96%;
+    --sidebar-accent-foreground: 220 15% 25%;
+    --sidebar-border: 210 15% 90%;
+    --sidebar-ring: 214 85% 51%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --primary: 214 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 214 85% 55%;
+    
+    --background: 220 20% 8%;
+    --foreground: 210 20% 95%;
+    
+    --card: 220 18% 12%;
+    --card-foreground: 210 20% 95%;
+    --card-hover: 220 18% 15%;
+    
+    --muted: 220 15% 18%;
+    --muted-foreground: 210 15% 60%;
+    
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 210 20% 90%;
+    
+    --accent: 214 85% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --popover: 220 18% 12%;
+    --popover-foreground: 210 20% 95%;
+    
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 214 85% 60%;
+    
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 214 85% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 220 15% 18%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 220 15% 20%;
+    --sidebar-ring: 214 85% 60%;
   }
 }
 
@@ -100,6 +121,56 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight text-foreground;
+  }
+}
+
+@layer components {
+  /* Card hover effect */
+  .travel-card {
+    @apply bg-card rounded-xl border border-border transition-all duration-200;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .travel-card:hover {
+    box-shadow: var(--shadow-elevated);
+    @apply border-primary/20;
+  }
+  
+  /* Search container */
+  .search-container {
+    @apply bg-card rounded-2xl p-6;
+    box-shadow: var(--shadow-modal);
+  }
+  
+  /* Price tag styling */
+  .price-tag {
+    @apply text-2xl font-bold text-foreground;
+  }
+  
+  .price-currency {
+    @apply text-base font-medium text-muted-foreground;
+  }
+  
+  /* Deal badge */
+  .deal-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success text-success-foreground;
+  }
+}
+
+@layer utilities {
+  /* Smooth transitions */
+  .transition-base {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  /* Focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
   }
 }
