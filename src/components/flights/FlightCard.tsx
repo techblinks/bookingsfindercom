@@ -45,6 +45,49 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
     }
   };
 
+  // Format date with day of week (e.g., "Mon, Jan 30")
+  const formatDateWithDay = (isoString: string | null | undefined): string => {
+    if (!isoString) return "";
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  // Calculate arrival date from departure + duration
+  const getArrivalDate = (): Date | null => {
+    const departTime = firstSegment?.depart_time;
+    const durationMinutes = flight.duration_minutes;
+    
+    if (!departTime || durationMinutes <= 0) return null;
+    
+    try {
+      const departure = new Date(departTime);
+      return new Date(departure.getTime() + durationMinutes * 60 * 1000);
+    } catch {
+      return null;
+    }
+  };
+
+  const departureDate = formatDateWithDay(firstSegment?.depart_time);
+  const arrivalDate = (() => {
+    const arrDate = getArrivalDate();
+    if (arrDate) {
+      return arrDate.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+    return "";
+  })();
+
   // Calculate arrival time and date from departure + duration if not provided
   const calculateArrivalInfo = (): { time: string; dayDiff: number } => {
     const departTime = firstSegment?.depart_time;
@@ -311,7 +354,8 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
                               {' · '}{segment.from}
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {segment.airline_code || flight.airline_code} {segment.flight_number || ""}
+                              {formatDateWithDay(segment.depart_time)}
+                              {' · '}{segment.airline_code || flight.airline_code} {segment.flight_number || ""}
                             </p>
                           </div>
                           {segment.duration_minutes && (
@@ -322,28 +366,43 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
                         </div>
                         
                         <div className="mt-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {(() => {
-                              // Use arrive_time if available, otherwise calculate from segment duration
-                              if (segment.arrive_time) {
-                                return formatTime(segment.arrive_time);
-                              } else if (segment.depart_time && segment.duration_minutes) {
-                                const departure = new Date(segment.depart_time);
-                                const arrival = new Date(departure.getTime() + segment.duration_minutes * 60 * 1000);
-                                return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                              } else if (segment.depart_time && flight.duration_minutes && flight.segments.length === 1) {
-                                // Single segment - use total flight duration
-                                const departure = new Date(segment.depart_time);
-                                const arrival = new Date(departure.getTime() + flight.duration_minutes * 60 * 1000);
-                                return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                              }
-                              return "--:--";
-                            })()}
-                            {segmentArriveTz && (
-                              <span className="text-xs text-muted-foreground ml-1">({segmentArriveTz.abbr})</span>
-                            )}
-                            {' · '}{segment.to}
-                          </p>
+                          {(() => {
+                            // Calculate arrival time and date
+                            let arrivalTime = "--:--";
+                            let arrivalDateStr = "";
+                            
+                            if (segment.arrive_time) {
+                              arrivalTime = formatTime(segment.arrive_time);
+                              arrivalDateStr = formatDateWithDay(segment.arrive_time);
+                            } else if (segment.depart_time && segment.duration_minutes) {
+                              const departure = new Date(segment.depart_time);
+                              const arrival = new Date(departure.getTime() + segment.duration_minutes * 60 * 1000);
+                              arrivalTime = arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                              arrivalDateStr = arrival.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                            } else if (segment.depart_time && flight.duration_minutes && flight.segments.length === 1) {
+                              const departure = new Date(segment.depart_time);
+                              const arrival = new Date(departure.getTime() + flight.duration_minutes * 60 * 1000);
+                              arrivalTime = arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                              arrivalDateStr = arrival.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                            }
+                            
+                            return (
+                              <>
+                                <p className="text-sm font-medium text-foreground">
+                                  {arrivalTime}
+                                  {segmentArriveTz && (
+                                    <span className="text-xs text-muted-foreground ml-1">({segmentArriveTz.abbr})</span>
+                                  )}
+                                  {' · '}{segment.to}
+                                </p>
+                                {arrivalDateStr && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {arrivalDateStr}
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {segment.aircraft && (
