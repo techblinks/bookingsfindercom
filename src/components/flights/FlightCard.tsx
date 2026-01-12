@@ -27,7 +27,8 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
   const lastSegment = flight.segments[flight.segments.length - 1];
 
   // Format times
-  const formatTime = (isoString: string) => {
+  const formatTime = (isoString: string | null | undefined): string => {
+    if (!isoString) return "";
     try {
       if (isoString.includes('T') || isoString.includes('-')) {
         const date = new Date(isoString);
@@ -39,8 +40,32 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
     }
   };
 
+  // Calculate arrival time from departure + duration if not provided
+  const calculateArrivalTime = (): string => {
+    const departTime = firstSegment?.depart_time;
+    const durationMinutes = flight.duration_minutes;
+    
+    // If we have arrive_time in the last segment, use it
+    if (lastSegment?.arrive_time) {
+      return formatTime(lastSegment.arrive_time);
+    }
+    
+    // Otherwise calculate from departure + duration
+    if (departTime && durationMinutes > 0) {
+      try {
+        const departure = new Date(departTime);
+        const arrival = new Date(departure.getTime() + durationMinutes * 60 * 1000);
+        return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      } catch {
+        return "";
+      }
+    }
+    
+    return "";
+  };
+
   const departureTime = formatTime(firstSegment?.depart_time || "");
-  const arrivalTime = formatTime(lastSegment?.arrive_time || "");
+  const arrivalTime = calculateArrivalTime();
 
   // Get layover cities
   const layoverCities = flight.layover_cities || 
@@ -256,7 +281,22 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
                       
                       <div className="mt-2">
                         <p className="text-sm font-medium text-foreground">
-                          {formatTime(segment.arrive_time)} · {segment.to}
+                          {(() => {
+                            // Use arrive_time if available, otherwise calculate from segment duration
+                            if (segment.arrive_time) {
+                              return formatTime(segment.arrive_time);
+                            } else if (segment.depart_time && segment.duration_minutes) {
+                              const departure = new Date(segment.depart_time);
+                              const arrival = new Date(departure.getTime() + segment.duration_minutes * 60 * 1000);
+                              return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            } else if (segment.depart_time && flight.duration_minutes && flight.segments.length === 1) {
+                              // Single segment - use total flight duration
+                              const departure = new Date(segment.depart_time);
+                              const arrival = new Date(departure.getTime() + flight.duration_minutes * 60 * 1000);
+                              return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            }
+                            return "--:--";
+                          })()} · {segment.to}
                         </p>
                       </div>
 
