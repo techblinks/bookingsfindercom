@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Flight } from "@/types/flight";
 import { formatDuration } from "@/hooks/useFlightSearch";
 import { getAirlineLogo, getAirlineName } from "@/lib/airlineLogos";
+import { getAirportTimezone, calculateDayDifference, formatDayDifference } from "@/lib/timezones";
 import { cn } from "@/lib/utils";
 import DealScoreBadge from "./DealScoreBadge";
 import PriceConfidenceIndicator from "./PriceConfidenceIndicator";
@@ -26,6 +27,10 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
   const firstSegment = flight.segments[0];
   const lastSegment = flight.segments[flight.segments.length - 1];
 
+  // Get timezone info for departure and arrival airports
+  const departureTimezone = getAirportTimezone(firstSegment?.from || "");
+  const arrivalTimezone = getAirportTimezone(lastSegment?.to || "");
+
   // Format times
   const formatTime = (isoString: string | null | undefined): string => {
     if (!isoString) return "";
@@ -40,14 +45,19 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
     }
   };
 
-  // Calculate arrival time from departure + duration if not provided
-  const calculateArrivalTime = (): string => {
+  // Calculate arrival time and date from departure + duration if not provided
+  const calculateArrivalInfo = (): { time: string; dayDiff: number } => {
     const departTime = firstSegment?.depart_time;
     const durationMinutes = flight.duration_minutes;
+    const destinationCode = lastSegment?.to;
     
     // If we have arrive_time in the last segment, use it
     if (lastSegment?.arrive_time) {
-      return formatTime(lastSegment.arrive_time);
+      const dayDiff = departTime ? calculateDayDifference(departTime, durationMinutes, destinationCode) : 0;
+      return {
+        time: formatTime(lastSegment.arrive_time),
+        dayDiff
+      };
     }
     
     // Otherwise calculate from departure + duration
@@ -55,17 +65,24 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
       try {
         const departure = new Date(departTime);
         const arrival = new Date(departure.getTime() + durationMinutes * 60 * 1000);
-        return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const dayDiff = calculateDayDifference(departTime, durationMinutes, destinationCode);
+        
+        return {
+          time: arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          dayDiff
+        };
       } catch {
-        return "";
+        return { time: "", dayDiff: 0 };
       }
     }
     
-    return "";
+    return { time: "", dayDiff: 0 };
   };
 
   const departureTime = formatTime(firstSegment?.depart_time || "");
-  const arrivalTime = calculateArrivalTime();
+  const arrivalInfo = calculateArrivalInfo();
+  const arrivalTime = arrivalInfo.time;
+  const dayDiffLabel = formatDayDifference(arrivalInfo.dayDiff);
 
   // Get layover cities
   const layoverCities = flight.layover_cities || 
@@ -121,6 +138,11 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               <p className="text-xs font-medium text-muted-foreground uppercase">
                 {firstSegment?.from || "---"}
               </p>
+              {departureTimezone && (
+                <p className="text-[10px] text-muted-foreground/70" title={departureTimezone.name}>
+                  {departureTimezone.abbr}
+                </p>
+              )}
             </div>
 
             {/* Timeline */}
@@ -169,12 +191,24 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
 
             {/* Arrival */}
             <div className="text-center min-w-[72px]">
-              <p className="text-xl md:text-2xl font-bold text-foreground tracking-tight tabular-nums">
-                {arrivalTime || "--:--"}
-              </p>
+              <div className="flex items-baseline justify-center gap-0.5">
+                <p className="text-xl md:text-2xl font-bold text-foreground tracking-tight tabular-nums">
+                  {arrivalTime || "--:--"}
+                </p>
+                {dayDiffLabel && (
+                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    {dayDiffLabel}
+                  </span>
+                )}
+              </div>
               <p className="text-xs font-medium text-muted-foreground uppercase">
                 {lastSegment?.to || "---"}
               </p>
+              {arrivalTimezone && (
+                <p className="text-[10px] text-muted-foreground/70" title={arrivalTimezone.name}>
+                  {arrivalTimezone.abbr}
+                </p>
+              )}
             </div>
           </div>
 
@@ -251,75 +285,88 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               <h4 className="text-sm font-semibold text-foreground mb-4">Flight Details</h4>
               
               <div className="space-y-4">
-                {flight.segments.map((segment, index) => (
-                  <div key={index} className="flex gap-4">
-                    {/* Timeline indicator */}
-                    <div className="flex flex-col items-center">
-                      <div className="w-3 h-3 rounded-full bg-primary shrink-0" />
-                      {index < flight.segments.length - 1 && (
-                        <div className="w-0.5 flex-1 bg-border my-1" />
-                      )}
-                    </div>
-
-                    {/* Segment info */}
-                    <div className="flex-1 pb-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {formatTime(segment.depart_time)} · {segment.from}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {segment.airline_code || flight.airline_code} {segment.flight_number || ""}
-                          </p>
-                        </div>
-                        {segment.duration_minutes && (
-                          <span className="text-xs text-muted-foreground">
-                            {formatDuration(segment.duration_minutes)}
-                          </span>
+                {flight.segments.map((segment, index) => {
+                  const segmentDepartTz = getAirportTimezone(segment.from);
+                  const segmentArriveTz = getAirportTimezone(segment.to);
+                  
+                  return (
+                    <div key={index} className="flex gap-4">
+                      {/* Timeline indicator */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-primary shrink-0" />
+                        {index < flight.segments.length - 1 && (
+                          <div className="w-0.5 flex-1 bg-border my-1" />
                         )}
                       </div>
-                      
-                      <div className="mt-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {(() => {
-                            // Use arrive_time if available, otherwise calculate from segment duration
-                            if (segment.arrive_time) {
-                              return formatTime(segment.arrive_time);
-                            } else if (segment.depart_time && segment.duration_minutes) {
-                              const departure = new Date(segment.depart_time);
-                              const arrival = new Date(departure.getTime() + segment.duration_minutes * 60 * 1000);
-                              return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                            } else if (segment.depart_time && flight.duration_minutes && flight.segments.length === 1) {
-                              // Single segment - use total flight duration
-                              const departure = new Date(segment.depart_time);
-                              const arrival = new Date(departure.getTime() + flight.duration_minutes * 60 * 1000);
-                              return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                            }
-                            return "--:--";
-                          })()} · {segment.to}
-                        </p>
-                      </div>
 
-                      {segment.aircraft && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Aircraft: {segment.aircraft}
-                        </p>
-                      )}
-
-                      {/* Layover info */}
-                      {segment.layover_minutes && index < flight.segments.length - 1 && (
-                        <div className={cn(
-                          "mt-3 px-2 py-1.5 rounded-md text-xs",
-                          segment.layover_minutes > 480 
-                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                            : "bg-muted text-muted-foreground"
-                        )}>
-                          Layover: {formatDuration(segment.layover_minutes)} in {segment.to}
+                      {/* Segment info */}
+                      <div className="flex-1 pb-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              {formatTime(segment.depart_time)} 
+                              {segmentDepartTz && (
+                                <span className="text-xs text-muted-foreground ml-1">({segmentDepartTz.abbr})</span>
+                              )}
+                              {' · '}{segment.from}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {segment.airline_code || flight.airline_code} {segment.flight_number || ""}
+                            </p>
+                          </div>
+                          {segment.duration_minutes && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatDuration(segment.duration_minutes)}
+                            </span>
+                          )}
                         </div>
-                      )}
+                        
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-foreground">
+                            {(() => {
+                              // Use arrive_time if available, otherwise calculate from segment duration
+                              if (segment.arrive_time) {
+                                return formatTime(segment.arrive_time);
+                              } else if (segment.depart_time && segment.duration_minutes) {
+                                const departure = new Date(segment.depart_time);
+                                const arrival = new Date(departure.getTime() + segment.duration_minutes * 60 * 1000);
+                                return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                              } else if (segment.depart_time && flight.duration_minutes && flight.segments.length === 1) {
+                                // Single segment - use total flight duration
+                                const departure = new Date(segment.depart_time);
+                                const arrival = new Date(departure.getTime() + flight.duration_minutes * 60 * 1000);
+                                return arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                              }
+                              return "--:--";
+                            })()}
+                            {segmentArriveTz && (
+                              <span className="text-xs text-muted-foreground ml-1">({segmentArriveTz.abbr})</span>
+                            )}
+                            {' · '}{segment.to}
+                          </p>
+                        </div>
+
+                        {segment.aircraft && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Aircraft: {segment.aircraft}
+                          </p>
+                        )}
+
+                        {/* Layover info */}
+                        {segment.layover_minutes && index < flight.segments.length - 1 && (
+                          <div className={cn(
+                            "mt-3 px-2 py-1.5 rounded-md text-xs",
+                            segment.layover_minutes > 480 
+                              ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                              : "bg-muted text-muted-foreground"
+                          )}>
+                            Layover: {formatDuration(segment.layover_minutes)} in {segment.to}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
