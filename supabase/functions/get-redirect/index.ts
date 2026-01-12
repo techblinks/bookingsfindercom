@@ -5,59 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mock redirect data store - replace with database lookup
-const mockRedirects: Record<string, { url: string; partner: string; type: string }> = {
-  "redir-fl-1": {
-    url: "https://example.com/book/delta-jfk-lax",
-    partner: "Delta Air Lines",
-    type: "flight",
-  },
-  "redir-fl-2": {
-    url: "https://example.com/book/united-jfk-lax",
-    partner: "United Airlines",
-    type: "flight",
-  },
-  "redir-fl-3": {
-    url: "https://example.com/book/american-jfk-lax",
-    partner: "American Airlines",
-    type: "flight",
-  },
-  "redir-fl-4": {
-    url: "https://example.com/book/southwest-jfk-lax",
-    partner: "Southwest Airlines",
-    type: "flight",
-  },
-  "redir-fl-5": {
-    url: "https://example.com/book/jetblue-jfk-lax",
-    partner: "JetBlue Airways",
-    type: "flight",
-  },
-  "redir-ht-1": {
-    url: "https://example.com/book/grand-plaza",
-    partner: "Booking.com",
-    type: "hotel",
-  },
-  "redir-ht-2": {
-    url: "https://example.com/book/oceanview-resort",
-    partner: "Hotels.com",
-    type: "hotel",
-  },
-  "redir-ht-3": {
-    url: "https://example.com/book/urban-boutique",
-    partner: "Expedia",
-    type: "hotel",
-  },
-  "redir-ht-4": {
-    url: "https://example.com/book/sunset-tower",
-    partner: "Booking.com",
-    type: "hotel",
-  },
-  "redir-ht-5": {
-    url: "https://example.com/book/marina-bay",
-    partner: "Agoda",
-    type: "hotel",
-  },
-};
+// Travelpayouts affiliate base URLs
+const AVIASALES_BASE = "https://www.aviasales.com";
+const HOTELLOOK_BASE = "https://search.hotellook.com";
+
+interface RedirectRequest {
+  id: string;
+  type?: 'flight' | 'hotel';
+  // Flight params
+  origin?: string;
+  destination?: string;
+  departureDate?: string;
+  returnDate?: string;
+  airline?: string;
+  // Hotel params
+  hotelId?: string;
+  checkIn?: string;
+  checkOut?: string;
+  guests?: number;
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -73,8 +39,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const apiToken = Deno.env.get('TRAVELPAYOUTS_API_TOKEN');
     const url = new URL(req.url);
+    
     const id = url.searchParams.get('id');
+    const type = url.searchParams.get('type') as 'flight' | 'hotel' | null;
     
     if (!id) {
       return new Response(
@@ -83,26 +52,64 @@ Deno.serve(async (req) => {
       );
     }
 
-    // TODO: Replace with database lookup and affiliate link generation
-    const redirectData = mockRedirects[id];
-    
-    if (!redirectData) {
+    // Parse redirect parameters from query string
+    const origin = url.searchParams.get('origin');
+    const destination = url.searchParams.get('destination');
+    const departureDate = url.searchParams.get('departureDate');
+    const returnDate = url.searchParams.get('returnDate');
+    const airline = url.searchParams.get('airline');
+    const hotelId = url.searchParams.get('hotelId');
+    const checkIn = url.searchParams.get('checkIn');
+    const checkOut = url.searchParams.get('checkOut');
+    const guests = url.searchParams.get('guests');
+    const directLink = url.searchParams.get('link');
+
+    let redirectUrl = '';
+    let partner = '';
+
+    // If a direct link was provided (from API response), use it
+    if (directLink) {
+      redirectUrl = decodeURIComponent(directLink);
+      partner = type === 'hotel' ? 'Hotellook' : 'Aviasales';
+    } else if (type === 'flight' || id.startsWith('redir-fl')) {
+      // Build Aviasales search URL
+      const flightParams = new URLSearchParams();
+      if (origin) flightParams.append('origin_iata', origin);
+      if (destination) flightParams.append('destination_iata', destination);
+      if (departureDate) flightParams.append('depart_date', departureDate);
+      if (returnDate) flightParams.append('return_date', returnDate);
+      if (apiToken) flightParams.append('marker', apiToken);
+      
+      redirectUrl = `${AVIASALES_BASE}/search/${origin}${departureDate?.replace(/-/g, '')}${destination}${returnDate ? returnDate.replace(/-/g, '') : ''}1?${flightParams.toString()}`;
+      partner = 'Aviasales';
+    } else if (type === 'hotel' || id.startsWith('redir-ht')) {
+      // Build Hotellook search URL
+      const hotelParams = new URLSearchParams();
+      if (destination) hotelParams.append('destination', destination);
+      if (checkIn) hotelParams.append('checkIn', checkIn);
+      if (checkOut) hotelParams.append('checkOut', checkOut);
+      if (guests) hotelParams.append('adults', guests);
+      if (hotelId) hotelParams.append('hotelId', hotelId);
+      if (apiToken) hotelParams.append('marker', apiToken);
+      
+      redirectUrl = `${HOTELLOOK_BASE}/hotels?${hotelParams.toString()}`;
+      partner = 'Hotellook';
+    } else {
       return new Response(
-        JSON.stringify({ error: 'Redirect not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Unable to determine redirect type' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Log the click for analytics (TODO: store in database)
-    console.log(`Redirect click: ${id} -> ${redirectData.partner}`);
+    // Log the click for analytics
+    console.log(`Redirect click: ${id} -> ${partner} | ${redirectUrl}`);
 
-    // Return redirect data (client will handle the actual redirect)
     const response = {
       success: true,
       id: id,
-      redirectUrl: redirectData.url,
-      partner: redirectData.partner,
-      type: redirectData.type,
+      redirectUrl: redirectUrl,
+      partner: partner,
+      type: type || (id.startsWith('redir-fl') ? 'flight' : 'hotel'),
       timestamp: new Date().toISOString(),
     };
 
