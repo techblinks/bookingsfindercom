@@ -382,7 +382,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
           origin: params.origin,
           destination: params.destination,
           depart_date: params.departureDate,
-          return_date: params.returnDate,
+          ...(params.returnDate ? { return_date: params.returnDate } : {}),
           adults: params.passengers,
           currency: 'AUD',
         }),
