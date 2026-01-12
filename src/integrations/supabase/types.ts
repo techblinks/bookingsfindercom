@@ -14,7 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      affiliate_clicks: {
+        Row: {
+          action: string
+          airline_code: string | null
+          created_at: string
+          currency: string | null
+          departure_date: string | null
+          destination: string | null
+          flight_number: string | null
+          hotel_id: string | null
+          id: string
+          origin: string | null
+          price: number | null
+          redirect_url: string | null
+          return_date: string | null
+          type: string
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          airline_code?: string | null
+          created_at?: string
+          currency?: string | null
+          departure_date?: string | null
+          destination?: string | null
+          flight_number?: string | null
+          hotel_id?: string | null
+          id?: string
+          origin?: string | null
+          price?: number | null
+          redirect_url?: string | null
+          return_date?: string | null
+          type: string
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          airline_code?: string | null
+          created_at?: string
+          currency?: string | null
+          departure_date?: string | null
+          destination?: string | null
+          flight_number?: string | null
+          hotel_id?: string | null
+          id?: string
+          origin?: string | null
+          price?: number | null
+          redirect_url?: string | null
+          return_date?: string | null
+          type?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

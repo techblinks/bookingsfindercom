@@ -66,6 +66,42 @@ export interface RedirectData {
   type: string;
 }
 
+// Track affiliate clicks and searches
+export async function trackAffiliateEvent(data: {
+  type: 'flight' | 'hotel';
+  action: 'search' | 'click';
+  origin?: string;
+  destination?: string;
+  departureDate?: string;
+  returnDate?: string;
+  airlineCode?: string;
+  flightNumber?: string;
+  hotelId?: string;
+  price?: number;
+  currency?: string;
+  redirectUrl?: string;
+}): Promise<void> {
+  try {
+    await supabase.from('affiliate_clicks').insert({
+      type: data.type,
+      action: data.action,
+      origin: data.origin,
+      destination: data.destination,
+      departure_date: data.departureDate,
+      return_date: data.returnDate,
+      airline_code: data.airlineCode,
+      flight_number: data.flightNumber,
+      hotel_id: data.hotelId,
+      price: data.price,
+      currency: data.currency || 'USD',
+      redirect_url: data.redirectUrl,
+      user_agent: navigator.userAgent,
+    });
+  } catch (error) {
+    console.error('Failed to track affiliate event:', error);
+  }
+}
+
 // Search flights API
 export async function searchFlights(params: FlightSearchParams): Promise<{
   success: boolean;
@@ -88,6 +124,16 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
     if (!response.ok) {
       throw new Error(data.error || 'Failed to search flights');
     }
+
+    // Track the search
+    trackAffiliateEvent({
+      type: 'flight',
+      action: 'search',
+      origin: params.origin,
+      destination: params.destination,
+      departureDate: params.departureDate,
+      returnDate: params.returnDate,
+    });
 
     return {
       success: true,
@@ -127,6 +173,15 @@ export async function searchHotels(params: HotelSearchParams): Promise<{
     if (!response.ok) {
       throw new Error(data.error || 'Failed to search hotels');
     }
+
+    // Track the search
+    trackAffiliateEvent({
+      type: 'hotel',
+      action: 'search',
+      destination: params.destination,
+      departureDate: params.checkIn,
+      returnDate: params.checkOut,
+    });
 
     return {
       success: true,
