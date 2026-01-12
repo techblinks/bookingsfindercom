@@ -3,8 +3,9 @@ import Footer from "@/components/layout/Footer";
 import HeroSearch from "@/components/search/HeroSearch";
 import DestinationCard from "@/components/cards/DestinationCard";
 import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
+import PopularRoutes from "@/components/sections/PopularRoutes";
+import TopDeals from "@/components/sections/TopDeals";
 import { destinations } from "@/data/placeholderData";
-
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -68,58 +69,14 @@ const Index = () => {
           </div>
         </section>
 
+        {/* Popular Routes */}
+        <PopularRoutes />
+
         {/* Why Book With Us */}
         <WhyBookWithUs />
 
-        {/* Deals Section Placeholder */}
-        <section id="deals" className="py-12 md:py-16 bg-secondary/30">
-          <div className="container">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-                Today's Best Deals
-              </h2>
-              <p className="text-muted-foreground">
-                Limited time offers on flights and hotels
-              </p>
-            </div>
-
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="grid md:grid-cols-2 gap-0">
-                <div className="aspect-video md:aspect-auto relative">
-                  <img
-                    src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=1200&q=80"
-                    alt="Flash sale destination"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-4 left-4">
-                    <span className="deal-badge text-sm px-3 py-1">Flash Sale</span>
-                  </div>
-                </div>
-                <div className="p-6 md:p-8 flex flex-col justify-center">
-                  <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2">
-                    Tokyo & Kyoto Adventure
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    7 nights including round-trip flights and premium hotels
-                  </p>
-                  <div className="flex items-baseline gap-3 mb-6">
-                    <span className="text-3xl font-bold text-foreground">$1,299</span>
-                    <span className="text-lg text-muted-foreground line-through">$1,899</span>
-                    <span className="text-sm font-medium text-success">Save 32%</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button className="inline-flex items-center justify-center h-12 px-6 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors">
-                      View Deal
-                    </button>
-                    <p className="text-sm text-muted-foreground self-center">
-                      Offer ends in 2 days
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Top Deals */}
+        <TopDeals />
 
         {/* Trust Stats */}
         <section className="py-12 md:py-16">
