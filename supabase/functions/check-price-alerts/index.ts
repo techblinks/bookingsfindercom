@@ -182,16 +182,57 @@ serve(async (req) => {
       );
     }
 
-    // Log alerts that would be sent (email sending would go here)
+    // Send email notifications for price drops
+    let emailsSent = 0;
     if (alertsToNotify.length > 0) {
-      console.log(`${alertsToNotify.length} price alerts triggered:`);
-      alertsToNotify.forEach(({ search, newPrice, previousPrice }) => {
-        const savings = previousPrice - newPrice;
-        console.log(
-          `  -> ${search.email}: ${search.origin}-${search.destination} ` +
-          `dropped from $${previousPrice} to $${newPrice} (save $${savings})`
-        );
-      });
+      console.log(`Sending ${alertsToNotify.length} price alert emails...`);
+      
+      for (const { search, newPrice, previousPrice } of alertsToNotify) {
+        try {
+          // Build search URL
+          const searchParams = new URLSearchParams({
+            origin: search.origin,
+            destination: search.destination,
+            departureDate: search.departure_date,
+            passengers: search.passengers.toString(),
+            cabinClass: search.cabin_class,
+          });
+          if (search.return_date) {
+            searchParams.set('returnDate', search.return_date);
+          }
+          
+          // Call the send-price-alert function
+          const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-price-alert`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              to: search.email,
+              origin: search.origin,
+              destination: search.destination,
+              departureDate: search.departure_date,
+              returnDate: search.return_date,
+              previousPrice,
+              currentPrice: newPrice,
+              targetPrice: search.target_price,
+              currency: 'AUD',
+              searchUrl: `/flights?${searchParams.toString()}`,
+            }),
+          });
+          
+          if (emailResponse.ok) {
+            emailsSent++;
+            console.log(`Email sent to ${search.email} for ${search.origin}-${search.destination}`);
+          } else {
+            const errorText = await emailResponse.text();
+            console.error(`Failed to send email to ${search.email}:`, errorText);
+          }
+        } catch (emailError) {
+          console.error(`Error sending email to ${search.email}:`, emailError);
+        }
+      }
     }
 
     return new Response(
@@ -201,6 +242,7 @@ serve(async (req) => {
         priceDrops: results.filter(r => r.priceDropped).length,
         targetReached: results.filter(r => r.targetReached).length,
         alertsTriggered: alertsToNotify.length,
+        emailsSent,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
