@@ -11,6 +11,7 @@ import BookingRedirect from "./pages/BookingRedirect";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsConditions from "./pages/TermsConditions";
 import AffiliateDisclosure from "./pages/AffiliateDisclosure";
+import MyAlerts from "./pages/MyAlerts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/flights" element={<FlightResults />} />
           <Route path="/hotels" element={<HotelResults />} />
+          <Route path="/my-alerts" element={<MyAlerts />} />
           <Route path="/d/:slug" element={<DestinationPage />} />
           <Route path="/redirect" element={<BookingRedirect />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
