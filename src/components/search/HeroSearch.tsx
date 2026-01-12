@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plane, Building2, MapPin, Calendar, Users, Search, ArrowLeftRight, ArrowRight, Plus, X, CalendarRange } from "lucide-react";
+import { Plane, Building2, MapPin, Calendar, Users, Search, ArrowLeftRight, ArrowRight, Plus, X, CalendarRange, MapPinned } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { format, addDays, subDays } from "date-fns";
 import { toast } from "sonner";
 import LocationCombobox from "./LocationCombobox";
+import PassengerPicker, { PassengerCount } from "./PassengerPicker";
 
 type SearchType = "flights" | "hotels";
 type TripType = "roundtrip" | "oneway" | "multicity";
@@ -56,6 +57,7 @@ const HeroSearch = () => {
   const [tripType, setTripType] = useState<TripType>("roundtrip");
   const [isLoading, setIsLoading] = useState(false);
   const [flexibleDates, setFlexibleDates] = useState(false);
+  const [nearbyAirports, setNearbyAirports] = useState(false);
 
   // Flight form state
   const [flightFrom, setFlightFrom] = useState("");
@@ -64,7 +66,7 @@ const HeroSearch = () => {
   const [flightToDisplay, setFlightToDisplay] = useState("");
   const [departureDate, setDepartureDate] = useState<Date | undefined>();
   const [returnDate, setReturnDate] = useState<Date | undefined>();
-  const [passengers, setPassengers] = useState("1");
+  const [passengers, setPassengers] = useState<PassengerCount>({ adults: 1, children: 0, infants: 0 });
   const [cabinClass, setCabinClass] = useState("economy");
 
   // Multi-city legs
@@ -135,6 +137,8 @@ const HeroSearch = () => {
   };
 
   const handleFlightSearch = () => {
+    const totalPassengers = passengers.adults + passengers.children + passengers.infants;
+    
     if (tripType === "multicity") {
       // Validate multi-city
       const invalidLegs = multiCityLegs.filter(leg => !leg.from || !leg.to || !leg.date);
@@ -150,10 +154,16 @@ const HeroSearch = () => {
         origin: firstLeg.from.toUpperCase(),
         destination: firstLeg.to.toUpperCase(),
         departureDate: firstLeg.date,
-        passengers,
+        passengers: String(totalPassengers),
+        adults: String(passengers.adults),
+        children: String(passengers.children),
+        infants: String(passengers.infants),
         cabinClass,
         tripType: "multicity",
       });
+      if (nearbyAirports) {
+        params.append("nearbyAirports", "true");
+      }
       navigate(`/flights?${params.toString()}`);
       return;
     }
@@ -167,7 +177,10 @@ const HeroSearch = () => {
       origin: flightFrom.toUpperCase(),
       destination: flightTo.toUpperCase(),
       departureDate: format(departureDate, "yyyy-MM-dd"),
-      passengers,
+      passengers: String(totalPassengers),
+      adults: String(passengers.adults),
+      children: String(passengers.children),
+      infants: String(passengers.infants),
       cabinClass,
     });
 
@@ -177,6 +190,10 @@ const HeroSearch = () => {
 
     if (flexibleDates) {
       params.append("flexibleDates", "true");
+    }
+
+    if (nearbyAirports) {
+      params.append("nearbyAirports", "true");
     }
 
     navigate(`/flights?${params.toString()}`);
@@ -465,21 +482,7 @@ const HeroSearch = () => {
                   </Popover>
                 )}
 
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                  <Select value={passengers} onValueChange={setPassengers}>
-                    <SelectTrigger className="pl-10 h-12">
-                      <SelectValue placeholder="Passengers" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 Passenger</SelectItem>
-                      <SelectItem value="2">2 Passengers</SelectItem>
-                      <SelectItem value="3">3 Passengers</SelectItem>
-                      <SelectItem value="4">4 Passengers</SelectItem>
-                      <SelectItem value="5">5+ Passengers</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <PassengerPicker value={passengers} onChange={setPassengers} />
                 <Select value={cabinClass} onValueChange={setCabinClass}>
                   <SelectTrigger className="h-12">
                     <SelectValue placeholder="Cabin class" />
@@ -493,20 +496,39 @@ const HeroSearch = () => {
                 </Select>
               </div>
 
-              {/* Flexible Dates Toggle */}
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="flexible-dates"
-                  checked={flexibleDates}
-                  onCheckedChange={(checked) => setFlexibleDates(checked === true)}
-                />
-                <label
-                  htmlFor="flexible-dates"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
-                >
-                  <CalendarRange className="h-4 w-4 text-primary" />
-                  Show flexible dates with prices
-                </label>
+              {/* Search Options */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                {/* Flexible Dates Toggle */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="flexible-dates"
+                    checked={flexibleDates}
+                    onCheckedChange={(checked) => setFlexibleDates(checked === true)}
+                  />
+                  <label
+                    htmlFor="flexible-dates"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
+                  >
+                    <CalendarRange className="h-4 w-4 text-primary" />
+                    Flexible dates with prices
+                  </label>
+                </div>
+
+                {/* Nearby Airports Toggle */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="nearby-airports"
+                    checked={nearbyAirports}
+                    onCheckedChange={(checked) => setNearbyAirports(checked === true)}
+                  />
+                  <label
+                    htmlFor="nearby-airports"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
+                  >
+                    <MapPinned className="h-4 w-4 text-primary" />
+                    Include nearby airports
+                  </label>
+                </div>
               </div>
             </>
           )}
@@ -576,21 +598,7 @@ const HeroSearch = () => {
 
               {/* Passengers and Class */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 ml-9">
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                  <Select value={passengers} onValueChange={setPassengers}>
-                    <SelectTrigger className="pl-10 h-12">
-                      <SelectValue placeholder="Passengers" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 Passenger</SelectItem>
-                      <SelectItem value="2">2 Passengers</SelectItem>
-                      <SelectItem value="3">3 Passengers</SelectItem>
-                      <SelectItem value="4">4 Passengers</SelectItem>
-                      <SelectItem value="5">5+ Passengers</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <PassengerPicker value={passengers} onChange={setPassengers} />
                 <Select value={cabinClass} onValueChange={setCabinClass}>
                   <SelectTrigger className="h-12">
                     <SelectValue placeholder="Cabin class" />
@@ -602,6 +610,22 @@ const HeroSearch = () => {
                     <SelectItem value="first">First Class</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Nearby Airports Toggle */}
+              <div className="flex items-center gap-2 ml-9">
+                <Checkbox
+                  id="nearby-airports-multi"
+                  checked={nearbyAirports}
+                  onCheckedChange={(checked) => setNearbyAirports(checked === true)}
+                />
+                <label
+                  htmlFor="nearby-airports-multi"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
+                >
+                  <MapPinned className="h-4 w-4 text-primary" />
+                  Include nearby airports
+                </label>
               </div>
             </>
           )}
