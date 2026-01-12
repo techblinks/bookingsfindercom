@@ -102,11 +102,21 @@ export async function trackAffiliateEvent(data: {
   }
 }
 
-// Search flights API
+// New API response format
+export interface FlightSearchResponse {
+  flights: FlightResult[];
+  meta: {
+    total_found: number;
+    is_complete: boolean;
+  };
+}
+
+// Search flights API - updated to handle new response format
 export async function searchFlights(params: FlightSearchParams): Promise<{
   success: boolean;
   results: FlightResult[];
   totalResults: number;
+  isComplete: boolean;
   error?: string;
 }> {
   try {
@@ -116,7 +126,14 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify({
+        origin: params.origin,
+        destination: params.destination,
+        depart_date: params.departureDate,
+        return_date: params.returnDate,
+        adults: params.passengers || 1,
+        currency: params.currency || 'AUD',
+      }),
     });
 
     const data = await response.json();
@@ -135,10 +152,15 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
       returnDate: params.returnDate,
     });
 
+    // Handle new API format: { flights: [], meta: { total_found, is_complete } }
+    const flights = data.flights || data.results || [];
+    const meta = data.meta || { total_found: flights.length, is_complete: true };
+
     return {
       success: true,
-      results: data.results,
-      totalResults: data.totalResults,
+      results: flights,
+      totalResults: meta.total_found,
+      isComplete: meta.is_complete,
     };
   } catch (error) {
     console.error('Flight search error:', error);
@@ -146,6 +168,7 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
       success: false,
       results: [],
       totalResults: 0,
+      isComplete: true,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }

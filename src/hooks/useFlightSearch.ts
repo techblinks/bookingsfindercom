@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Flight, FlightSearchMeta, FilterState, SortOption, DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { supabase } from "@/integrations/supabase/client";
+import { trackAffiliateEvent } from "@/services/travelApi";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+
+// Polling configuration
+const POLL_INTERVAL_MS = 2000;
+const MAX_POLL_ATTEMPTS = 30;
 
 interface UseFlightSearchParams {
   origin: string;
@@ -27,10 +32,12 @@ interface UseFlightSearchReturn {
   resetFilters: () => void;
   filteredFlights: Flight[];
   airlines: { code: string; name: string; count: number }[];
+  searchProgress: number; // 0-100 progress percentage
 }
 
 // Helper to format minutes to "Xh Ym"
 export function formatDuration(minutes: number): string {
+  if (!minutes || minutes <= 0) return "N/A";
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return `${hours}h ${mins}m`;
@@ -46,39 +53,51 @@ function getHourFromISO(isoString: string): number {
   }
 }
 
-// Convert legacy FlightResult to new Flight format
-function convertLegacyFlight(legacy: any): Flight {
-  // Parse duration string to minutes
-  let durationMinutes = 0;
-  if (legacy.duration) {
-    const match = legacy.duration.match(/(\d+)h\s*(\d+)?m?/);
-    if (match) {
-      durationMinutes = parseInt(match[1]) * 60 + (parseInt(match[2]) || 0);
-    }
-  }
+// Convert API flight format to internal Flight format
+function convertApiFlight(apiFlight: any): Flight {
+  return {
+    id: apiFlight.id,
+    airline: apiFlight.airline || "Unknown",
+    airline_code: apiFlight.airline_code || apiFlight.airline || "",
+    price: apiFlight.price || 0,
+    currency: apiFlight.currency || "AUD",
+    duration_minutes: apiFlight.duration_minutes || 0,
+    stops: apiFlight.stops || 0,
+    segments: (apiFlight.segments || []).map((seg: any) => ({
+      from: seg.from || "",
+      to: seg.to || "",
+      depart_time: seg.depart_time || "",
+      arrive_time: seg.arrive_time || null,
+      airline: seg.airline || apiFlight.airline,
+      airline_code: seg.airline_code || apiFlight.airline_code,
+      flight_number: seg.flight_number,
+    })),
+    is_deal: apiFlight.is_deal,
+    link: apiFlight.link,
+  };
+}
 
-  // Build segments from departure/arrival info
-  const segments = [{
-    from: legacy.departureAirport || legacy.origin || "",
-    to: legacy.arrivalAirport || legacy.destination || "",
-    depart_time: legacy.departureTime || "",
-    arrive_time: legacy.arrivalTime || "",
-    airline: legacy.airline,
-    airline_code: legacy.airlineCode,
-    flight_number: legacy.flightNumber,
-  }];
+// Update filter ranges based on current flights
+function calculateFilterRanges(flights: Flight[]): Partial<FilterState> {
+  if (flights.length === 0) {
+    return {};
+  }
+  
+  const prices = flights.map(f => f.price).filter(p => p > 0);
+  const durations = flights.map(f => f.duration_minutes).filter(d => d > 0);
+  
+  if (prices.length === 0) return {};
+  
+  const minPrice = Math.floor(Math.min(...prices));
+  const maxPrice = Math.ceil(Math.max(...prices));
+  const maxDuration = durations.length > 0 ? Math.ceil(Math.max(...durations)) : 1440;
 
   return {
-    id: legacy.id,
-    airline: legacy.airline,
-    airline_code: legacy.airlineCode || legacy.airline,
-    price: legacy.price,
-    currency: legacy.currency || "USD",
-    duration_minutes: durationMinutes,
-    stops: legacy.stops || 0,
-    segments,
-    is_deal: legacy.isDeal,
-    link: legacy.link,
+    minPrice,
+    maxPrice,
+    priceRange: [minPrice, maxPrice],
+    maxDuration,
+    durationRange: [0, maxDuration],
   };
 }
 
@@ -89,8 +108,11 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("best");
+  const [searchProgress, setSearchProgress] = useState(0);
   
   const abortControllerRef = useRef<AbortController | null>(null);
+  const pollAttemptsRef = useRef(0);
+  const hasInitializedFiltersRef = useRef(false);
 
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -124,7 +146,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     const existing = acc.find(a => a.code === flight.airline_code);
     if (existing) {
       existing.count++;
-    } else {
+    } else if (flight.airline_code) {
       acc.push({ code: flight.airline_code, name: flight.airline, count: 1 });
     }
     return acc;
@@ -152,7 +174,8 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       }
       
       // Duration filter
-      if (flight.duration_minutes < filters.durationRange[0] || flight.duration_minutes > filters.durationRange[1]) {
+      if (flight.duration_minutes > 0 && 
+          (flight.duration_minutes < filters.durationRange[0] || flight.duration_minutes > filters.durationRange[1])) {
         return false;
       }
       
@@ -197,12 +220,25 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
+    pollAttemptsRef.current = 0;
+    hasInitializedFiltersRef.current = false;
 
     setIsLoading(true);
     setIsSearching(true);
     setError(null);
     setFlights([]);
     setMeta({ total_found: 0, is_complete: false });
+    setSearchProgress(0);
+
+    // Track the search
+    trackAffiliateEvent({
+      type: 'flight',
+      action: 'search',
+      origin: params.origin,
+      destination: params.destination,
+      departureDate: params.departureDate,
+      returnDate: params.returnDate,
+    });
 
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/search-flights`, {
@@ -214,10 +250,10 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
         body: JSON.stringify({
           origin: params.origin,
           destination: params.destination,
-          departureDate: params.departureDate,
-          returnDate: params.returnDate,
-          passengers: params.passengers,
-          cabinClass: params.cabinClass,
+          depart_date: params.departureDate,
+          return_date: params.returnDate,
+          adults: params.passengers,
+          currency: 'AUD',
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -228,32 +264,29 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
         throw new Error(data.error || 'Failed to search flights');
       }
 
-      // Convert legacy format to new format
-      const convertedFlights = (data.results || []).map(convertLegacyFlight);
+      // Handle new API format: { flights: [], meta: { total_found, is_complete } }
+      const apiFlights = data.flights || data.results || [];
+      const convertedFlights = apiFlights.map(convertApiFlight);
       
-      setFlights(convertedFlights);
+      // Deduplicate by ID
+      const uniqueFlights = Array.from(
+        new Map(convertedFlights.map((f: Flight) => [f.id, f])).values()
+      ) as Flight[];
+      
+      setFlights(uniqueFlights);
       setMeta({
-        total_found: convertedFlights.length,
-        is_complete: true,
+        total_found: data.meta?.total_found || uniqueFlights.length,
+        is_complete: data.meta?.is_complete ?? true,
       });
+      setSearchProgress(100);
 
       // Update filter ranges based on results
-      if (convertedFlights.length > 0) {
-        const prices = convertedFlights.map((f: Flight) => f.price);
-        const durations = convertedFlights.map((f: Flight) => f.duration_minutes);
-        const minPrice = Math.floor(Math.min(...prices));
-        const maxPrice = Math.ceil(Math.max(...prices));
-        const maxDuration = Math.ceil(Math.max(...durations));
-
-        setFilters(prev => ({
-          ...prev,
-          minPrice,
-          maxPrice,
-          priceRange: [minPrice, maxPrice],
-          maxDuration,
-          durationRange: [0, maxDuration],
-        }));
+      if (uniqueFlights.length > 0 && !hasInitializedFiltersRef.current) {
+        const ranges = calculateFilterRanges(uniqueFlights);
+        setFilters(prev => ({ ...prev, ...ranges }));
+        hasInitializedFiltersRef.current = true;
       }
+
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
@@ -289,5 +322,6 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     resetFilters,
     filteredFlights,
     airlines,
+    searchProgress,
   };
 }

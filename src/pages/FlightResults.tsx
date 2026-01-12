@@ -46,6 +46,7 @@ const FlightResults = () => {
     resetFilters,
     filteredFlights,
     airlines,
+    searchProgress,
   } = useFlightSearch({
     origin,
     destination,
@@ -328,6 +329,7 @@ const FlightResults = () => {
                 <SearchingIndicator
                   isComplete={meta.is_complete}
                   totalFound={meta.total_found}
+                  progress={searchProgress}
                 />
               </div>
             )}

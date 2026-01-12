@@ -4,12 +4,14 @@ import { Progress } from "@/components/ui/progress";
 interface SearchingIndicatorProps {
   isComplete: boolean;
   totalFound: number;
+  progress?: number;
   searchingText?: string;
 }
 
 const SearchingIndicator = ({ 
   isComplete, 
   totalFound,
+  progress = 65,
   searchingText = "Searching more airlines..." 
 }: SearchingIndicatorProps) => {
   if (isComplete) return null;
@@ -32,7 +34,7 @@ const SearchingIndicator = ({
           {totalFound} flight{totalFound !== 1 ? 's' : ''} found so far
         </p>
       </div>
-      <Progress value={65} className="w-24 h-1.5" />
+      <Progress value={progress} className="w-24 h-1.5" />
     </div>
   );
 };
