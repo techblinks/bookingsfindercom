@@ -8,7 +8,12 @@ const FlightSearchSchema = z.object({
   origin: z.string().min(3, "Origin must be a 3-letter airport code").max(3).toUpperCase(),
   destination: z.string().min(3, "Destination must be a 3-letter airport code").max(3).toUpperCase(),
   depart_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
-  return_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional(),
+  return_date: z.union([
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+    z.literal(""),
+    z.null(),
+    z.undefined(),
+  ]).optional().transform(val => val || undefined),
   adults: z.number().int().min(1).max(9).default(1),
   currency: z.string().length(3).default('AUD'),
 });
