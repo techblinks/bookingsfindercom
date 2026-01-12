@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, SlidersHorizontal, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import FlightFilters from "@/components/filters/FlightFilters";
@@ -17,109 +17,63 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-
-// Mock flight data - ready for API injection
-const mockFlights = [
-  {
-    id: "fl-1",
-    airline: "Delta Air Lines",
-    departureTime: "06:30",
-    arrivalTime: "09:45",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "5h 15m",
-    stops: 0,
-    price: 289,
-    currency: "$",
-    isDeal: true,
-  },
-  {
-    id: "fl-2",
-    airline: "United Airlines",
-    departureTime: "08:15",
-    arrivalTime: "14:30",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "6h 15m",
-    stops: 1,
-    price: 245,
-    currency: "$",
-    isDeal: false,
-  },
-  {
-    id: "fl-3",
-    airline: "American Airlines",
-    departureTime: "10:00",
-    arrivalTime: "13:20",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "5h 20m",
-    stops: 0,
-    price: 312,
-    currency: "$",
-    isDeal: false,
-  },
-  {
-    id: "fl-4",
-    airline: "Southwest",
-    departureTime: "14:45",
-    arrivalTime: "21:15",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "6h 30m",
-    stops: 1,
-    price: 198,
-    currency: "$",
-    isDeal: true,
-  },
-  {
-    id: "fl-5",
-    airline: "JetBlue",
-    departureTime: "16:30",
-    arrivalTime: "19:50",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "5h 20m",
-    stops: 0,
-    price: 329,
-    currency: "$",
-    isDeal: false,
-  },
-  {
-    id: "fl-6",
-    airline: "Delta Air Lines",
-    departureTime: "19:00",
-    arrivalTime: "22:25",
-    departureAirport: "JFK",
-    arrivalAirport: "LAX",
-    duration: "5h 25m",
-    stops: 0,
-    price: 275,
-    currency: "$",
-    isDeal: false,
-  },
-];
-
-// Placeholder redirect function - ready for implementation
-const handleBookNow = (flightId: string) => {
-  console.log(`Redirecting to booking page for flight: ${flightId}`);
-  // TODO: Implement actual redirect logic
-  // window.location.href = `/booking/${flightId}`;
-};
+import { searchFlights, getRedirectUrl, FlightResult } from "@/services/travelApi";
+import { toast } from "sonner";
 
 const FlightResults = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [flights, setFlights] = useState<FlightResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   
+  // Search params
+  const origin = searchParams.get("origin") || "";
+  const destination = searchParams.get("destination") || "";
+  const departureDate = searchParams.get("departureDate") || "";
+  const returnDate = searchParams.get("returnDate") || "";
+  const passengers = searchParams.get("passengers") || "1";
+  const cabinClass = searchParams.get("cabinClass") || "economy";
+
   // Filter states
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000]);
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
   const [selectedStops, setSelectedStops] = useState<number[]>([]);
   const [selectedDepartureTimes, setSelectedDepartureTimes] = useState<string[]>([]);
 
-  // Simulate empty state for testing - set to true to see empty state
-  const [showEmptyState] = useState(false);
+  useEffect(() => {
+    const fetchFlights = async () => {
+      if (!origin || !destination || !departureDate) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const result = await searchFlights({
+          origin,
+          destination,
+          departureDate,
+          returnDate: returnDate || undefined,
+          passengers: parseInt(passengers),
+          cabinClass,
+        });
+
+        if (result.success) {
+          setFlights(result.results);
+        } else {
+          toast.error(result.error || "Failed to search flights");
+        }
+      } catch (error) {
+        console.error("Flight search error:", error);
+        toast.error("An error occurred while searching for flights");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFlights();
+  }, [origin, destination, departureDate, returnDate, passengers, cabinClass]);
 
   const clearFilters = () => {
     setPriceRange([0, 2000]);
@@ -128,8 +82,71 @@ const FlightResults = () => {
     setSelectedDepartureTimes([]);
   };
 
-  const flights = showEmptyState ? [] : mockFlights;
-  const totalResults = flights.length;
+  // Apply filters
+  const filteredFlights = flights.filter((flight) => {
+    // Price filter
+    if (flight.price < priceRange[0] || flight.price > priceRange[1]) {
+      return false;
+    }
+    // Airlines filter
+    if (selectedAirlines.length > 0 && !selectedAirlines.includes(flight.airline)) {
+      return false;
+    }
+    // Stops filter
+    if (selectedStops.length > 0 && !selectedStops.includes(flight.stops)) {
+      return false;
+    }
+    return true;
+  });
+
+  const handleBookNow = async (flightId: string) => {
+    const flight = flights.find(f => f.id === flightId);
+    if (!flight) return;
+
+    try {
+      // If the API returned a direct link, use it
+      if (flight.link) {
+        const result = await getRedirectUrl({
+          id: flightId,
+          type: 'flight',
+          link: flight.link,
+        });
+        if (result.success && result.redirectUrl) {
+          window.open(result.redirectUrl, '_blank');
+          return;
+        }
+      }
+
+      // Fallback: build redirect URL with search params
+      const result = await getRedirectUrl({
+        id: flightId,
+        type: 'flight',
+        origin,
+        destination,
+        departureDate,
+        returnDate: returnDate || undefined,
+        airline: flight.airlineCode,
+      });
+
+      if (result.success && result.redirectUrl) {
+        window.open(result.redirectUrl, '_blank');
+      } else {
+        toast.error("Could not generate booking link");
+      }
+    } catch (error) {
+      console.error("Redirect error:", error);
+      toast.error("An error occurred");
+    }
+  };
+
+  const totalResults = filteredFlights.length;
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -148,16 +165,18 @@ const FlightResults = () => {
               </Link>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  New York (JFK) → Los Angeles (LAX)
+                  {origin} → {destination}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Mon, Jan 15 · 1 Adult · Economy
+                  {formatDate(departureDate)}{returnDate ? ` - ${formatDate(returnDate)}` : ""} · {passengers} {parseInt(passengers) === 1 ? "Adult" : "Adults"} · {cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm">
-              Modify Search
-            </Button>
+            <Link to="/">
+              <Button variant="outline" size="sm">
+                Modify Search
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -273,15 +292,16 @@ const FlightResults = () => {
                 Array.from({ length: 5 }).map((_, index) => (
                   <FlightCardSkeleton key={index} />
                 ))
-              ) : flights.length === 0 ? (
+              ) : filteredFlights.length === 0 ? (
                 // Empty state
                 <EmptyFlightResults onClearFilters={clearFilters} />
               ) : (
                 // Flight results
-                flights.map((flight) => (
+                filteredFlights.map((flight) => (
                   <FlightResultCard
                     key={flight.id}
                     {...flight}
+                    currency="$"
                     onBookNow={handleBookNow}
                   />
                 ))
@@ -289,7 +309,7 @@ const FlightResults = () => {
             </div>
 
             {/* Pagination */}
-            {!isLoading && flights.length > 0 && (
+            {!isLoading && filteredFlights.length > 0 && (
               <div className="mt-8">
                 <Pagination>
                   <PaginationContent>
@@ -313,33 +333,6 @@ const FlightResults = () => {
                       >
                         1
                       </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink
-                        href="#"
-                        isActive={currentPage === 2}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(2);
-                        }}
-                      >
-                        2
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink
-                        href="#"
-                        isActive={currentPage === 3}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(3);
-                        }}
-                      >
-                        3
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationEllipsis />
                     </PaginationItem>
                     <PaginationItem>
                       <PaginationNext
