@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Clock, Play, CheckCircle, AlertCircle, ExternalLink, Copy, Loader2 } from 'lucide-react';
+import { Clock, Play, CheckCircle, AlertCircle, ExternalLink, Copy, Loader2, LogOut, Shield } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
 
 interface CheckResult {
   message: string;
@@ -20,6 +21,7 @@ interface CheckResult {
 }
 
 export default function AdminAlerts() {
+  const { user, isLoading: authLoading, isAdmin, signOut } = useAdminAuth();
   const [isRunning, setIsRunning] = useState(false);
   const [lastResult, setLastResult] = useState<CheckResult | null>(null);
   const [lastRunTime, setLastRunTime] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export default function AdminAlerts() {
       setLastRunTime(new Date().toLocaleString());
       
       toast.success('Price check completed', {
-        description: `Checked ${data.checked} alerts, ${data.emailsSent} emails sent`,
+        description: `Checked ${data.checked} alerts, ${data.emailsSent || 0} emails sent`,
       });
     } catch (err) {
       console.error('Error running price check:', err);
@@ -57,22 +59,96 @@ export default function AdminAlerts() {
     toast.success('Copied to clipboard');
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Signed out successfully');
+  };
+
+  // Loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Not authenticated - show login
+  if (!user || !isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            {user && !isAdmin ? (
+              <Card className="text-center">
+                <CardHeader>
+                  <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <Shield className="h-6 w-6 text-destructive" />
+                  </div>
+                  <CardTitle>Access Denied</CardTitle>
+                  <CardDescription>
+                    You don't have admin privileges. Please sign in with an admin account.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={handleSignOut} variant="outline" className="gap-2">
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <AdminLoginForm />
+            )}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-              <Clock className="h-8 w-8 text-primary" />
+          {/* Header with user info */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="text-center flex-1">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                <Clock className="h-8 w-8 text-primary" />
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Price Alert Scheduler</h1>
+              <p className="text-muted-foreground">
+                Set up automatic price monitoring for flight alerts
+              </p>
             </div>
-            <h1 className="text-3xl font-bold mb-2">Price Alert Scheduler</h1>
-            <p className="text-muted-foreground">
-              Set up automatic price monitoring for flight alerts
-            </p>
           </div>
+
+          {/* Admin bar */}
+          <Card className="bg-muted/30">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="gap-1">
+                    <Shield className="h-3 w-3" />
+                    Admin
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">{user.email}</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Manual Run */}
           <Card>
@@ -124,7 +200,7 @@ export default function AdminAlerts() {
                       <div className="text-xs text-muted-foreground">Targets Hit</div>
                     </div>
                     <div className="text-center p-2 rounded bg-background">
-                      <div className="text-2xl font-bold text-purple-600">{lastResult.emailsSent}</div>
+                      <div className="text-2xl font-bold text-purple-600">{lastResult.emailsSent || 0}</div>
                       <div className="text-xs text-muted-foreground">Emails Sent</div>
                     </div>
                   </div>
