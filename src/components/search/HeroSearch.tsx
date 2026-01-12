@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import LocationCombobox from "./LocationCombobox";
 
 type SearchType = "flights" | "hotels";
 
@@ -21,7 +22,9 @@ const HeroSearch = () => {
 
   // Flight form state
   const [flightFrom, setFlightFrom] = useState("");
+  const [flightFromDisplay, setFlightFromDisplay] = useState("");
   const [flightTo, setFlightTo] = useState("");
+  const [flightToDisplay, setFlightToDisplay] = useState("");
   const [departureDate, setDepartureDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [passengers, setPassengers] = useState("1");
@@ -39,9 +42,12 @@ const HeroSearch = () => {
   ];
 
   const swapLocations = () => {
-    const temp = flightFrom;
+    const tempCode = flightFrom;
+    const tempDisplay = flightFromDisplay;
     setFlightFrom(flightTo);
-    setFlightTo(temp);
+    setFlightFromDisplay(flightToDisplay);
+    setFlightTo(tempCode);
+    setFlightToDisplay(tempDisplay);
   };
 
   const handleFlightSearch = () => {
@@ -110,13 +116,14 @@ const HeroSearch = () => {
           {/* Row 1: From/To */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="relative flex items-center">
-              <div className="flex-1 relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+              <div className="flex-1">
+                <LocationCombobox
+                  value={flightFromDisplay}
+                  onChange={(code, airport) => {
+                    setFlightFrom(code);
+                    setFlightFromDisplay(airport ? `${airport.city} (${airport.code})` : code);
+                  }}
                   placeholder="From (e.g., JFK, NYC)"
-                  className="pl-10 h-12"
-                  value={flightFrom}
-                  onChange={(e) => setFlightFrom(e.target.value)}
                 />
               </div>
               <Button 
@@ -128,13 +135,14 @@ const HeroSearch = () => {
                 <ArrowLeftRight className="h-4 w-4" />
               </Button>
             </div>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+            <div>
+              <LocationCombobox
+                value={flightToDisplay}
+                onChange={(code, airport) => {
+                  setFlightTo(code);
+                  setFlightToDisplay(airport ? `${airport.city} (${airport.code})` : code);
+                }}
                 placeholder="To (e.g., LAX, Los Angeles)"
-                className="pl-10 h-12"
-                value={flightTo}
-                onChange={(e) => setFlightTo(e.target.value)}
               />
             </div>
           </div>
