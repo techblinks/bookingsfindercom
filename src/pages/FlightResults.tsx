@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, SlidersHorizontal, X, Plane } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -9,14 +9,39 @@ import FlightCardSkeleton from "@/components/flights/FlightCardSkeleton";
 import EmptyFlightState from "@/components/flights/EmptyFlightState";
 import SearchingIndicator from "@/components/flights/SearchingIndicator";
 import SortDropdown from "@/components/flights/SortDropdown";
+import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
+import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
 import { Button } from "@/components/ui/button";
-import { useFlightSearch } from "@/hooks/useFlightSearch";
+import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
+
+// Generate mock flexible dates data (would come from backend in production)
+const generateFlexibleDates = (baseDate: string, cheapestPrice: number) => {
+  const dates = [];
+  const base = new Date(baseDate);
+  
+  for (let i = -3; i <= 10; i++) {
+    const date = new Date(base);
+    date.setDate(date.getDate() + i);
+    
+    // Simulate varying prices
+    const variance = (Math.random() - 0.3) * 0.4; // -30% to +10%
+    const price = i === 0 ? cheapestPrice : Math.round(cheapestPrice * (1 + variance));
+    
+    dates.push({
+      date: date.toISOString().split('T')[0],
+      price: price > 0 ? price : null,
+      isCheapest: i === 0,
+    });
+  }
+  
+  return dates;
+};
 
 const FlightResults = () => {
   const [searchParams] = useSearchParams();
@@ -47,6 +72,8 @@ const FlightResults = () => {
     filteredFlights,
     airlines,
     searchProgress,
+    cheapestPrice,
+    fastestDuration,
   } = useFlightSearch({
     origin,
     destination,
@@ -55,6 +82,12 @@ const FlightResults = () => {
     passengers,
     cabinClass,
   });
+
+  // Generate flexible dates
+  const flexibleDates = useMemo(() => {
+    if (!departureDate || cheapestPrice <= 0) return [];
+    return generateFlexibleDates(departureDate, cheapestPrice);
+  }, [departureDate, cheapestPrice]);
 
   // Reset display count when filters change
   useEffect(() => {
@@ -163,6 +196,13 @@ const FlightResults = () => {
     }
   };
 
+  // Handle flexible date selection
+  const handleDateSelect = (date: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("departureDate", date);
+    window.location.href = `/flights?${params.toString()}`;
+  };
+
   // Format date for display
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -176,12 +216,19 @@ const FlightResults = () => {
 
   const totalResults = filteredFlights.length;
 
+  // Get best deal flight for highlight
+  const bestDealFlight = filteredFlights.length > 0 
+    ? filteredFlights.reduce((best, f) => 
+        (f.deal_score || 0) > (best.deal_score || 0) ? f : best
+      , filteredFlights[0])
+    : null;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      {/* Search Summary Bar */}
-      <div className="bg-card border-b border-border sticky top-0 z-30">
+      {/* Search Summary Bar - Sticky */}
+      <div className="bg-card border-b border-border sticky top-0 z-30 shadow-sm">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
@@ -206,11 +253,21 @@ const FlightResults = () => {
                 </p>
               </div>
             </div>
-            <Link to="/" className="shrink-0">
-              <Button variant="outline" size="sm" className="h-9">
-                Edit
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Quick stats */}
+              {!isLoading && cheapestPrice > 0 && (
+                <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground mr-2">
+                  <span>From <span className="font-semibold text-foreground">${cheapestPrice}</span></span>
+                  <span className="w-px h-4 bg-border" />
+                  <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
+                </div>
+              )}
+              <Link to="/" className="shrink-0">
+                <Button variant="outline" size="sm" className="h-9">
+                  Edit
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -220,7 +277,7 @@ const FlightResults = () => {
         <div className="flex gap-6">
           {/* Desktop Sidebar Filters */}
           <aside className="hidden lg:block w-72 shrink-0">
-            <div className="sticky top-[72px]">
+            <div className="sticky top-[72px] space-y-4">
               <FlightFiltersPanel
                 filters={filters}
                 airlines={airlines}
@@ -304,20 +361,52 @@ const FlightResults = () => {
 
           {/* Results */}
           <div className="flex-1 min-w-0">
+            {/* Flexible Dates Matrix */}
+            {!isLoading && flexibleDates.length > 0 && (
+              <div className="mb-4">
+                <FlexibleDatesMatrix
+                  dates={flexibleDates}
+                  selectedDate={departureDate}
+                  currency="$"
+                  onDateSelect={handleDateSelect}
+                />
+              </div>
+            )}
+
+            {/* Nearby Airport Suggestion - Show if applicable */}
+            {!isLoading && bestDealFlight?.nearby_airport_savings && (
+              <div className="mb-4">
+                <NearbyAirportSuggestion
+                  airport={bestDealFlight.nearby_airport_savings.airport}
+                  airportName={bestDealFlight.nearby_airport_savings.airport_name}
+                  savings={bestDealFlight.nearby_airport_savings.savings}
+                  currency="$"
+                />
+              </div>
+            )}
+
             {/* Results Header */}
-            <div className="flex items-center justify-between mb-4 gap-4">
+            <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
               <div>
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground animate-pulse">
                     Searching for flights...
                   </p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground tabular-nums">
-                      {totalResults.toLocaleString()}
-                    </span>{" "}
-                    flight{totalResults !== 1 ? 's' : ''} found
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground tabular-nums">
+                        {totalResults.toLocaleString()}
+                      </span>{" "}
+                      flight{totalResults !== 1 ? 's' : ''} found
+                    </p>
+                    {bestDealFlight && bestDealFlight.deal_score && bestDealFlight.deal_score >= 80 && (
+                      <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span className="font-medium">Great deals available!</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               <SortDropdown value={sortBy} onChange={setSortBy} />

@@ -1,5 +1,8 @@
 // Flight data types matching backend contract
 
+export type FlightWarning = 'long_layover' | 'overnight_stop' | 'self_transfer' | 'airport_change';
+export type PriceConfidence = 'low' | 'average' | 'high';
+
 export interface FlightSegment {
   from: string;
   to: string;
@@ -10,6 +13,7 @@ export interface FlightSegment {
   flight_number?: string;
   aircraft?: string;
   duration_minutes?: number;
+  layover_minutes?: number;
 }
 
 export interface Flight {
@@ -26,12 +30,25 @@ export interface Flight {
   cabin_class?: string;
   link?: string;
   is_deal?: boolean;
+  // Smart enhancements
+  deal_score?: number; // 0-100
+  price_confidence?: PriceConfidence;
+  price_trend?: 'rising' | 'stable' | 'falling';
+  warnings?: FlightWarning[];
+  average_price?: number;
+  nearby_airport_savings?: {
+    airport: string;
+    airport_name: string;
+    savings: number;
+  };
 }
 
 export interface FlightSearchMeta {
   total_found: number;
   is_complete: boolean;
   search_id?: string;
+  cheapest_price?: number;
+  fastest_duration?: number;
 }
 
 export interface FlightSearchResponse {
@@ -70,3 +87,16 @@ export const STOP_OPTIONS = [
   { value: 1, label: "1 Stop" },
   { value: 2, label: "2+ Stops" },
 ] as const;
+
+export const WARNING_LABELS: Record<FlightWarning, { label: string; icon: string }> = {
+  long_layover: { label: 'Long layover (8h+)', icon: '⏱️' },
+  overnight_stop: { label: 'Overnight stop', icon: '🌙' },
+  self_transfer: { label: 'Self-transfer required', icon: '🧳' },
+  airport_change: { label: 'Airport change required', icon: '🚌' },
+};
+
+export const PRICE_CONFIDENCE_CONFIG: Record<PriceConfidence, { label: string; color: string; recommendation: string }> = {
+  low: { label: 'Low confidence', color: 'text-amber-600', recommendation: 'Price may change' },
+  average: { label: 'Average confidence', color: 'text-blue-600', recommendation: 'Good time to book' },
+  high: { label: 'High confidence', color: 'text-emerald-600', recommendation: 'Great price - book now!' },
+};

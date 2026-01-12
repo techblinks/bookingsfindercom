@@ -5,6 +5,9 @@ import { Flight } from "@/types/flight";
 import { formatDuration } from "@/hooks/useFlightSearch";
 import { getAirlineLogo, getAirlineName } from "@/lib/airlineLogos";
 import { cn } from "@/lib/utils";
+import DealScoreBadge from "./DealScoreBadge";
+import PriceConfidenceIndicator from "./PriceConfidenceIndicator";
+import FlightWarningBadges from "./FlightWarningBadges";
 
 interface FlightCardProps {
   flight: Flight;
@@ -26,7 +29,6 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
   // Format times
   const formatTime = (isoString: string) => {
     try {
-      // Handle both ISO strings and simple time strings
       if (isoString.includes('T') || isoString.includes('-')) {
         const date = new Date(isoString);
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -46,6 +48,9 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
       ? flight.segments.slice(0, -1).map(s => s.to)
       : []);
 
+  // Check for long layovers
+  const hasWarnings = flight.warnings && flight.warnings.length > 0;
+
   return (
     <article 
       className={cn(
@@ -56,8 +61,8 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
       {/* Main Card Content */}
       <div className="p-4 md:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-          {/* Airline Info */}
-          <div className="flex items-center gap-3 lg:w-40 shrink-0">
+          {/* Airline Info + Deal Score */}
+          <div className="flex items-center gap-3 lg:w-44 shrink-0">
             <div className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
               {logoUrl && !logoError ? (
                 <img
@@ -98,6 +103,9 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
                 <Clock className="h-3 w-3" />
                 <span className="font-medium tabular-nums">{formatDuration(flight.duration_minutes)}</span>
+                {hasWarnings && (
+                  <FlightWarningBadges warnings={flight.warnings!} compact />
+                )}
               </div>
               
               <div className="w-full relative py-1.5">
@@ -145,18 +153,37 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
             </div>
           </div>
 
-          {/* Price & Action */}
-          <div className="flex items-center justify-between lg:flex-col lg:items-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 lg:border-l border-border lg:pl-5 lg:min-w-[140px] shrink-0">
-            <div className="text-right">
-              {flight.is_deal && (
+          {/* Price, Deal Score & Action */}
+          <div className="flex items-center justify-between lg:flex-col lg:items-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 lg:border-l border-border lg:pl-5 lg:min-w-[160px] shrink-0">
+            <div className="text-right space-y-1">
+              {/* Deal Score Badge */}
+              {flight.deal_score !== undefined && (
+                <div className="mb-1.5">
+                  <DealScoreBadge score={flight.deal_score} size="sm" showLabel={false} />
+                </div>
+              )}
+              
+              {/* Legacy deal badge fallback */}
+              {flight.is_deal && !flight.deal_score && (
                 <span className="inline-block bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-semibold px-2 py-0.5 rounded-full mb-1">
                   Best Deal
                 </span>
               )}
+              
               <p className="text-2xl font-bold text-foreground tabular-nums">
                 <span className="text-sm font-normal text-muted-foreground mr-0.5">{currency}</span>
                 {flight.price.toLocaleString()}
               </p>
+              
+              {/* Price Confidence */}
+              {flight.price_confidence && (
+                <PriceConfidenceIndicator
+                  confidence={flight.price_confidence}
+                  trend={flight.price_trend}
+                  compact
+                />
+              )}
+              
               <p className="text-xs text-muted-foreground">per person</p>
             </div>
             <Button
@@ -193,58 +220,107 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
       {/* Expanded Details */}
       {isExpanded && (
         <div className="border-t border-border bg-muted/30 p-4 md:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
-          <h4 className="text-sm font-semibold text-foreground mb-4">Flight Details</h4>
-          
-          <div className="space-y-4">
-            {flight.segments.map((segment, index) => (
-              <div key={index} className="flex gap-4">
-                {/* Timeline indicator */}
-                <div className="flex flex-col items-center">
-                  <div className="w-3 h-3 rounded-full bg-primary shrink-0" />
-                  {index < flight.segments.length - 1 && (
-                    <div className="w-0.5 flex-1 bg-border my-1" />
-                  )}
-                </div>
-
-                {/* Segment info */}
-                <div className="flex-1 pb-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {formatTime(segment.depart_time)} · {segment.from}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {segment.airline_code || flight.airline_code} {segment.flight_number || ""}
-                      </p>
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Flight Segments */}
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-foreground mb-4">Flight Details</h4>
+              
+              <div className="space-y-4">
+                {flight.segments.map((segment, index) => (
+                  <div key={index} className="flex gap-4">
+                    {/* Timeline indicator */}
+                    <div className="flex flex-col items-center">
+                      <div className="w-3 h-3 rounded-full bg-primary shrink-0" />
+                      {index < flight.segments.length - 1 && (
+                        <div className="w-0.5 flex-1 bg-border my-1" />
+                      )}
                     </div>
-                    {segment.duration_minutes && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatDuration(segment.duration_minutes)}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="mt-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {formatTime(segment.arrive_time)} · {segment.to}
-                    </p>
-                  </div>
 
-                  {segment.aircraft && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Aircraft: {segment.aircraft}
-                    </p>
-                  )}
+                    {/* Segment info */}
+                    <div className="flex-1 pb-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {formatTime(segment.depart_time)} · {segment.from}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {segment.airline_code || flight.airline_code} {segment.flight_number || ""}
+                          </p>
+                        </div>
+                        {segment.duration_minutes && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatDuration(segment.duration_minutes)}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="mt-2">
+                        <p className="text-sm font-medium text-foreground">
+                          {formatTime(segment.arrive_time)} · {segment.to}
+                        </p>
+                      </div>
+
+                      {segment.aircraft && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Aircraft: {segment.aircraft}
+                        </p>
+                      )}
+
+                      {/* Layover info */}
+                      {segment.layover_minutes && index < flight.segments.length - 1 && (
+                        <div className={cn(
+                          "mt-3 px-2 py-1.5 rounded-md text-xs",
+                          segment.layover_minutes > 480 
+                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                            : "bg-muted text-muted-foreground"
+                        )}>
+                          Layover: {formatDuration(segment.layover_minutes)} in {segment.to}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Side Panel - Warnings & Price Info */}
+            <div className="lg:w-56 space-y-4">
+              {/* Warnings */}
+              {hasWarnings && (
+                <div>
+                  <h5 className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">
+                    Important Info
+                  </h5>
+                  <FlightWarningBadges warnings={flight.warnings!} />
+                </div>
+              )}
+
+              {/* Price Confidence Detail */}
+              {flight.price_confidence && (
+                <div>
+                  <h5 className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">
+                    Price Analysis
+                  </h5>
+                  <PriceConfidenceIndicator
+                    confidence={flight.price_confidence}
+                    trend={flight.price_trend}
+                    averagePrice={flight.average_price}
+                    currentPrice={flight.price}
+                    currency={currency}
+                  />
+                </div>
+              )}
+
+              {/* Baggage Info Placeholder */}
+              <div>
+                <h5 className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">
+                  Baggage
+                </h5>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-2.5">
+                  <Luggage className="h-4 w-4" />
+                  <span>Details at booking</span>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Baggage Info Placeholder */}
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Luggage className="h-4 w-4" />
-              <span>Baggage information will be shown at booking</span>
             </div>
           </div>
         </div>
