@@ -157,7 +157,7 @@ const FlightResults = () => {
     return () => observer.disconnect();
   }, [hasMore, isLoading, loadMore]);
 
-  // Handle booking
+  // Handle booking - navigate to redirect interstitial page
   const handleBookNow = async (flightId: string) => {
     const flight = flights.find(f => f.id === flightId);
     if (!flight) return;
@@ -188,7 +188,16 @@ const FlightResults = () => {
       });
 
       if (result.success && result.redirectUrl) {
-        window.open(result.redirectUrl, '_blank');
+        // Navigate to the interstitial redirect page instead of opening directly
+        const redirectParams = new URLSearchParams({
+          url: result.redirectUrl,
+          partner: 'Aviasales',
+          type: 'flight',
+          origin: origin || '',
+          destination: destination || '',
+          price: flight.price?.toString() || '',
+        });
+        window.open(`/redirect?${redirectParams.toString()}`, '_blank');
       } else {
         toast.error("Could not generate booking link");
       }

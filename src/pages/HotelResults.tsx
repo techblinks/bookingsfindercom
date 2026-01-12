@@ -103,28 +103,37 @@ const HotelResults = () => {
     if (!hotel) return;
 
     try {
-      // If the API returned a direct link, use it
-      if (hotel.link) {
-        window.open(hotel.link, '_blank');
-        return;
+      let affiliateUrl = hotel.link;
+      
+      // If no direct link, get one from the API
+      if (!affiliateUrl) {
+        const result = await getRedirectUrl({
+          id: hotelId,
+          type: 'hotel',
+          destination,
+          checkIn,
+          checkOut,
+          guests: parseInt(guests),
+          hotelId: hotel.hotelId?.toString(),
+        });
+
+        if (result.success && result.redirectUrl) {
+          affiliateUrl = result.redirectUrl;
+        } else {
+          toast.error("Could not generate booking link");
+          return;
+        }
       }
 
-      // Fallback: build redirect URL with search params
-      const result = await getRedirectUrl({
-        id: hotelId,
+      // Navigate to the interstitial redirect page
+      const redirectParams = new URLSearchParams({
+        url: affiliateUrl,
+        partner: 'Hotellook',
         type: 'hotel',
-        destination,
-        checkIn,
-        checkOut,
-        guests: parseInt(guests),
-        hotelId: hotel.hotelId?.toString(),
+        destination: destination || '',
+        price: hotel.price?.toString() || '',
       });
-
-      if (result.success && result.redirectUrl) {
-        window.open(result.redirectUrl, '_blank');
-      } else {
-        toast.error("Could not generate booking link");
-      }
+      window.open(`/redirect?${redirectParams.toString()}`, '_blank');
     } catch (error) {
       console.error("Redirect error:", error);
       toast.error("An error occurred");
