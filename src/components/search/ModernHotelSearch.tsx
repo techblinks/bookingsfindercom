@@ -342,187 +342,200 @@ const ModernHotelSearch = () => {
 
   // Desktop Layout
   return (
-    <div className="space-y-4">
-      {/* Search Fields Row */}
-      <div className="grid grid-cols-12 gap-3">
-        {/* Destination */}
-        <div className="col-span-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-12 w-full justify-start text-left font-normal",
-                  !destination && "text-muted-foreground"
-                )}
-              >
-                <MapPin className="mr-2 h-4 w-4 shrink-0" />
-                <span className="truncate">
-                  {destination || "Where are you going?"}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="start">
-              <div className="space-y-4">
-                <Input
-                  placeholder="Search city, hotel, or landmark..."
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  autoFocus
+    <div className="space-y-6">
+      {/* Main Search Container */}
+      <div className="bg-card border border-border rounded-2xl p-2 shadow-sm">
+        <div className="flex items-stretch gap-0">
+          {/* Destination */}
+          <div className="flex-[2] min-w-0 border-r border-border">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="w-full h-full px-4 py-3 text-left hover:bg-muted/50 transition-colors rounded-l-xl">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Destination</div>
+                  <div className={cn(
+                    "text-sm font-medium flex items-center gap-2",
+                    !destination && "text-muted-foreground"
+                  )}>
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {destination || "Where are you going?"}
+                    </span>
+                  </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="start">
+                <div className="space-y-4">
+                  <Input
+                    placeholder="Search city, hotel, or landmark..."
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    autoFocus
+                    className="h-11"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-2">
+                      Popular destinations
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {popularDestinations.slice(0, 6).map((city) => (
+                        <button
+                          key={city}
+                          onClick={() => setDestination(city)}
+                          className="p-2.5 text-left text-sm rounded-lg hover:bg-muted transition-colors"
+                        >
+                          {city}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Check-in */}
+          <div className="w-36 border-r border-border">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="w-full h-full px-4 py-3 text-left hover:bg-muted/50 transition-colors">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Check-in</div>
+                  <div className={cn(
+                    "text-sm font-medium flex items-center gap-2",
+                    !checkIn && "text-muted-foreground"
+                  )}>
+                    <Calendar className="h-4 w-4 shrink-0" />
+                    {checkIn ? format(checkIn, "EEE, MMM d") : "Add date"}
+                  </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={checkIn}
+                  onSelect={(date) => {
+                    setCheckIn(date);
+                    if (date && checkOut && date >= checkOut) {
+                      setCheckOut(undefined);
+                    }
+                  }}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
                 />
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-2">
-                    Popular
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Check-out */}
+          <div className="w-36 border-r border-border">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="w-full h-full px-4 py-3 text-left hover:bg-muted/50 transition-colors">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Check-out</div>
+                  <div className={cn(
+                    "text-sm font-medium flex items-center gap-2",
+                    !checkOut && "text-muted-foreground"
+                  )}>
+                    <Calendar className="h-4 w-4 shrink-0" />
+                    {checkOut ? format(checkOut, "EEE, MMM d") : "Add date"}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {popularDestinations.slice(0, 6).map((city) => (
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={checkOut}
+                  onSelect={setCheckOut}
+                  disabled={(date) => date <= (checkIn || new Date())}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Guests & Rooms */}
+          <div className="w-44">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="w-full h-full px-4 py-3 text-left hover:bg-muted/50 transition-colors">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Guests & Rooms</div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Users className="h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {guests} guest{guests > 1 ? "s" : ""}, {rooms} room
+                      {rooms > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <div className="space-y-4 p-1">
+                  {/* Guests */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Guests</div>
+                      <div className="text-xs text-muted-foreground">Total travelers</div>
+                    </div>
+                    <div className="flex items-center gap-3">
                       <button
-                        key={city}
-                        onClick={() => setDestination(city)}
-                        className="p-2 text-left text-sm rounded-lg hover:bg-muted transition-colors"
+                        onClick={() => setGuests(Math.max(1, guests - 1))}
+                        disabled={guests <= 1}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
                       >
-                        {city}
+                        −
                       </button>
-                    ))}
+                      <span className="w-4 text-center font-medium">{guests}</span>
+                      <button
+                        onClick={() => setGuests(Math.min(10, guests + 1))}
+                        disabled={guests >= 10}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Rooms */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Rooms</div>
+                      <div className="text-xs text-muted-foreground">Number of rooms</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setRooms(Math.max(1, rooms - 1))}
+                        disabled={rooms <= 1}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        −
+                      </button>
+                      <span className="w-4 text-center font-medium">{rooms}</span>
+                      <button
+                        onClick={() => setRooms(Math.min(5, rooms + 1))}
+                        disabled={rooms >= 5}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+              </PopoverContent>
+            </Popover>
+          </div>
 
-        {/* Check-in */}
-        <div className="col-span-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-12 w-full justify-start text-left font-normal",
-                  !checkIn && "text-muted-foreground"
-                )}
-              >
-                <Calendar className="mr-2 h-4 w-4" />
-                {checkIn ? format(checkIn, "MMM d") : "Check-in"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarComponent
-                mode="single"
-                selected={checkIn}
-                onSelect={(date) => {
-                  setCheckIn(date);
-                  if (date && checkOut && date >= checkOut) {
-                    setCheckOut(undefined);
-                  }
-                }}
-                disabled={(date) => date < new Date()}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Check-out */}
-        <div className="col-span-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-12 w-full justify-start text-left font-normal",
-                  !checkOut && "text-muted-foreground"
-                )}
-              >
-                <Calendar className="mr-2 h-4 w-4" />
-                {checkOut ? format(checkOut, "MMM d") : "Check-out"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarComponent
-                mode="single"
-                selected={checkOut}
-                onSelect={setCheckOut}
-                disabled={(date) => date <= (checkIn || new Date())}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Guests & Rooms */}
-        <div className="col-span-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-12 w-full justify-start text-left font-normal"
-              >
-                <Users className="mr-2 h-4 w-4" />
-                <span className="truncate">
-                  {guests} guest{guests > 1 ? "s" : ""}, {rooms} room
-                  {rooms > 1 ? "s" : ""}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64" align="end">
-              <div className="space-y-4">
-                {/* Guests */}
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Guests</span>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setGuests(Math.max(1, guests - 1))}
-                      disabled={guests <= 1}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      −
-                    </button>
-                    <span className="w-4 text-center">{guests}</span>
-                    <button
-                      onClick={() => setGuests(Math.min(10, guests + 1))}
-                      disabled={guests >= 10}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Rooms */}
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Rooms</span>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setRooms(Math.max(1, rooms - 1))}
-                      disabled={rooms <= 1}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      −
-                    </button>
-                    <span className="w-4 text-center">{rooms}</span>
-                    <button
-                      onClick={() => setRooms(Math.min(5, rooms + 1))}
-                      disabled={rooms >= 5}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Search Button */}
-        <div className="col-span-2">
-          <Button onClick={handleSearch} className="h-12 w-full" size="lg">
-            <Search className="h-4 w-4 mr-2" />
-            Search
-          </Button>
+          {/* Search Button */}
+          <div className="pl-2">
+            <Button 
+              onClick={handleSearch} 
+              size="lg" 
+              className="h-full px-8 rounded-xl text-base font-semibold"
+            >
+              <Search className="h-5 w-5 mr-2" />
+              Search
+            </Button>
+          </div>
         </div>
       </div>
     </div>
