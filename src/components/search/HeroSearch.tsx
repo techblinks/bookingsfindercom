@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import LocationCombobox from "./LocationCombobox";
 import PassengerPicker, { PassengerCount } from "./PassengerPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
-import MobileHeroSearch from "./MobileHeroSearch";
+import ModernSearchBox from "./ModernSearchBox";
 
 type SearchType = "flights" | "hotels";
 type TripType = "roundtrip" | "oneway" | "multicity";
@@ -241,7 +241,7 @@ const HeroSearch = () => {
   if (isMobile) {
     return (
       <div className="search-container w-full max-w-5xl mx-auto p-4 sm:p-6">
-        <MobileHeroSearch />
+        <ModernSearchBox />
       </div>
     );
   }

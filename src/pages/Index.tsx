@@ -3,7 +3,7 @@ import Footer from "@/components/layout/Footer";
 import HeroSearch from "@/components/search/HeroSearch";
 import DestinationCard from "@/components/cards/DestinationCard";
 import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
-import PopularRoutes from "@/components/sections/PopularRoutes";
+import DynamicDeals from "@/components/sections/DynamicDeals";
 import TopDeals from "@/components/sections/TopDeals";
 import { destinations } from "@/data/placeholderData";
 const Index = () => {
@@ -69,8 +69,8 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Popular Routes */}
-        <PopularRoutes />
+        {/* Dynamic Location-Based Deals */}
+        <DynamicDeals />
 
         {/* Why Book With Us */}
         <WhyBookWithUs />
