@@ -13,6 +13,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsConditions from "./pages/TermsConditions";
 import AffiliateDisclosure from "./pages/AffiliateDisclosure";
 import MyAlerts from "./pages/MyAlerts";
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminAlerts from "./pages/AdminAlerts";
 import NotFound from "./pages/NotFound";
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/flights" element={<FlightResults />} />
             <Route path="/hotels" element={<HotelResults />} />
             <Route path="/my-alerts" element={<MyAlerts />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/alerts" element={<AdminAlerts />} />
             <Route path="/d/:slug" element={<DestinationPage />} />
             <Route path="/redirect" element={<BookingRedirect />} />

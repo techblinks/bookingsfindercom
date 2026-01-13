@@ -6,18 +6,24 @@ import SplashScreen from "./components/SplashScreen.tsx";
 import "./index.css";
 
 const SPLASH_DURATION = 1500; // 1.5 seconds
+const SPLASH_SESSION_KEY = 'bf_splash_shown';
 
 const Root = () => {
-  const [showSplash, setShowSplash] = useState(true);
+  // Only show splash on first visit of the session
+  const hasSeenSplash = sessionStorage.getItem(SPLASH_SESSION_KEY) === 'true';
+  const [showSplash, setShowSplash] = useState(!hasSeenSplash);
   const [splashExiting, setSplashExiting] = useState(false);
 
   useEffect(() => {
+    if (!showSplash) return;
+    
     const timer = setTimeout(() => {
       setSplashExiting(true);
+      sessionStorage.setItem(SPLASH_SESSION_KEY, 'true');
     }, SPLASH_DURATION);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [showSplash]);
 
   useEffect(() => {
     if (splashExiting) {
@@ -28,6 +34,11 @@ const Root = () => {
       return () => clearTimeout(exitTimer);
     }
   }, [splashExiting]);
+
+  // Skip splash entirely if already seen
+  if (!showSplash && hasSeenSplash) {
+    return <App />;
+  }
 
   return (
     <>
