@@ -645,7 +645,7 @@ const ModernFlightSearch = () => {
       <div className="bg-card border border-border rounded-2xl p-2 shadow-sm">
         <div className="flex items-stretch gap-0">
           {/* From */}
-          <div className="flex-1 min-w-0 border-r border-border">
+          <div className="flex-[1.2] min-w-[180px] border-r border-border">
             <div className="px-4 py-3">
               <div className="text-xs font-medium text-muted-foreground mb-1">From</div>
               <LocationCombobox
@@ -657,24 +657,25 @@ const ModernFlightSearch = () => {
                   );
                 }}
                 placeholder="City or airport"
+                className="text-sm"
               />
             </div>
           </div>
 
           {/* Swap Button */}
-          <div className="flex items-center justify-center px-2 -mx-5 z-10">
+          <div className="flex items-center justify-center px-1 -mx-4 z-10">
             <Button
               variant="outline"
               size="icon"
-              className="rounded-full h-9 w-9 bg-card hover:bg-muted border-border shadow-sm"
+              className="rounded-full h-8 w-8 bg-card hover:bg-muted border-border shadow-sm"
               onClick={swapLocations}
             >
-              <ArrowRightLeft className="h-4 w-4" />
+              <ArrowRightLeft className="h-3.5 w-3.5" />
             </Button>
           </div>
 
           {/* To */}
-          <div className="flex-1 min-w-0 border-r border-border">
+          <div className="flex-[1.2] min-w-[180px] border-r border-border">
             <div className="px-4 py-3">
               <div className="text-xs font-medium text-muted-foreground mb-1">To</div>
               <LocationCombobox
@@ -686,6 +687,7 @@ const ModernFlightSearch = () => {
                   );
                 }}
                 placeholder="City or airport"
+                className="text-sm"
               />
             </div>
           </div>

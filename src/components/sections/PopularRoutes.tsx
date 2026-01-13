@@ -202,7 +202,6 @@ const PopularRoutes = () => {
                 "bg-card rounded-2xl border border-border p-5",
                 "hover:border-primary/50 hover:shadow-lg transition-all duration-300",
                 "animate-fade-in group",
-                "scroll-snap-align-start"
               )}
               style={{ 
                 animationDelay: `${index * 50}ms`,
@@ -242,17 +241,12 @@ const PopularRoutes = () => {
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Round trip from</p>
                   {route.loading ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Loading...</span>
+                    <div className="flex items-center gap-2 h-9">
+                      <div className="w-20 h-8 bg-muted animate-pulse rounded" />
                     </div>
-                  ) : route.price ? (
-                    <p className="text-2xl md:text-3xl font-bold text-[#003680]">
-                      ${route.price}
-                    </p>
                   ) : (
-                    <p className="text-lg font-semibold text-primary">
-                      Check prices
+                    <p className="text-2xl md:text-3xl font-bold text-[#003680]">
+                      {route.price ? `$${route.price}` : "—"}
                     </p>
                   )}
                 </div>
@@ -280,19 +274,6 @@ const PopularRoutes = () => {
             canScrollRight ? "opacity-100" : "opacity-0"
           )}
         />
-      </div>
-
-      {/* Scroll indicator dots - mobile */}
-      <div className="flex justify-center gap-1.5 mt-4 md:hidden">
-        {routes.slice(0, 5).map((_, index) => (
-          <div
-            key={index}
-            className={cn(
-              "w-1.5 h-1.5 rounded-full transition-colors",
-              index === 0 ? "bg-primary" : "bg-border"
-            )}
-          />
-        ))}
       </div>
 
       {/* Footer note */}
