@@ -6,8 +6,8 @@
 
 @layer base {
   :root {
-    /* Primary Blue - Trustworthy travel brand color */
-    --primary: 214 85% 51%;
+    /* Primary Blue - Brand color #003680 */
+    --primary: 214 100% 25%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 214 85% 45%;
     
