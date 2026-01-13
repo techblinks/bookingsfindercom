@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Megaphone, Plus, Edit2, Trash2, Loader2, LogOut, Shield, 
-  ArrowLeft, Eye, EyeOff, ExternalLink, Globe, Smartphone, Monitor
+  ArrowLeft, Eye, EyeOff, ExternalLink, Globe, Smartphone, Monitor, MapPin, X
 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -16,12 +16,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Tables } from '@/integrations/supabase/types';
+import { AdPreview } from '@/components/ads/AdPreview';
 
 type AdPlacement = Tables<'ad_placements'>;
 
@@ -47,9 +49,9 @@ interface AdFormData {
 
 const defaultFormData: AdFormData = {
   name: '',
-  type: 'banner',
-  page: 'home',
-  placement: 'top',
+  type: 'sponsored',
+  page: 'flights',
+  placement: 'after_result_3',
   device: 'all',
   is_active: true,
   priority: 0,
@@ -65,27 +67,47 @@ const defaultFormData: AdFormData = {
   geo: [],
 };
 
+// Common country codes for geo-targeting
+const countryOptions = [
+  { code: 'US', name: 'United States' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'FR', name: 'France' },
+  { code: 'IN', name: 'India' },
+  { code: 'SG', name: 'Singapore' },
+  { code: 'AE', name: 'UAE' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'NZ', name: 'New Zealand' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'BR', name: 'Brazil' },
+  { code: 'MX', name: 'Mexico' },
+  { code: 'KR', name: 'South Korea' },
+  { code: 'HK', name: 'Hong Kong' },
+  { code: 'TH', name: 'Thailand' },
+  { code: 'MY', name: 'Malaysia' },
+];
+
 const adTypes = [
-  { value: 'banner', label: 'Banner Ad' },
   { value: 'sponsored', label: 'Sponsored Card' },
-  { value: 'native', label: 'Native Ad' },
   { value: 'embed', label: 'HTML Embed' },
+  { value: 'banner', label: 'Banner Ad' },
+  { value: 'native', label: 'Native Ad' },
 ];
 
 const adPages = [
-  { value: 'home', label: 'Home Page' },
   { value: 'flights', label: 'Flight Results' },
   { value: 'hotels', label: 'Hotel Results' },
-  { value: 'destination', label: 'Destination Pages' },
-  { value: 'all', label: 'All Pages' },
+  { value: 'both', label: 'Both Pages' },
 ];
 
 const adPlacements = [
-  { value: 'top', label: 'Top Banner' },
-  { value: 'sidebar', label: 'Sidebar' },
-  { value: 'inline', label: 'Inline (in results)' },
-  { value: 'bottom', label: 'Bottom Banner' },
-  { value: 'popup', label: 'Popup/Modal' },
+  { value: 'after_result_3', label: 'After Result #3' },
+  { value: 'after_result_5', label: 'After Result #5' },
+  { value: 'bottom', label: 'Bottom of Page' },
 ];
 
 const deviceOptions = [
@@ -397,6 +419,12 @@ export default function AdminAds() {
                           <Badge variant="outline" className="text-xs">
                             {adPages.find(p => p.value === ad.page)?.label || ad.page}
                           </Badge>
+                          {ad.geo && ad.geo.length > 0 && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {ad.geo.length} {ad.geo.length === 1 ? 'country' : 'countries'}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                           <span>{ad.impressions.toLocaleString()} impressions</span>
@@ -660,6 +688,60 @@ export default function AdminAds() {
                   )}
                 </div>
 
+                {/* Geo-Targeting */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <h4 className="font-medium">Geo-Targeting (optional)</h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Leave empty to show to all countries, or select specific countries to target.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.geo.map((code) => {
+                      const country = countryOptions.find(c => c.code === code);
+                      return (
+                        <Badge key={code} variant="secondary" className="gap-1 pr-1">
+                          {country?.name || code}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 p-0 hover:bg-transparent"
+                            onClick={() => setFormData({
+                              ...formData,
+                              geo: formData.geo.filter(g => g !== code)
+                            })}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  <Select
+                    value=""
+                    onValueChange={(value) => {
+                      if (value && !formData.geo.includes(value)) {
+                        setFormData({ ...formData, geo: [...formData.geo, value] });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full md:w-64">
+                      <SelectValue placeholder="Add country..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryOptions
+                        .filter(c => !formData.geo.includes(c.code))
+                        .map((country) => (
+                          <SelectItem key={country.code} value={country.code}>
+                            {country.name} ({country.code})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Schedule */}
                 <div className="space-y-4">
                   <h4 className="font-medium">Schedule (optional)</h4>
@@ -684,6 +766,24 @@ export default function AdminAds() {
                     </div>
                   </div>
                 </div>
+
+                {/* Preview */}
+                <Collapsible>
+                  <div className="flex items-center gap-2">
+                    <CollapsibleTrigger asChild>
+                      <Button type="button" variant="outline" size="sm" className="gap-2">
+                        <Eye className="h-4 w-4" />
+                        Preview Ad
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent className="mt-4">
+                    <div className="p-4 bg-muted/30 rounded-lg border">
+                      <p className="text-xs text-muted-foreground mb-3">This is how your ad will appear on the site:</p>
+                      <AdPreview ad={formData} />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
 
                 {/* Status */}
                 <div className="flex items-center gap-2">

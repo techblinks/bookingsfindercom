@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { page, device } = await req.json();
+    const { page, device, countryCode } = await req.json();
 
     if (!page || !['flights', 'hotels'].includes(page)) {
       return new Response(
@@ -64,6 +64,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Filter by geo-targeting if countryCode is provided
+    const filteredAds = (ads || []).filter((ad: AdPlacement) => {
+      // If no geo restrictions, show to everyone
+      if (!ad.geo || ad.geo.length === 0) {
+        return true;
+      }
+      // If user's country is in the geo list, show the ad
+      if (countryCode && ad.geo.includes(countryCode)) {
+        return true;
+      }
+      // If geo is set but user country doesn't match, hide the ad
+      return false;
+    });
+
     // Group ads by placement
     const adsByPlacement: Record<string, AdPlacement[]> = {
       after_result_3: [],
@@ -71,7 +85,7 @@ Deno.serve(async (req) => {
       bottom: [],
     };
 
-    (ads || []).forEach((ad: AdPlacement) => {
+    filteredAds.forEach((ad: AdPlacement) => {
       if (adsByPlacement[ad.placement]) {
         adsByPlacement[ad.placement].push(ad);
       }
