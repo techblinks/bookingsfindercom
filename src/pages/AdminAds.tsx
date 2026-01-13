@@ -49,7 +49,7 @@ interface AdFormData {
 
 const defaultFormData: AdFormData = {
   name: '',
-  type: 'sponsored',
+  type: 'sponsored_card',
   page: 'flights',
   placement: 'after_result_3',
   device: 'all',
@@ -92,10 +92,8 @@ const countryOptions = [
 ];
 
 const adTypes = [
-  { value: 'sponsored', label: 'Sponsored Card' },
-  { value: 'embed', label: 'HTML Embed' },
-  { value: 'banner', label: 'Banner Ad' },
-  { value: 'native', label: 'Native Ad' },
+  { value: 'sponsored_card', label: 'Sponsored Card' },
+  { value: 'html_embed', label: 'HTML Embed' },
 ];
 
 const adPages = [
