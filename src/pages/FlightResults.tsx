@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, Bell } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -13,8 +13,10 @@ import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
 import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 import FlightSearchSchema from "@/components/seo/FlightSearchSchema";
+import { AdSlot } from "@/components/ads/AdSlot";
 import { Button } from "@/components/ui/button";
 import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
+import { useAds } from "@/hooks/useAds";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
@@ -84,6 +86,9 @@ const FlightResults = () => {
     passengers,
     cabinClass,
   });
+
+  // Fetch ads (lazy loaded, non-blocking)
+  const { ads, trackImpression, trackClick } = useAds('flights');
 
   // Generate flexible dates
   const flexibleDates = useMemo(() => {
@@ -475,22 +480,56 @@ const FlightResults = () => {
                   searchParams={{ origin, destination }}
                 />
               ) : (
-                // Flight results
+                // Flight results with ad placements
                 <>
                   {displayedFlights.map((flight, index) => (
-                    <div
-                      key={flight.id}
-                      role="listitem"
-                      className="animate-in fade-in slide-in-from-bottom-2"
-                      style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
-                    >
-                      <FlightCard
-                        flight={flight}
-                        currency="$"
-                        onBookNow={handleBookNow}
-                      />
+                    <div key={flight.id}>
+                      <div
+                        role="listitem"
+                        className="animate-in fade-in slide-in-from-bottom-2"
+                        style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
+                      >
+                        <FlightCard
+                          flight={flight}
+                          currency="$"
+                          onBookNow={handleBookNow}
+                        />
+                      </div>
+                      
+                      {/* Ad after 3rd result */}
+                      {index === 2 && ads.after_result_3 && (
+                        <div className="my-3">
+                          <AdSlot
+                            ad={ads.after_result_3}
+                            onImpression={trackImpression}
+                            onClick={trackClick}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Ad after 5th result (optional secondary placement) */}
+                      {index === 4 && ads.after_result_5 && (
+                        <div className="my-3">
+                          <AdSlot
+                            ad={ads.after_result_5}
+                            onImpression={trackImpression}
+                            onClick={trackClick}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
+
+                  {/* Bottom ad placement */}
+                  {ads.bottom && displayedFlights.length > 0 && (
+                    <div className="mt-4">
+                      <AdSlot
+                        ad={ads.bottom}
+                        onImpression={trackImpression}
+                        onClick={trackClick}
+                      />
+                    </div>
+                  )}
 
                   {/* Load more sentinel for infinite scroll */}
                   {hasMore && (

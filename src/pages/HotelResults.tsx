@@ -8,6 +8,7 @@ import HotelResultCard from "@/components/cards/HotelResultCard";
 import HotelCardSkeleton from "@/components/skeletons/HotelCardSkeleton";
 import EmptyHotelResults from "@/components/states/EmptyHotelResults";
 import HotelSearchSchema from "@/components/seo/HotelSearchSchema";
+import { AdSlot } from "@/components/ads/AdSlot";
 import { Button } from "@/components/ui/button";
 import {
   Pagination,
@@ -18,6 +19,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { searchHotels, getRedirectUrl, HotelResult } from "@/services/travelApi";
+import { useAds } from "@/hooks/useAds";
 import { toast } from "sonner";
 
 const HotelResults = () => {
@@ -40,6 +42,9 @@ const HotelResults = () => {
   const [selectedStars, setSelectedStars] = useState<number[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [guestRating, setGuestRating] = useState(0);
+
+  // Fetch ads (lazy loaded, non-blocking)
+  const { ads, trackImpression, trackClick } = useAds('hotels');
 
   useEffect(() => {
     const fetchHotels = async () => {
@@ -328,15 +333,40 @@ const HotelResults = () => {
                 // Empty state
                 <EmptyHotelResults onClearFilters={clearFilters} />
               ) : (
-                // Hotel results
-                filteredHotels.map((hotel) => (
-                  <HotelResultCard
-                    key={hotel.id}
-                    {...hotel}
-                    currency="$"
-                    onViewDeal={handleViewDeal}
-                  />
-                ))
+                // Hotel results with ad placements
+                <>
+                  {filteredHotels.map((hotel, index) => (
+                    <div key={hotel.id}>
+                      <HotelResultCard
+                        {...hotel}
+                        currency="$"
+                        onViewDeal={handleViewDeal}
+                      />
+                      
+                      {/* Ad after 3rd result */}
+                      {index === 2 && ads.after_result_3 && (
+                        <div className="mt-4">
+                          <AdSlot
+                            ad={ads.after_result_3}
+                            onImpression={trackImpression}
+                            onClick={trackClick}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {/* Bottom ad placement */}
+                  {ads.bottom && filteredHotels.length > 0 && (
+                    <div className="mt-4">
+                      <AdSlot
+                        ad={ads.bottom}
+                        onImpression={trackImpression}
+                        onClick={trackClick}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

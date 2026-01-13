@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_placements: {
+        Row: {
+          advertiser_name: string | null
+          clicks: number
+          created_at: string
+          cta_text: string | null
+          description: string | null
+          destination_url: string | null
+          device: string
+          end_date: string | null
+          geo: string[] | null
+          html_content: string | null
+          id: string
+          image_url: string | null
+          impressions: number
+          is_active: boolean
+          name: string
+          page: string
+          placement: string
+          priority: number
+          start_date: string | null
+          title: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          advertiser_name?: string | null
+          clicks?: number
+          created_at?: string
+          cta_text?: string | null
+          description?: string | null
+          destination_url?: string | null
+          device?: string
+          end_date?: string | null
+          geo?: string[] | null
+          html_content?: string | null
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          name: string
+          page: string
+          placement: string
+          priority?: number
+          start_date?: string | null
+          title?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          advertiser_name?: string | null
+          clicks?: number
+          created_at?: string
+          cta_text?: string | null
+          description?: string | null
+          destination_url?: string | null
+          device?: string
+          end_date?: string | null
+          geo?: string[] | null
+          html_content?: string | null
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          name?: string
+          page?: string
+          placement?: string
+          priority?: number
+          start_date?: string | null
+          title?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       admin_profiles: {
         Row: {
           created_at: string
