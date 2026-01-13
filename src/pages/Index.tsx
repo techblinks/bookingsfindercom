@@ -1,11 +1,10 @@
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import HeroSearch from "@/components/search/HeroSearch";
-import DestinationCard from "@/components/cards/DestinationCard";
 import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
-import DynamicDeals from "@/components/sections/DynamicDeals";
+import TopDealsOfTheDay from "@/components/sections/TopDealsOfTheDay";
 import TopDeals from "@/components/sections/TopDeals";
-import { destinations } from "@/data/placeholderData";
+
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -28,49 +27,8 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Popular Destinations Section */}
-        <section id="destinations" className="py-12 md:py-16">
-          <div className="container">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-                  Popular Destinations
-                </h2>
-                <p className="text-muted-foreground">
-                  Explore trending destinations loved by travelers
-                </p>
-              </div>
-              <a 
-                href="#" 
-                className="hidden sm:inline-flex text-sm font-medium text-primary hover:underline"
-              >
-                View all destinations →
-              </a>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {destinations.map((destination) => (
-                <DestinationCard
-                  key={destination.id}
-                  city={destination.city}
-                  country={destination.country}
-                  image={destination.image}
-                  price={destination.price}
-                  currency={destination.currency}
-                />
-              ))}
-            </div>
-
-            <div className="mt-6 text-center sm:hidden">
-              <a href="#" className="text-sm font-medium text-primary hover:underline">
-                View all destinations →
-              </a>
-            </div>
-          </div>
-        </section>
-
-        {/* Dynamic Location-Based Deals */}
-        <DynamicDeals />
+        {/* Top Deals of the Day - Replaces Popular Destinations */}
+        <TopDealsOfTheDay />
 
         {/* Why Book With Us */}
         <WhyBookWithUs />
