@@ -1,5 +1,5 @@
-import { Plane } from "lucide-react";
 import { Link } from "react-router-dom";
+import logo from "@/assets/logo.webp";
 
 const Footer = () => {
   const footerLinks = {
@@ -55,9 +55,8 @@ const Footer = () => {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2 text-primary font-bold text-xl mb-4">
-              <Plane className="h-6 w-6" />
-              <span>BookingsFinder</span>
+            <Link to="/" className="block mb-4">
+              <img src={logo} alt="BookingsFinder" className="h-10 w-auto" />
             </Link>
             <p className="text-sm text-muted-foreground">
               Compare prices across hundreds of travel sites to find the best deals.

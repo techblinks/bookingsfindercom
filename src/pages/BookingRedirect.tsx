@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Shield, Lock, CheckCircle, Plane, Building2, ExternalLink, Clock, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import logo from "@/assets/logo.webp";
 
 /**
  * White-Label Interstitial Page for BookingsFinder.com
@@ -167,10 +168,7 @@ const BookingRedirect = () => {
             transition={{ duration: 0.4 }}
             className="mb-6"
           >
-            <div className="inline-flex items-center gap-2 text-2xl font-bold text-primary">
-              <Plane className="h-8 w-8" />
-              <span>BookingsFinder</span>
-            </div>
+            <img src={logo} alt="BookingsFinder" className="h-12 w-auto mx-auto" />
           </motion.div>
 
           {/* Route Info (if available) */}
