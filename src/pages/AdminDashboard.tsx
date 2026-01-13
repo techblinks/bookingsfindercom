@@ -81,13 +81,12 @@ const adminFeatures = [
     comingSoon: true,
   },
   {
-    title: 'Settings',
-    description: 'Configure site settings and preferences',
+    title: 'Site Settings',
+    description: 'Configure homepage sections and feature toggles',
     icon: Settings,
     href: '/admin/settings',
     color: 'text-gray-500',
     bgColor: 'bg-gray-500/10',
-    comingSoon: true,
   },
 ];
 

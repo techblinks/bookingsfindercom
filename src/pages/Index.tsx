@@ -8,9 +8,11 @@ import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
 import TopDeals from "@/components/sections/TopDeals";
 import { useHomeAds } from "@/hooks/useHomeAds";
 import { HomeAdSlot } from "@/components/ads/HomeAdSlot";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const Index = () => {
   const { ads, trackImpression, trackClick } = useHomeAds();
+  const { homepageSections, heroSearchTabs, isLoading: settingsLoading } = useSiteSettings();
 
   return (
     <>
@@ -47,8 +49,8 @@ const Index = () => {
         <Header />
 
         <main className="flex-1">
-          {/* Hero Section with Search */}
-          <HeroSection />
+          {/* Hero Section with Search - Pass settings for tab visibility */}
+          <HeroSection showFlights={heroSearchTabs.flights} showHotels={heroSearchTabs.hotels} />
 
           {/* Ad Slot: Below Hero - High visibility placement */}
           <HomeAdSlot 
@@ -59,7 +61,7 @@ const Index = () => {
           />
 
           {/* Popular Routes - Dynamic location-based top searches */}
-          <PopularRoutes />
+          {homepageSections.popular_routes && <PopularRoutes />}
 
           {/* Ad Slot: Between Sections - Contextual placement */}
           <HomeAdSlot 
@@ -70,13 +72,13 @@ const Index = () => {
           />
 
           {/* How It Works Banner */}
-          <HowItWorks />
+          {homepageSections.how_it_works && <HowItWorks />}
 
           {/* Why Book With Us */}
-          <WhyBookWithUs />
+          {homepageSections.why_book && <WhyBookWithUs />}
 
           {/* Top Deals */}
-          <TopDeals />
+          {homepageSections.top_deals && <TopDeals />}
 
           {/* Ad Slot: Above Footer - Last chance placement */}
           <HomeAdSlot 
@@ -87,28 +89,30 @@ const Index = () => {
           />
 
           {/* Trust Stats */}
-          <section className="py-12 md:py-16 bg-muted/50">
-            <div className="container">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                <div className="p-6">
-                  <p className="text-3xl md:text-4xl font-bold text-primary mb-2">500+</p>
-                  <p className="text-sm text-muted-foreground">Airlines</p>
-                </div>
-                <div className="p-6">
-                  <p className="text-3xl md:text-4xl font-bold text-primary mb-2">1M+</p>
-                  <p className="text-sm text-muted-foreground">Hotels</p>
-                </div>
-                <div className="p-6">
-                  <p className="text-3xl md:text-4xl font-bold text-primary mb-2">50M+</p>
-                  <p className="text-sm text-muted-foreground">Happy Travelers</p>
-                </div>
-                <div className="p-6">
-                  <p className="text-3xl md:text-4xl font-bold text-primary mb-2">24/7</p>
-                  <p className="text-sm text-muted-foreground">Customer Support</p>
+          {homepageSections.trust_stats && (
+            <section className="py-12 md:py-16 bg-muted/50">
+              <div className="container">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                  <div className="p-6">
+                    <p className="text-3xl md:text-4xl font-bold text-primary mb-2">500+</p>
+                    <p className="text-sm text-muted-foreground">Airlines</p>
+                  </div>
+                  <div className="p-6">
+                    <p className="text-3xl md:text-4xl font-bold text-primary mb-2">1M+</p>
+                    <p className="text-sm text-muted-foreground">Hotels</p>
+                  </div>
+                  <div className="p-6">
+                    <p className="text-3xl md:text-4xl font-bold text-primary mb-2">50M+</p>
+                    <p className="text-sm text-muted-foreground">Happy Travelers</p>
+                  </div>
+                  <div className="p-6">
+                    <p className="text-3xl md:text-4xl font-bold text-primary mb-2">24/7</p>
+                    <p className="text-sm text-muted-foreground">Customer Support</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
         </main>
 
         <Footer />

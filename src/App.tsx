@@ -19,6 +19,7 @@ import AdminAds from "./pages/AdminAds";
 import AdminBlog from "./pages/AdminBlog";
 import AdminPress from "./pages/AdminPress";
 import AdminSubscribers from "./pages/AdminSubscribers";
+import AdminSettings from "./pages/AdminSettings";
 import AboutUs from "./pages/AboutUs";
 import Careers from "./pages/Careers";
 import HelpCenter from "./pages/HelpCenter";
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/admin/blog" element={<AdminBlog />} />
             <Route path="/admin/press" element={<AdminPress />} />
             <Route path="/admin/subscribers" element={<AdminSubscribers />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/d/:slug" element={<DestinationPage />} />
             <Route path="/redirect" element={<BookingRedirect />} />
             {/* Company */}

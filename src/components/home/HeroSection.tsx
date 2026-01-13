@@ -2,7 +2,12 @@ import ModernSearchBox from "@/components/search/ModernSearchBox";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileHeroSearch from "@/components/search/MobileHeroSearch";
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  showFlights?: boolean;
+  showHotels?: boolean;
+}
+
+const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps) => {
   const isMobile = useIsMobile();
 
   return (
@@ -28,7 +33,11 @@ const HeroSection = () => {
         {/* Search Box */}
         <div className="max-w-5xl mx-auto">
           <div className="bg-card rounded-2xl p-4 md:p-6 shadow-2xl">
-            {isMobile ? <MobileHeroSearch /> : <ModernSearchBox />}
+            {isMobile ? (
+              <MobileHeroSearch showFlights={showFlights} showHotels={showHotels} />
+            ) : (
+              <ModernSearchBox showFlights={showFlights} showHotels={showHotels} />
+            )}
           </div>
         </div>
       </div>
