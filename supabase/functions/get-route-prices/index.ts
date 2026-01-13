@@ -38,8 +38,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Limit to 6 routes to avoid timeout
-    const limitedRoutes = routes.slice(0, 6);
+    // Limit to 10 routes per request to avoid timeout
+    const limitedRoutes = routes.slice(0, 10);
 
     // Fetch prices for all routes in parallel
     const pricePromises = limitedRoutes.map(async (route): Promise<RoutePrice> => {
