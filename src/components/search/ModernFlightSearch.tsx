@@ -615,9 +615,9 @@ const ModernFlightSearch = () => {
 
   // Desktop Layout
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Trip Type Pills */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl w-fit">
         {[
           { value: "roundtrip", label: "Round trip" },
           { value: "oneway", label: "One way" },
@@ -630,10 +630,10 @@ const ModernFlightSearch = () => {
               if (type.value === "oneway") setReturnDate(undefined);
             }}
             className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium transition-all",
+              "px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
               tripType === type.value
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground hover:bg-muted"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             {type.label}
@@ -641,255 +641,275 @@ const ModernFlightSearch = () => {
         ))}
       </div>
 
-      {/* Search Fields Row */}
-      <div className="grid grid-cols-12 gap-3">
-        {/* From */}
-        <div className="col-span-3 relative">
-          <LocationCombobox
-            value={flightFromDisplay}
-            onChange={(code, airport) => {
-              setFlightFrom(code);
-              setFlightFromDisplay(
-                airport ? `${airport.city} (${airport.code})` : code
-              );
-            }}
-            placeholder="From"
-          />
-        </div>
-
-        {/* Swap */}
-        <div className="col-span-1 flex items-center justify-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full border border-border h-10 w-10"
-            onClick={swapLocations}
-          >
-            <ArrowRightLeft className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* To */}
-        <div className="col-span-3">
-          <LocationCombobox
-            value={flightToDisplay}
-            onChange={(code, airport) => {
-              setFlightTo(code);
-              setFlightToDisplay(
-                airport ? `${airport.city} (${airport.code})` : code
-              );
-            }}
-            placeholder="To"
-          />
-        </div>
-
-        {/* Dates */}
-        <div className={cn("flex gap-2", tripType === "roundtrip" ? "col-span-3" : "col-span-2")}>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-12 flex-1 justify-start text-left font-normal",
-                  !departureDate && "text-muted-foreground"
-                )}
-              >
-                <Calendar className="mr-2 h-4 w-4" />
-                {departureDate ? format(departureDate, "MMM d") : "Depart"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarComponent
-                mode="single"
-                selected={departureDate}
-                onSelect={setDepartureDate}
-                disabled={(date) => date < new Date()}
-                initialFocus
-                className="p-3 pointer-events-auto"
+      {/* Main Search Container */}
+      <div className="bg-card border border-border rounded-2xl p-2 shadow-sm">
+        <div className="flex items-stretch gap-0">
+          {/* From */}
+          <div className="flex-1 min-w-0 border-r border-border">
+            <div className="px-4 py-3">
+              <div className="text-xs font-medium text-muted-foreground mb-1">From</div>
+              <LocationCombobox
+                value={flightFromDisplay}
+                onChange={(code, airport) => {
+                  setFlightFrom(code);
+                  setFlightFromDisplay(
+                    airport ? `${airport.city} (${airport.code})` : code
+                  );
+                }}
+                placeholder="City or airport"
               />
-            </PopoverContent>
-          </Popover>
+            </div>
+          </div>
 
-          {tripType === "roundtrip" && (
+          {/* Swap Button */}
+          <div className="flex items-center justify-center px-2 -mx-5 z-10">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full h-9 w-9 bg-card hover:bg-muted border-border shadow-sm"
+              onClick={swapLocations}
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* To */}
+          <div className="flex-1 min-w-0 border-r border-border">
+            <div className="px-4 py-3">
+              <div className="text-xs font-medium text-muted-foreground mb-1">To</div>
+              <LocationCombobox
+                value={flightToDisplay}
+                onChange={(code, airport) => {
+                  setFlightTo(code);
+                  setFlightToDisplay(
+                    airport ? `${airport.city} (${airport.code})` : code
+                  );
+                }}
+                placeholder="City or airport"
+              />
+            </div>
+          </div>
+
+          {/* Departure Date */}
+          <div className={cn("border-r border-border", tripType === "roundtrip" ? "w-36" : "w-44")}>
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "h-12 flex-1 justify-start text-left font-normal",
-                    !returnDate && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {returnDate ? format(returnDate, "MMM d") : "Return"}
-                </Button>
+                <button className="w-full h-full px-4 py-3 text-left hover:bg-muted/50 transition-colors">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Depart</div>
+                  <div className={cn(
+                    "text-sm font-medium flex items-center gap-2",
+                    !departureDate && "text-muted-foreground"
+                  )}>
+                    <Calendar className="h-4 w-4 shrink-0" />
+                    {departureDate ? format(departureDate, "EEE, MMM d") : "Add date"}
+                  </div>
+                </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <CalendarComponent
                   mode="single"
-                  selected={returnDate}
-                  onSelect={setReturnDate}
-                  disabled={(date) =>
-                    date < (departureDate || new Date())
-                  }
+                  selected={departureDate}
+                  onSelect={setDepartureDate}
+                  disabled={(date) => date < new Date()}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* Return Date (Round Trip only) */}
+          {tripType === "roundtrip" && (
+            <div className="w-36 border-r border-border">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="w-full h-full px-4 py-3 text-left hover:bg-muted/50 transition-colors">
+                    <div className="text-xs font-medium text-muted-foreground mb-1">Return</div>
+                    <div className={cn(
+                      "text-sm font-medium flex items-center gap-2",
+                      !returnDate && "text-muted-foreground"
+                    )}>
+                      <Calendar className="h-4 w-4 shrink-0" />
+                      {returnDate ? format(returnDate, "EEE, MMM d") : "Add date"}
+                    </div>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={returnDate}
+                    onSelect={setReturnDate}
+                    disabled={(date) =>
+                      date < (departureDate || new Date())
+                    }
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           )}
-        </div>
 
-        {/* Travelers */}
-        <div className={cn(tripType === "roundtrip" ? "col-span-2" : "col-span-3")}>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-12 w-full justify-start text-left font-normal"
-              >
-                <Users className="mr-2 h-4 w-4" />
-                <span className="truncate">{getPassengerLabel()}</span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-4 p-2">
-                <div className="text-sm font-medium">Travelers</div>
+          {/* Travelers */}
+          <div className="w-44">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="w-full h-full px-4 py-3 text-left hover:bg-muted/50 transition-colors">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Travelers & Class</div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Users className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{getPassengerLabel()}</span>
+                  </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4 p-1">
+                  <div className="text-sm font-semibold">Travelers</div>
 
-                {/* Adults */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Adults</div>
-                    <div className="text-xs text-muted-foreground">Age 12+</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => updatePassengerCount("adults", false)}
-                      disabled={passengers.adults <= 1}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      −
-                    </button>
-                    <span className="w-4 text-center">{passengers.adults}</span>
-                    <button
-                      onClick={() => updatePassengerCount("adults", true)}
-                      disabled={totalPassengers >= 9}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Children */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Children</div>
-                    <div className="text-xs text-muted-foreground">Age 2-11</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => updatePassengerCount("children", false)}
-                      disabled={passengers.children <= 0}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      −
-                    </button>
-                    <span className="w-4 text-center">{passengers.children}</span>
-                    <button
-                      onClick={() => updatePassengerCount("children", true)}
-                      disabled={totalPassengers >= 9}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Infants */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Infants</div>
-                    <div className="text-xs text-muted-foreground">Under 2</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => updatePassengerCount("infants", false)}
-                      disabled={passengers.infants <= 0}
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      −
-                    </button>
-                    <span className="w-4 text-center">{passengers.infants}</span>
-                    <button
-                      onClick={() => updatePassengerCount("infants", true)}
-                      disabled={
-                        totalPassengers >= 9 ||
-                        passengers.infants >= passengers.adults
-                      }
-                      className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Cabin Class */}
-                <div className="pt-3 border-t">
-                  <div className="text-sm font-medium mb-2">Cabin class</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: "economy", label: "Economy" },
-                      { value: "premium", label: "Premium" },
-                      { value: "business", label: "Business" },
-                      { value: "first", label: "First" },
-                    ].map((cabin) => (
+                  {/* Adults */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Adults</div>
+                      <div className="text-xs text-muted-foreground">Age 12+</div>
+                    </div>
+                    <div className="flex items-center gap-3">
                       <button
-                        key={cabin.value}
-                        onClick={() => setCabinClass(cabin.value)}
-                        className={cn(
-                          "py-2 px-3 rounded-lg text-sm font-medium transition-colors",
-                          cabinClass === cabin.value
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground hover:bg-muted"
-                        )}
+                        onClick={() => updatePassengerCount("adults", false)}
+                        disabled={passengers.adults <= 1}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
                       >
-                        {cabin.label}
+                        −
                       </button>
-                    ))}
+                      <span className="w-4 text-center font-medium">{passengers.adults}</span>
+                      <button
+                        onClick={() => updatePassengerCount("adults", true)}
+                        disabled={totalPassengers >= 9}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Children */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Children</div>
+                      <div className="text-xs text-muted-foreground">Age 2-11</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => updatePassengerCount("children", false)}
+                        disabled={passengers.children <= 0}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        −
+                      </button>
+                      <span className="w-4 text-center font-medium">{passengers.children}</span>
+                      <button
+                        onClick={() => updatePassengerCount("children", true)}
+                        disabled={totalPassengers >= 9}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Infants */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Infants</div>
+                      <div className="text-xs text-muted-foreground">Under 2, on lap</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => updatePassengerCount("infants", false)}
+                        disabled={passengers.infants <= 0}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        −
+                      </button>
+                      <span className="w-4 text-center font-medium">{passengers.infants}</span>
+                      <button
+                        onClick={() => updatePassengerCount("infants", true)}
+                        disabled={
+                          totalPassengers >= 9 ||
+                          passengers.infants >= passengers.adults
+                        }
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Cabin Class */}
+                  <div className="pt-4 border-t">
+                    <div className="text-sm font-semibold mb-3">Cabin class</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: "economy", label: "Economy" },
+                        { value: "premium", label: "Premium" },
+                        { value: "business", label: "Business" },
+                        { value: "first", label: "First" },
+                      ].map((cabin) => (
+                        <button
+                          key={cabin.value}
+                          onClick={() => setCabinClass(cabin.value)}
+                          className={cn(
+                            "py-2.5 px-3 rounded-lg text-sm font-medium transition-colors",
+                            cabinClass === cabin.value
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-secondary-foreground hover:bg-muted"
+                          )}
+                        >
+                          {cabin.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Search Button */}
+          <div className="pl-2">
+            <Button 
+              onClick={handleSearch} 
+              size="lg" 
+              className="h-full px-8 rounded-xl text-base font-semibold"
+            >
+              <Search className="h-5 w-5 mr-2" />
+              Search
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Advanced Options & Search */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={flexibleDates}
-              onCheckedChange={(checked) => setFlexibleDates(checked as boolean)}
-            />
-            <span className="text-sm">Flexible dates</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={nearbyAirports}
-              onCheckedChange={(checked) =>
-                setNearbyAirports(checked as boolean)
-              }
-            />
-            <span className="text-sm">Include nearby airports</span>
-          </label>
-        </div>
-
-        <Button onClick={handleSearch} size="lg" className="px-8 h-12">
-          <Search className="h-4 w-4 mr-2" />
-          Search
-        </Button>
+      {/* Advanced Options */}
+      <div className="flex items-center gap-6 px-1">
+        <label className="flex items-center gap-2 cursor-pointer group">
+          <Checkbox
+            checked={flexibleDates}
+            onCheckedChange={(checked) => setFlexibleDates(checked as boolean)}
+          />
+          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+            Flexible dates (±3 days)
+          </span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer group">
+          <Checkbox
+            checked={nearbyAirports}
+            onCheckedChange={(checked) =>
+              setNearbyAirports(checked as boolean)
+            }
+          />
+          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+            Include nearby airports
+          </span>
+        </label>
       </div>
     </div>
   );
