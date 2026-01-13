@@ -37,7 +37,6 @@ const adminFeatures = [
     href: '/admin/ads',
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
-    comingSoon: true,
   },
   {
     title: 'User Alerts',
