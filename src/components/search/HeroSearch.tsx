@@ -22,6 +22,8 @@ import { format, addDays, subDays } from "date-fns";
 import { toast } from "sonner";
 import LocationCombobox from "./LocationCombobox";
 import PassengerPicker, { PassengerCount } from "./PassengerPicker";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileHeroSearch from "./MobileHeroSearch";
 
 type SearchType = "flights" | "hotels";
 type TripType = "roundtrip" | "oneway" | "multicity";
@@ -53,6 +55,7 @@ const getFlexibleDatePrice = (date: Date, basePrice: number = 299): number | nul
 
 const HeroSearch = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchType, setSearchType] = useState<SearchType>("flights");
   const [tripType, setTripType] = useState<TripType>("roundtrip");
   const [isLoading, setIsLoading] = useState(false);
@@ -233,6 +236,15 @@ const HeroSearch = () => {
     if (price > 350) return { price, type: "high" as const };
     return { price, type: "normal" as const };
   };
+
+  // Render mobile-optimized search for mobile devices
+  if (isMobile) {
+    return (
+      <div className="search-container w-full max-w-5xl mx-auto p-4 sm:p-6">
+        <MobileHeroSearch />
+      </div>
+    );
+  }
 
   return (
     <div className="search-container w-full max-w-5xl mx-auto">
