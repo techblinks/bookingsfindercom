@@ -29,6 +29,7 @@ import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import Press from "./pages/Press";
 import PressRelease from "./pages/PressRelease";
+import HowItWorks from "./pages/HowItWorks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,8 @@ const App = () => (
             <Route path="/terms" element={<TermsConditions />} />
             <Route path="/cookies" element={<CookiePolicy />} />
             <Route path="/affiliate-disclosure" element={<AffiliateDisclosure />} />
+            {/* Info */}
+            <Route path="/how-it-works" element={<HowItWorks />} />
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
