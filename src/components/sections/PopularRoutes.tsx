@@ -38,49 +38,52 @@ const PopularRoutes = () => {
     setRoutes(initialRoutes);
   }, [regionConfig]);
 
-  // Fetch prices
+  // Fetch prices in batches
   useEffect(() => {
     const fetchPrices = async () => {
-      if (routes.length === 0 || pricesLoading) return;
+      if (routes.length === 0) return;
       
       const hasLoadingRoutes = routes.some(r => r.loading);
-      if (!hasLoadingRoutes) return;
+      if (!hasLoadingRoutes || pricesLoading) return;
 
       setPricesLoading(true);
 
       try {
-        const routeRequests = routes.map((route) => ({
-          origin: route.origin,
-          destination: route.destination,
-          departureDate,
-          returnDate,
-        }));
+        // Batch routes into groups of 6 (API limit)
+        const batchSize = 6;
+        const allPrices: { origin: string; destination: string; price: number | null }[] = [];
+        
+        for (let i = 0; i < routes.length; i += batchSize) {
+          const batch = routes.slice(i, i + batchSize);
+          const routeRequests = batch.map((route) => ({
+            origin: route.origin,
+            destination: route.destination,
+            departureDate,
+            returnDate,
+          }));
 
-        const { data, error } = await supabase.functions.invoke("get-route-prices", {
-          body: { routes: routeRequests },
-        });
+          const { data, error } = await supabase.functions.invoke("get-route-prices", {
+            body: { routes: routeRequests },
+          });
 
-        if (error) {
-          console.error("Error fetching prices:", error);
-          setRoutes((prev) => prev.map((route) => ({ ...route, loading: false })));
-          return;
+          if (!error && data?.prices) {
+            allPrices.push(...data.prices);
+          }
         }
 
-        if (data?.prices) {
-          setRoutes((prev) =>
-            prev.map((route) => {
-              const priceData = data.prices.find(
-                (p: { origin: string; destination: string; price: number | null }) =>
-                  p.origin === route.origin && p.destination === route.destination
-              );
-              return {
-                ...route,
-                price: priceData?.price ?? null,
-                loading: false,
-              };
-            })
-          );
-        }
+        // Update all routes with fetched prices
+        setRoutes((prev) =>
+          prev.map((route) => {
+            const priceData = allPrices.find(
+              (p) => p.origin === route.origin && p.destination === route.destination
+            );
+            return {
+              ...route,
+              price: priceData?.price ?? null,
+              loading: false,
+            };
+          })
+        );
       } catch (error) {
         console.error("Error fetching prices:", error);
         setRoutes((prev) => prev.map((route) => ({ ...route, loading: false })));
@@ -90,7 +93,7 @@ const PopularRoutes = () => {
     };
 
     fetchPrices();
-  }, [routes.length, departureDate, returnDate]);
+  }, [regionConfig, departureDate, returnDate]); // Only depend on config changes
 
   const getBookingUrl = (route: RouteData) => {
     const params = new URLSearchParams({
