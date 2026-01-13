@@ -10,20 +10,20 @@ const Footer = () => {
       { label: "Destinations", href: "#destinations" },
     ],
     company: [
-      { label: "About Us", href: "#" },
-      { label: "Careers", href: "#" },
-      { label: "Press", href: "#" },
-      { label: "Blog", href: "#" },
+      { label: "About Us", href: "/about" },
+      { label: "Careers", href: "/careers" },
+      { label: "Press", href: "/press" },
+      { label: "Blog", href: "/blog" },
     ],
     support: [
-      { label: "Help Center", href: "#" },
-      { label: "Contact Us", href: "#" },
-      { label: "FAQs", href: "#" },
+      { label: "Help Center", href: "/help" },
+      { label: "Contact Us", href: "/contact" },
+      { label: "FAQs", href: "/faqs" },
     ],
     legal: [
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
-      { label: "Cookie Policy", href: "#cookies" },
+      { label: "Cookie Policy", href: "/cookies" },
       { label: "Affiliate Disclosure", href: "/affiliate-disclosure" },
     ],
   };
