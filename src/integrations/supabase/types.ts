@@ -211,6 +211,42 @@ export type Database = {
           },
         ]
       }
+      route_price_cache: {
+        Row: {
+          cached_at: string
+          currency: string
+          departure_date: string
+          destination: string
+          expires_at: string
+          id: string
+          origin: string
+          price: number | null
+          return_date: string | null
+        }
+        Insert: {
+          cached_at?: string
+          currency?: string
+          departure_date: string
+          destination: string
+          expires_at?: string
+          id?: string
+          origin: string
+          price?: number | null
+          return_date?: string | null
+        }
+        Update: {
+          cached_at?: string
+          currency?: string
+          departure_date?: string
+          destination?: string
+          expires_at?: string
+          id?: string
+          origin?: string
+          price?: number | null
+          return_date?: string | null
+        }
+        Relationships: []
+      }
       saved_searches: {
         Row: {
           cabin_class: string
@@ -288,6 +324,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_price_cache: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -21,9 +21,17 @@ const PopularRoutes = () => {
   const { geoData, regionConfig, loading: geoLoading } = useGeoLocation();
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [pricesLoading, setPricesLoading] = useState(false);
+  const [currency, setCurrency] = useState({ code: 'USD', symbol: '$' });
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+
+  // Update currency when geo data is available
+  useEffect(() => {
+    if (regionConfig.currency && regionConfig.currencySymbol) {
+      setCurrency({ code: regionConfig.currency, symbol: regionConfig.currencySymbol });
+    }
+  }, [regionConfig]);
 
   const departureDate = format(addDays(new Date(), 14), "yyyy-MM-dd");
   const returnDate = format(addDays(new Date(), 21), "yyyy-MM-dd");
@@ -63,7 +71,7 @@ const PopularRoutes = () => {
           }));
 
           const { data, error } = await supabase.functions.invoke("get-route-prices", {
-            body: { routes: routeRequests },
+            body: { routes: routeRequests, currency: currency.code },
           });
 
           if (!error && data?.prices) {
@@ -93,7 +101,14 @@ const PopularRoutes = () => {
     };
 
     fetchPrices();
-  }, [regionConfig, departureDate, returnDate]); // Only depend on config changes
+  }, [regionConfig, departureDate, returnDate, currency.code]); // Also depend on currency
+
+  // Format price with currency symbol
+  const formatPrice = (price: number | null | undefined) => {
+    if (!price) return "—";
+    // Format based on currency
+    return `${currency.symbol}${price.toLocaleString()}`;
+  };
 
   const getBookingUrl = (route: RouteData) => {
     const params = new URLSearchParams({
@@ -274,7 +289,7 @@ const PopularRoutes = () => {
                       </div>
                     ) : (
                       <p className="text-2xl md:text-3xl font-bold text-[#003680]">
-                        {route.price ? `$${route.price}` : "—"}
+                        {formatPrice(route.price)}
                       </p>
                     )}
                   </div>
