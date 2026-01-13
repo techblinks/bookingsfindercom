@@ -149,7 +149,7 @@ const BookingRedirect = () => {
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
               >
-                {type === "hotel" ? (
+                {redirectUrl.includes("hotellook") || redirectUrl.includes("/hotels") ? (
                   <Building2 className="h-10 w-10 text-primary" />
                 ) : (
                   <Plane className="h-10 w-10 text-primary" />
