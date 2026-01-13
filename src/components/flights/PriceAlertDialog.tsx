@@ -23,6 +23,7 @@ interface PriceAlertDialogProps {
   cabinClass: string;
   currentLowestPrice?: number;
   currency?: string;
+  trigger?: React.ReactNode;
 }
 
 export function PriceAlertDialog({
@@ -33,7 +34,8 @@ export function PriceAlertDialog({
   passengers,
   cabinClass,
   currentLowestPrice,
-  currency = 'AUD',
+  currency = 'USD',
+  trigger,
 }: PriceAlertDialogProps) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -85,10 +87,12 @@ export function PriceAlertDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Bell className="h-4 w-4" />
-          Set Price Alert
-        </Button>
+        {trigger || (
+          <Button variant="outline" size="sm" className="gap-2">
+            <Bell className="h-4 w-4" />
+            Set Price Alert
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
