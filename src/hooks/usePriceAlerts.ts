@@ -1,9 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+
+// Helper function to send welcome email to new subscribers
+async function sendWelcomeEmail(email: string, origin?: string, destination?: string): Promise<void> {
+  try {
+    const { error } = await supabase.functions.invoke('send-welcome-email', {
+      body: { email, origin, destination },
+    });
+    
+    if (error) {
+      console.error('Error sending welcome email:', error);
+    } else {
+      console.log('Welcome email sent to:', email);
+    }
+  } catch (error) {
+    console.error('Error invoking welcome email function:', error);
+  }
+}
 import { toast } from 'sonner';
 
 // Helper function to add subscriber when creating price alert
-async function addSubscriber(email: string, source: string = 'price_alert'): Promise<void> {
+// Returns true if this is a new subscriber (for sending welcome email)
+async function addSubscriber(email: string, source: string = 'price_alert'): Promise<boolean> {
   try {
     // Check if already subscribed
     const { data: existing } = await supabase
@@ -23,8 +41,9 @@ async function addSubscriber(email: string, source: string = 'price_alert'): Pro
             subscribed_at: new Date().toISOString()
           })
           .eq('id', existing.id);
+        return true; // Resubscribed user should get welcome email
       }
-      return;
+      return false; // Already subscribed, no welcome email
     }
 
     // Add new subscriber
@@ -35,9 +54,12 @@ async function addSubscriber(email: string, source: string = 'price_alert'): Pro
         subscription_source: source,
         is_subscribed: true,
       });
+    
+    return true; // New subscriber, send welcome email
   } catch (error) {
     // Silently handle errors - don't block the price alert creation
     console.error('Error adding subscriber:', error);
+    return false;
   }
 }
 
@@ -140,8 +162,13 @@ export function usePriceAlerts(email?: string) {
           });
       }
 
-      // Add user to subscribers list
-      await addSubscriber(params.email, 'price_alert');
+      // Add user to subscribers list and send welcome email if new
+      const isNewSubscriber = await addSubscriber(params.email, 'price_alert');
+      
+      if (isNewSubscriber) {
+        // Send welcome email to new subscribers
+        await sendWelcomeEmail(params.email, params.origin, params.destination);
+      }
 
       toast.success('Price alert created!', {
         description: `We'll notify you at ${params.email} when prices drop.`,
