@@ -6,11 +6,15 @@ interface GeoData {
   city: string;
   defaultOrigin: string;
   defaultOriginName: string;
+  currency: string;
+  currencySymbol: string;
 }
 
 interface RegionConfig {
   defaultOrigin: string;
   defaultOriginName: string;
+  currency: string;
+  currencySymbol: string;
   popularRoutes: {
     origin: string;
     originName: string;
@@ -19,10 +23,50 @@ interface RegionConfig {
   }[];
 }
 
+// Currency mapping by country code
+const currencyByCountry: Record<string, { currency: string; symbol: string }> = {
+  US: { currency: 'USD', symbol: '$' },
+  AU: { currency: 'AUD', symbol: 'A$' },
+  GB: { currency: 'GBP', symbol: '£' },
+  IN: { currency: 'INR', symbol: '₹' },
+  SG: { currency: 'SGD', symbol: 'S$' },
+  AE: { currency: 'AED', symbol: 'د.إ' },
+  EU: { currency: 'EUR', symbol: '€' },
+  DE: { currency: 'EUR', symbol: '€' },
+  FR: { currency: 'EUR', symbol: '€' },
+  IT: { currency: 'EUR', symbol: '€' },
+  ES: { currency: 'EUR', symbol: '€' },
+  NL: { currency: 'EUR', symbol: '€' },
+  CA: { currency: 'CAD', symbol: 'C$' },
+  JP: { currency: 'JPY', symbol: '¥' },
+  CN: { currency: 'CNY', symbol: '¥' },
+  HK: { currency: 'HKD', symbol: 'HK$' },
+  NZ: { currency: 'NZD', symbol: 'NZ$' },
+  TH: { currency: 'THB', symbol: '฿' },
+  MY: { currency: 'MYR', symbol: 'RM' },
+  PH: { currency: 'PHP', symbol: '₱' },
+  ID: { currency: 'IDR', symbol: 'Rp' },
+  KR: { currency: 'KRW', symbol: '₩' },
+  BR: { currency: 'BRL', symbol: 'R$' },
+  MX: { currency: 'MXN', symbol: 'MX$' },
+  ZA: { currency: 'ZAR', symbol: 'R' },
+  CH: { currency: 'CHF', symbol: 'Fr' },
+  SE: { currency: 'SEK', symbol: 'kr' },
+  NO: { currency: 'NOK', symbol: 'kr' },
+  DK: { currency: 'DKK', symbol: 'kr' },
+  PL: { currency: 'PLN', symbol: 'zł' },
+  RU: { currency: 'RUB', symbol: '₽' },
+  TR: { currency: 'TRY', symbol: '₺' },
+};
+
+const defaultCurrency = { currency: 'USD', symbol: '$' };
+
 const regionConfigs: Record<string, RegionConfig> = {
   AU: {
     defaultOrigin: "SYD",
     defaultOriginName: "Sydney",
+    currency: "AUD",
+    currencySymbol: "A$",
     popularRoutes: [
       { origin: "SYD", originName: "Sydney", destination: "MEL", destinationName: "Melbourne" },
       { origin: "SYD", originName: "Sydney", destination: "BNE", destinationName: "Brisbane" },
@@ -39,6 +83,8 @@ const regionConfigs: Record<string, RegionConfig> = {
   IN: {
     defaultOrigin: "DEL",
     defaultOriginName: "New Delhi",
+    currency: "INR",
+    currencySymbol: "₹",
     popularRoutes: [
       { origin: "DEL", originName: "Delhi", destination: "BOM", destinationName: "Mumbai" },
       { origin: "BLR", originName: "Bangalore", destination: "DEL", destinationName: "Delhi" },
@@ -55,6 +101,8 @@ const regionConfigs: Record<string, RegionConfig> = {
   US: {
     defaultOrigin: "JFK",
     defaultOriginName: "New York",
+    currency: "USD",
+    currencySymbol: "$",
     popularRoutes: [
       { origin: "JFK", originName: "New York", destination: "LAX", destinationName: "Los Angeles" },
       { origin: "LAX", originName: "Los Angeles", destination: "JFK", destinationName: "New York" },
@@ -71,6 +119,8 @@ const regionConfigs: Record<string, RegionConfig> = {
   GB: {
     defaultOrigin: "LHR",
     defaultOriginName: "London",
+    currency: "GBP",
+    currencySymbol: "£",
     popularRoutes: [
       { origin: "LHR", originName: "London", destination: "CDG", destinationName: "Paris" },
       { origin: "LHR", originName: "London", destination: "AMS", destinationName: "Amsterdam" },
@@ -87,6 +137,8 @@ const regionConfigs: Record<string, RegionConfig> = {
   SG: {
     defaultOrigin: "SIN",
     defaultOriginName: "Singapore",
+    currency: "SGD",
+    currencySymbol: "S$",
     popularRoutes: [
       { origin: "SIN", originName: "Singapore", destination: "KUL", destinationName: "Kuala Lumpur" },
       { origin: "SIN", originName: "Singapore", destination: "BKK", destinationName: "Bangkok" },
@@ -103,6 +155,8 @@ const regionConfigs: Record<string, RegionConfig> = {
   AE: {
     defaultOrigin: "DXB",
     defaultOriginName: "Dubai",
+    currency: "AED",
+    currencySymbol: "د.إ",
     popularRoutes: [
       { origin: "DXB", originName: "Dubai", destination: "LHR", destinationName: "London" },
       { origin: "DXB", originName: "Dubai", destination: "BOM", destinationName: "Mumbai" },
@@ -121,6 +175,8 @@ const regionConfigs: Record<string, RegionConfig> = {
 const defaultConfig: RegionConfig = {
   defaultOrigin: "LHR",
   defaultOriginName: "London",
+  currency: "USD",
+  currencySymbol: "$",
   popularRoutes: [
     { origin: "LHR", originName: "London", destination: "JFK", destinationName: "New York" },
     { origin: "CDG", originName: "Paris", destination: "BCN", destinationName: "Barcelona" },
@@ -166,6 +222,7 @@ export const useGeoLocation = () => {
         
         const data = await response.json();
         const config = regionConfigs[data.country_code] || defaultConfig;
+        const currencyInfo = currencyByCountry[data.country_code] || defaultCurrency;
         
         const geoInfo: GeoData = {
           country: data.country_name || "Unknown",
@@ -173,6 +230,8 @@ export const useGeoLocation = () => {
           city: data.city || "Unknown",
           defaultOrigin: config.defaultOrigin,
           defaultOriginName: config.defaultOriginName,
+          currency: currencyInfo.currency,
+          currencySymbol: currencyInfo.symbol,
         };
         
         setGeoData(geoInfo);

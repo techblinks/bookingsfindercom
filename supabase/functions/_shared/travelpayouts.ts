@@ -115,6 +115,7 @@ export async function getLowestPrice(
     destination: string;
     departureDate: string;
     returnDate?: string | null;
+    currency?: string;
   },
   config: TravelpayoutsConfig
 ): Promise<number | null> {
@@ -124,6 +125,7 @@ export async function getLowestPrice(
       destination: params.destination.toUpperCase(),
       departure_at: params.departureDate,
       one_way: params.returnDate ? 'false' : 'true',
+      currency: params.currency || 'USD',
       token: config.token,
       marker: config.marker,
       sorting: 'price',
