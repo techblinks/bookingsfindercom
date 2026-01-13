@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useGeoLocation } from '@/hooks/useGeoLocation';
 
 export interface AdPlacement {
   id: string;
@@ -17,6 +18,7 @@ export interface AdPlacement {
   advertiser_name?: string;
   html_content?: string;
   priority: number;
+  geo?: string[];
 }
 
 interface UseAdsReturn {
@@ -30,6 +32,7 @@ export function useAds(page: 'flights' | 'hotels'): UseAdsReturn {
   const [ads, setAds] = useState<Record<string, AdPlacement | null>>({});
   const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
+  const { geoData } = useGeoLocation();
   const [impressionTracked, setImpressionTracked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -38,7 +41,11 @@ export function useAds(page: 'flights' | 'hotels'): UseAdsReturn {
         const device = isMobile ? 'mobile' : 'desktop';
         
         const { data, error } = await supabase.functions.invoke('get-ads', {
-          body: { page, device },
+          body: { 
+            page, 
+            device,
+            countryCode: geoData?.countryCode || null,
+          },
         });
 
         if (error) {
@@ -57,7 +64,7 @@ export function useAds(page: 'flights' | 'hotels'): UseAdsReturn {
     // Delay ad fetch to not block main content
     const timer = setTimeout(fetchAds, 100);
     return () => clearTimeout(timer);
-  }, [page, isMobile]);
+  }, [page, isMobile, geoData?.countryCode]);
 
   const trackImpression = (adId: string) => {
     if (impressionTracked.has(adId)) return;
