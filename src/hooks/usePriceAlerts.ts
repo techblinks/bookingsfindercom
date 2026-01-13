@@ -2,6 +2,45 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Helper function to add subscriber when creating price alert
+async function addSubscriber(email: string, source: string = 'price_alert'): Promise<void> {
+  try {
+    // Check if already subscribed
+    const { data: existing } = await supabase
+      .from('subscribers')
+      .select('id, is_subscribed')
+      .eq('email', email)
+      .single();
+
+    if (existing) {
+      // If exists but unsubscribed, resubscribe them
+      if (!existing.is_subscribed) {
+        await supabase
+          .from('subscribers')
+          .update({ 
+            is_subscribed: true, 
+            unsubscribed_at: null,
+            subscribed_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
+      }
+      return;
+    }
+
+    // Add new subscriber
+    await supabase
+      .from('subscribers')
+      .insert({
+        email,
+        subscription_source: source,
+        is_subscribed: true,
+      });
+  } catch (error) {
+    // Silently handle errors - don't block the price alert creation
+    console.error('Error adding subscriber:', error);
+  }
+}
+
 export interface SavedSearch {
   id: string;
   email: string;
@@ -100,6 +139,9 @@ export function usePriceAlerts(email?: string) {
             price: params.currentPrice,
           });
       }
+
+      // Add user to subscribers list
+      await addSubscriber(params.email, 'price_alert');
 
       toast.success('Price alert created!', {
         description: `We'll notify you at ${params.email} when prices drop.`,
