@@ -19,7 +19,7 @@ const Header = () => {
         {/* Logo */}
         <a href="/" className="flex items-center gap-2 text-primary font-bold text-xl">
           <Plane className="h-6 w-6" />
-          <span>TravelHub</span>
+          <span>BookingsFinder</span>
         </a>
 
         {/* Desktop Navigation */}

@@ -17,10 +17,10 @@ const Index = () => {
           <div className="container">
             <div className="text-center mb-8 md:mb-10">
               <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
-                Find your next adventure
+                Compare & Save on Travel
               </h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Compare prices from hundreds of airlines and hotels to get the best deals.
+                Search hundreds of travel sites at once. Find the best deals on flights and hotels.
               </p>
             </div>
 

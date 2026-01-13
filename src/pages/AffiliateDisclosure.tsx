@@ -32,7 +32,7 @@ const AffiliateDisclosure = () => {
                   Our Commitment to Transparency
                 </h2>
                 <p className="text-muted-foreground text-sm leading-relaxed">
-                  At TravelSearch, we believe in complete transparency with our users. This disclosure explains how we earn revenue while providing you with free travel comparison services.
+                  At BookingsFinder, we believe in complete transparency with our users. This disclosure explains how we earn revenue while providing you with free travel comparison services.
                 </p>
               </div>
             </div>
@@ -44,7 +44,7 @@ const AffiliateDisclosure = () => {
                 Participation in Affiliate Programs
               </h2>
               <p className="text-muted-foreground leading-relaxed">
-                TravelSearch participates in various travel affiliate programs and partnerships with airlines, hotels, online travel agencies (OTAs), and other travel service providers. These partnerships allow us to offer our travel comparison services free of charge while earning a commission on bookings made through our platform.
+                BookingsFinder participates in various travel affiliate programs and partnerships with airlines, hotels, online travel agencies (OTAs), and other travel service providers. These partnerships allow us to offer our travel comparison services free of charge while earning a commission on bookings made through our platform.
               </p>
             </section>
 
@@ -144,8 +144,8 @@ const AffiliateDisclosure = () => {
                 If you have any questions about our affiliate relationships or how we earn revenue, please don't hesitate to contact us:
               </p>
               <div className="bg-secondary/50 rounded-lg p-4 mt-4">
-                <p className="text-foreground font-medium">TravelSearch Partnerships Team</p>
-                <p className="text-muted-foreground">Email: partnerships@travelsearch.com</p>
+                <p className="text-foreground font-medium">BookingsFinder Partnerships Team</p>
+                <p className="text-muted-foreground">Email: partnerships@bookingsfinder.com</p>
               </div>
             </section>
 
@@ -154,7 +154,7 @@ const AffiliateDisclosure = () => {
                 Thank You for Your Support
               </p>
               <p className="text-green-600 dark:text-green-500 text-sm leading-relaxed">
-                By using TravelSearch and our affiliate links, you help us continue to provide free, comprehensive travel comparison services. We appreciate your trust and are committed to helping you find the best travel deals possible.
+                By using BookingsFinder and our affiliate links, you help us continue to provide free, comprehensive travel comparison services. We appreciate your trust and are committed to helping you find the best travel deals possible.
               </p>
             </section>
           </div>
