@@ -15,6 +15,7 @@ import AffiliateDisclosure from "./pages/AffiliateDisclosure";
 import MyAlerts from "./pages/MyAlerts";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminAlerts from "./pages/AdminAlerts";
+import AdminAds from "./pages/AdminAds";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/my-alerts" element={<MyAlerts />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/alerts" element={<AdminAlerts />} />
+            <Route path="/admin/ads" element={<AdminAds />} />
             <Route path="/d/:slug" element={<DestinationPage />} />
             <Route path="/redirect" element={<BookingRedirect />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
