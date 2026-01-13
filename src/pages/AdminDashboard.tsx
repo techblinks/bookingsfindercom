@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw } from 'lucide-react';
+import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw, Users, FileText, Newspaper } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,13 +22,12 @@ const adminFeatures = [
     bgColor: 'bg-blue-500/10',
   },
   {
-    title: 'Analytics Dashboard',
-    description: 'View site traffic, conversions, and revenue metrics',
-    icon: BarChart3,
-    href: '/admin/analytics',
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
-    comingSoon: true,
+    title: 'Subscribers',
+    description: 'View and manage email subscribers, send campaigns',
+    icon: Users,
+    href: '/admin/subscribers',
+    color: 'text-pink-500',
+    bgColor: 'bg-pink-500/10',
   },
   {
     title: 'Ad Management',
@@ -37,6 +36,31 @@ const adminFeatures = [
     href: '/admin/ads',
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
+  },
+  {
+    title: 'Blog Posts',
+    description: 'Create and manage blog content',
+    icon: FileText,
+    href: '/admin/blog',
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-500/10',
+  },
+  {
+    title: 'Press Releases',
+    description: 'Manage press releases and media content',
+    icon: Newspaper,
+    href: '/admin/press',
+    color: 'text-teal-500',
+    bgColor: 'bg-teal-500/10',
+  },
+  {
+    title: 'Analytics Dashboard',
+    description: 'View site traffic, conversions, and revenue metrics',
+    icon: BarChart3,
+    href: '/admin/analytics',
+    color: 'text-green-500',
+    bgColor: 'bg-green-500/10',
+    comingSoon: true,
   },
   {
     title: 'User Alerts',
