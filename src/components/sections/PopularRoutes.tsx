@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Plane, ArrowRight, Loader2, TrendingUp, ChevronLeft, ChevronRight, Globe } from "lucide-react";
+import { Plane, ArrowRight, Loader2, TrendingUp, ChevronLeft, ChevronRight, Globe, Bell } from "lucide-react";
 import { format, addDays } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 
 interface RouteData {
   origin: string;
@@ -195,70 +196,94 @@ const PopularRoutes = () => {
           style={{ scrollSnapType: "x mandatory" }}
         >
           {routes.map((route, index) => (
-            <a
+            <div
               key={`${route.origin}-${route.destination}-${index}`}
-              href={getBookingUrl(route)}
               className={cn(
                 "flex-shrink-0 w-[280px] md:w-[300px]",
                 "bg-card rounded-2xl border border-border p-5",
                 "hover:border-primary/50 hover:shadow-lg transition-all duration-300",
-                "animate-fade-in group",
+                "animate-fade-in group relative",
               )}
               style={{ 
                 animationDelay: `${index * 50}ms`,
                 scrollSnapAlign: "start"
               }}
             >
-              {/* Route Header */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                  <Plane className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-foreground text-base">
-                      {route.origin}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="font-bold text-foreground text-base">
-                      {route.destination}
-                    </span>
+              {/* Price Alert Button - Top Right */}
+              <div className="absolute top-3 right-3 z-10">
+                <PriceAlertDialog
+                  origin={route.origin}
+                  destination={route.destination}
+                  departureDate={departureDate}
+                  returnDate={returnDate}
+                  passengers={1}
+                  cabinClass="economy"
+                  currentLowestPrice={route.price || undefined}
+                  currency="USD"
+                  trigger={
+                    <button
+                      className="p-2 rounded-full bg-muted/80 hover:bg-primary/10 hover:text-primary transition-colors"
+                      title="Set price alert"
+                    >
+                      <Bell className="h-4 w-4" />
+                    </button>
+                  }
+                />
+              </div>
+
+              {/* Clickable content area */}
+              <a href={getBookingUrl(route)} className="block">
+                {/* Route Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                    <Plane className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-foreground text-base">
+                        {route.origin}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="font-bold text-foreground text-base">
+                        {route.destination}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Route Names */}
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground truncate">
-                  {route.originName} → {route.destinationName}
-                </p>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-border mb-4" />
-
-              {/* Price Section */}
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Round trip from</p>
-                  {route.loading ? (
-                    <div className="flex items-center gap-2 h-9">
-                      <div className="w-20 h-8 bg-muted animate-pulse rounded" />
-                    </div>
-                  ) : (
-                    <p className="text-2xl md:text-3xl font-bold text-[#003680]">
-                      {route.price ? `$${route.price}` : "—"}
-                    </p>
-                  )}
+                {/* Route Names */}
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground truncate">
+                    {route.originName} → {route.destinationName}
+                  </p>
                 </div>
 
-                {/* CTA */}
-                <div className="flex items-center gap-1 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>View</span>
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                {/* Divider */}
+                <div className="border-t border-border mb-4" />
+
+                {/* Price Section */}
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Round trip from</p>
+                    {route.loading ? (
+                      <div className="flex items-center gap-2 h-9">
+                        <div className="w-20 h-8 bg-muted animate-pulse rounded" />
+                      </div>
+                    ) : (
+                      <p className="text-2xl md:text-3xl font-bold text-[#003680]">
+                        {route.price ? `$${route.price}` : "—"}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* CTA */}
+                  <div className="flex items-center gap-1 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span>View</span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </div>
                 </div>
-              </div>
-            </a>
+              </a>
+            </div>
           ))}
 
           {/* See All Routes Card */}
