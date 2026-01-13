@@ -4,7 +4,7 @@ import { format, addDays } from "date-fns";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-
+import FlipBoard from "@/components/ui/FlipBoard";
 interface DealRoute {
   origin: string;
   originName: string;
@@ -227,13 +227,23 @@ const TopDealsOfTheDay = () => {
                   {/* Price */}
                   <div className="col-span-2 text-right">
                     {deal.loading ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground ml-auto" />
+                      <div>
+                        <FlipBoard 
+                          value="" 
+                          isLoading={true}
+                          className="text-2xl font-bold text-success justify-end"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          loading...
+                        </p>
+                      </div>
                     ) : deal.price ? (
                       <div>
-                        <p className="text-2xl font-bold text-success font-mono">
-                          ${deal.price}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
+                        <FlipBoard 
+                          value={`$${deal.price}`}
+                          className="text-2xl font-bold text-success justify-end"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
                           per person
                         </p>
                       </div>
@@ -280,11 +290,16 @@ const TopDealsOfTheDay = () => {
                     </div>
 
                     {deal.loading ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <FlipBoard 
+                        value="" 
+                        isLoading={true}
+                        className="text-xl font-bold text-success"
+                      />
                     ) : deal.price ? (
-                      <p className="text-xl font-bold text-success font-mono">
-                        ${deal.price}
-                      </p>
+                      <FlipBoard 
+                        value={`$${deal.price}`}
+                        className="text-xl font-bold text-success"
+                      />
                     ) : (
                       <span className="text-sm font-medium text-primary">
                         View
