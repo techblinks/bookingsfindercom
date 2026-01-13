@@ -20,26 +20,39 @@ const BookingRedirect = () => {
   const [countdown, setCountdown] = useState(COUNTDOWN_START);
   const [progress, setProgress] = useState(0);
 
-  // Get redirect URL from query parameter
-  const urlParam = searchParams.get("url") || searchParams.get("redirect") || "";
+  // Get redirect URL from query parameter (support multiple param keys for backwards-compat)
+  const urlParam =
+    searchParams.get("url") ||
+    searchParams.get("redirect") ||
+    searchParams.get("redirectUrl") ||
+    searchParams.get("link") ||
+    "";
 
   const normalizeAffiliateUrl = (input: string): string => {
     let v = (input || "").trim();
     if (!v) return "";
 
-    // Handle occasional double-encoding
-    try {
-      if (!v.includes("://") && (v.includes("%3A") || v.includes("%2F"))) {
-        v = decodeURIComponent(v);
+    // Decode repeatedly to handle double-encoded values like %252Fsearch...
+    // We only attempt decoding if it looks like percent-encoding.
+    for (let i = 0; i < 3; i++) {
+      if (!/%[0-9a-f]{2}/i.test(v)) break;
+      try {
+        const decoded = decodeURIComponent(v);
+        if (decoded === v) break;
+        v = decoded;
+      } catch {
+        break;
       }
-    } catch {
-      // ignore
     }
 
-    // If it's a relative partner path (common culprit of internal 404s)
-    if (v.startsWith("/search/")) return `https://www.aviasales.com${v}`;
-    if (v.startsWith("/hotels")) return `https://search.hotellook.com${v}`;
+    // Common case: query params may contain '+' as spaces (keep safe)
+    v = v.replace(/\+/g, "%20");
 
+    // If it's a relative partner path (common culprit of internal 404s)
+    if (v.startsWith("/search")) return `https://www.aviasales.com${v}`;
+    if (v.startsWith("search/")) return `https://www.aviasales.com/${v}`;
+    if (v.startsWith("/hotels")) return `https://search.hotellook.com${v}`;
+    if (v.startsWith("hotels")) return `https://search.hotellook.com/${v}`;
     // Protocol-relative
     if (v.startsWith("//")) return `https:${v}`;
 
@@ -166,7 +179,7 @@ const BookingRedirect = () => {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-            Finding best deal
+            Finding best deal...
           </h1>
           <p className="text-muted-foreground mb-2">
             Please wait while we take you to the booking site.
