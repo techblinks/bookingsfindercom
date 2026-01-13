@@ -15,6 +15,7 @@ interface RouteData {
   destinationName: string;
   price?: number | null;
   loading?: boolean;
+  cached?: boolean;
 }
 
 const PopularRoutes = () => {
@@ -59,7 +60,7 @@ const PopularRoutes = () => {
       try {
         // Batch routes into groups of 6 (API limit)
         const batchSize = 6;
-        const allPrices: { origin: string; destination: string; price: number | null }[] = [];
+        const allPrices: { origin: string; destination: string; price: number | null; cached?: boolean }[] = [];
         
         for (let i = 0; i < routes.length; i += batchSize) {
           const batch = routes.slice(i, i + batchSize);
@@ -83,11 +84,13 @@ const PopularRoutes = () => {
         setRoutes((prev) =>
           prev.map((route) => {
             const priceData = allPrices.find(
-              (p) => p.origin === route.origin && p.destination === route.destination
+              (p: { origin: string; destination: string; price: number | null; cached?: boolean }) => 
+                p.origin === route.origin && p.destination === route.destination
             );
             return {
               ...route,
               price: priceData?.price ?? null,
+              cached: priceData?.cached ?? false,
               loading: false,
             };
           })
@@ -282,13 +285,27 @@ const PopularRoutes = () => {
                 {/* Price Section */}
                 <div className="flex items-end justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Round trip from</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-xs text-muted-foreground">Round trip from</p>
+                      {!route.loading && route.price && (
+                        <span
+                          className={cn(
+                            "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                            route.cached
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          )}
+                        >
+                          {route.cached ? "Cached" : "Live"}
+                        </span>
+                      )}
+                    </div>
                     {route.loading ? (
                       <div className="flex items-center gap-2 h-9">
                         <div className="w-20 h-8 bg-muted animate-pulse rounded" />
                       </div>
                     ) : (
-                      <p className="text-2xl md:text-3xl font-bold text-[#003680]">
+                      <p className="text-2xl md:text-3xl font-bold text-primary">
                         {formatPrice(route.price)}
                       </p>
                     )}
