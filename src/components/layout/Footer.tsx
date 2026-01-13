@@ -52,15 +52,21 @@ const Footer = () => {
   return (
     <footer className="bg-card border-t border-border">
       <div className="container py-12">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
           {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-2">
             <Link to="/" className="block mb-4">
               <img src={logo} alt="BookingsFinder" className="h-10 w-auto" />
             </Link>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               Compare prices across hundreds of travel sites to find the best deals.
             </p>
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">Headquarters</p>
+              <p>13 Wildflower Street</p>
+              <p>Yarrabilba, 4207</p>
+              <p>Brisbane, Australia</p>
+            </div>
           </div>
 
           {/* Explore */}

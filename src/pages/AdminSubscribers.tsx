@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { emailTemplates, EmailTemplate } from '@/data/emailTemplates';
 import { 
   ArrowLeft, 
   Users, 
@@ -21,7 +22,9 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  FileText,
+  Eye
 } from 'lucide-react';
 import {
   Table,
@@ -51,6 +54,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 
 interface Subscriber {
   id: string;
@@ -77,6 +93,17 @@ export default function AdminSubscribers() {
   const [emailContent, setEmailContent] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+
+  const handleTemplateSelect = (templateId: string) => {
+    const template = emailTemplates.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(templateId);
+      setEmailSubject(template.subject);
+      setEmailContent(template.htmlContent);
+    }
+  };
 
   useEffect(() => {
     if (isAdmin) {
@@ -354,44 +381,97 @@ export default function AdminSubscribers() {
                   Send a promotional email to {activeCount} active subscribers
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div>
-                  <label className="text-sm font-medium">Subject</label>
-                  <Input
-                    placeholder="e.g., 🔥 Flash Sale: 50% Off All Flights!"
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">HTML Content</label>
-                  <Textarea
-                    placeholder="Enter your email HTML content..."
-                    value={emailContent}
-                    onChange={(e) => setEmailContent(e.target.value)}
-                    rows={10}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use {"{{unsubscribe_url}}"} to insert the unsubscribe link
-                  </p>
-                </div>
-                <div className="border-t pt-4">
-                  <label className="text-sm font-medium">Test Email (optional)</label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      placeholder="test@example.com"
-                      value={testEmail}
-                      onChange={(e) => setTestEmail(e.target.value)}
-                    />
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleSendBulkEmail(true)}
-                      disabled={isSending}
-                    >
-                      Send Test
-                    </Button>
+              <Tabs defaultValue="templates" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="templates">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Templates
+                  </TabsTrigger>
+                  <TabsTrigger value="custom">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Custom
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="templates" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {emailTemplates.map((template) => (
+                      <Card 
+                        key={template.id}
+                        className={`cursor-pointer transition-all hover:border-primary/50 ${
+                          selectedTemplate === template.id ? 'border-primary ring-2 ring-primary/20' : ''
+                        }`}
+                        onClick={() => handleTemplateSelect(template.id)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-sm">{template.name}</p>
+                              <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+                            </div>
+                            {selectedTemplate === template.id && (
+                              <CheckCircle className="h-5 w-5 text-primary shrink-0" />
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
+                  {selectedTemplate && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPreviewDialogOpen(true)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Preview Template
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="custom" className="space-y-4 mt-4">
+                  <div>
+                    <label className="text-sm font-medium">Subject</label>
+                    <Input
+                      placeholder="e.g., 🔥 Flash Sale: 50% Off All Flights!"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">HTML Content</label>
+                    <Textarea
+                      placeholder="Enter your email HTML content..."
+                      value={emailContent}
+                      onChange={(e) => setEmailContent(e.target.value)}
+                      rows={10}
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Use {"{{unsubscribe_url}}"} to insert the unsubscribe link
+                    </p>
+                  </div>
+                </TabsContent>
+              </Tabs>
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Selected Email</label>
+                  <Badge variant="outline">{emailSubject ? emailSubject.slice(0, 40) + (emailSubject.length > 40 ? '...' : '') : 'None selected'}</Badge>
+                </div>
+                <label className="text-sm font-medium">Test Email (optional)</label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    placeholder="test@example.com"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handleSendBulkEmail(true)}
+                    disabled={isSending || !emailSubject || !emailContent}
+                  >
+                    Send Test
+                  </Button>
                 </div>
               </div>
               <DialogFooter>
@@ -515,6 +595,30 @@ export default function AdminSubscribers() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Email Preview Dialog */}
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Email Preview</DialogTitle>
+            <DialogDescription>
+              Subject: {emailSubject}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[60vh] border rounded-lg">
+            <iframe
+              srcDoc={emailContent}
+              className="w-full h-[500px] border-0"
+              title="Email Preview"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
