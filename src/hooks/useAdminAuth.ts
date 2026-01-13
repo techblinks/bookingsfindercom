@@ -8,6 +8,23 @@ export function useAdminAuth() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const checkAdminRole = async (userId: string) => {
+    // Use the secure has_role function via RPC or query user_roles
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error checking admin role:', error);
+      return false;
+    }
+    
+    return !!data;
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -16,14 +33,8 @@ export function useAdminAuth() {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Check if user is an admin
-          const { data } = await supabase
-            .from('admin_profiles')
-            .select('id')
-            .eq('user_id', session.user.id)
-            .single();
-          
-          setIsAdmin(!!data);
+          const hasAdminRole = await checkAdminRole(session.user.id);
+          setIsAdmin(hasAdminRole);
         } else {
           setIsAdmin(false);
         }
@@ -38,13 +49,8 @@ export function useAdminAuth() {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        const { data } = await supabase
-          .from('admin_profiles')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        setIsAdmin(!!data);
+        const hasAdminRole = await checkAdminRole(session.user.id);
+        setIsAdmin(hasAdminRole);
       }
       
       setIsLoading(false);
@@ -70,19 +76,8 @@ export function useAdminAuth() {
       },
     });
 
-    if (!error && data.user) {
-      // Create admin profile
-      const { error: profileError } = await supabase
-        .from('admin_profiles')
-        .insert({
-          user_id: data.user.id,
-          email: email,
-        });
-      
-      if (profileError) {
-        console.error('Error creating admin profile:', profileError);
-      }
-    }
+    // Note: Admin role is automatically assigned via database trigger
+    // if the email is in the authorized_admins table
 
     return { data, error };
   }, []);
