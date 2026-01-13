@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Plane, ArrowRight, Loader2, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plane, ArrowRight, Loader2, TrendingUp, ChevronLeft, ChevronRight, Globe } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { Link } from "react-router-dom";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -259,6 +260,35 @@ const PopularRoutes = () => {
               </div>
             </a>
           ))}
+
+          {/* See All Routes Card */}
+          <Link
+            to="/flights"
+            className={cn(
+              "flex-shrink-0 w-[280px] md:w-[300px]",
+              "bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 p-5",
+              "hover:border-primary/40 hover:shadow-lg transition-all duration-300",
+              "animate-fade-in group flex flex-col items-center justify-center text-center",
+            )}
+            style={{ 
+              animationDelay: `${routes.length * 50}ms`,
+              scrollSnapAlign: "start"
+            }}
+          >
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
+              <Globe className="h-7 w-7 text-primary" />
+            </div>
+            <h3 className="font-bold text-foreground text-lg mb-2">
+              Explore All Routes
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Discover flights to 500+ destinations worldwide
+            </p>
+            <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-3 transition-all">
+              <span>See all routes</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </Link>
         </div>
 
         {/* Gradient overlays for scroll indication - desktop */}
