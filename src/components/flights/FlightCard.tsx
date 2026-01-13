@@ -293,7 +293,7 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               size="sm"
               className="lg:w-full gap-1.5"
             >
-              Book Now
+              View Deal
               <ExternalLink className="h-3 w-3" />
             </Button>
           </div>

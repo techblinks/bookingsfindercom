@@ -57,10 +57,10 @@ const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 text-primary font-bold text-xl mb-4">
               <Plane className="h-6 w-6" />
-              <span>TravelHub</span>
+              <span>BookingsFinder</span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Find the best deals on flights, hotels, and car rentals worldwide.
+              Compare prices across hundreds of travel sites to find the best deals.
             </p>
           </div>
 
@@ -105,15 +105,20 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} TravelHub. All rights reserved.
+        {/* Bottom Bar with FTC-Compliant Disclosure */}
+        <div className="mt-12 pt-8 border-t border-border">
+          <p className="text-xs text-muted-foreground text-center mb-4 max-w-2xl mx-auto">
+            BookingsFinder is a travel comparison site. When you book through links on our site, we may earn an affiliate commission at no extra cost to you. This helps us keep our service free.
           </p>
-          <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
-            <Link to="/affiliate-disclosure" className="hover:text-foreground transition-colors">Affiliate Disclosure</Link>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} BookingsFinder. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+              <Link to="/affiliate-disclosure" className="hover:text-foreground transition-colors">Affiliate Disclosure</Link>
+            </div>
           </div>
         </div>
       </div>
