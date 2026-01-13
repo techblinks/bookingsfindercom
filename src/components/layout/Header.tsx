@@ -1,7 +1,8 @@
-import { Plane, Menu, X, Bell } from "lucide-react";
+import { Menu, X, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import logo from "@/assets/logo.webp";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -17,9 +18,8 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full bg-card border-b border-border backdrop-blur-sm">
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
-        <a href="/" className="flex items-center gap-2 text-primary font-bold text-xl">
-          <Plane className="h-6 w-6" />
-          <span>BookingsFinder</span>
+        <a href="/" className="flex items-center">
+          <img src={logo} alt="BookingsFinder" className="h-10 w-auto" />
         </a>
 
         {/* Desktop Navigation */}
