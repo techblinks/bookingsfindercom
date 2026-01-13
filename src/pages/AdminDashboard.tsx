@@ -1,11 +1,14 @@
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, BarChart3, Users, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database } from 'lucide-react';
+import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useAdminStats } from '@/hooks/useAdminStats';
 import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
 import { toast } from 'sonner';
 
@@ -67,12 +70,18 @@ const adminFeatures = [
 
 export default function AdminDashboard() {
   const { user, isLoading: authLoading, isAdmin, signOut } = useAdminAuth();
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useAdminStats();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await signOut();
     toast.success('Signed out successfully');
     navigate('/');
+  };
+
+  const handleRefreshStats = () => {
+    refetchStats();
+    toast.success('Stats refreshed');
   };
 
   // Loading state
@@ -203,30 +212,60 @@ export default function AdminDashboard() {
           {/* Quick Stats */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Stats</CardTitle>
-              <CardDescription>Overview of your platform metrics</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Quick Stats</CardTitle>
+                  <CardDescription>Overview of your platform metrics (today)</CardDescription>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleRefreshStats}
+                  disabled={statsLoading}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${statsLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className="text-2xl font-bold text-primary">—</div>
+                  {statsLoading ? (
+                    <Skeleton className="h-8 w-12 mx-auto" />
+                  ) : (
+                    <div className="text-2xl font-bold text-primary">{stats?.activeAlerts ?? 0}</div>
+                  )}
                   <div className="text-xs text-muted-foreground mt-1">Active Alerts</div>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className="text-2xl font-bold text-green-600">—</div>
+                  {statsLoading ? (
+                    <Skeleton className="h-8 w-12 mx-auto" />
+                  ) : (
+                    <div className="text-2xl font-bold text-green-600">{stats?.searchesToday ?? 0}</div>
+                  )}
                   <div className="text-xs text-muted-foreground mt-1">Today's Searches</div>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className="text-2xl font-bold text-blue-600">—</div>
+                  {statsLoading ? (
+                    <Skeleton className="h-8 w-12 mx-auto" />
+                  ) : (
+                    <div className="text-2xl font-bold text-blue-600">{stats?.clicksToday ?? 0}</div>
+                  )}
                   <div className="text-xs text-muted-foreground mt-1">Clicks Today</div>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <div className="text-2xl font-bold text-purple-600">—</div>
+                  {statsLoading ? (
+                    <Skeleton className="h-8 w-12 mx-auto" />
+                  ) : (
+                    <div className="text-2xl font-bold text-purple-600">—</div>
+                  )}
                   <div className="text-xs text-muted-foreground mt-1">Emails Sent</div>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground text-center mt-4">
-                Stats integration coming soon
+                Auto-refreshes every 30 seconds
               </p>
             </CardContent>
           </Card>
