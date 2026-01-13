@@ -187,7 +187,11 @@ const Contact = () => {
                         </div>
                         <div>
                           <h3 className="font-semibold mb-1">Headquarters</h3>
-                          <p className="text-sm text-muted-foreground">San Francisco, CA</p>
+                          <p className="text-sm text-muted-foreground">
+                            13 Wildflower Street<br />
+                            Yarrabilba, 4207<br />
+                            Brisbane, Australia
+                          </p>
                         </div>
                       </div>
                     </CardContent>
