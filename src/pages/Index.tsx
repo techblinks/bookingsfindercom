@@ -6,8 +6,12 @@ import PopularRoutes from "@/components/sections/PopularRoutes";
 import HowItWorks from "@/components/sections/HowItWorks";
 import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
 import TopDeals from "@/components/sections/TopDeals";
+import { useHomeAds } from "@/hooks/useHomeAds";
+import { HomeAdSlot } from "@/components/ads/HomeAdSlot";
 
 const Index = () => {
+  const { ads, trackImpression, trackClick } = useHomeAds();
+
   return (
     <>
       <Helmet>
@@ -46,8 +50,24 @@ const Index = () => {
           {/* Hero Section with Search */}
           <HeroSection />
 
+          {/* Ad Slot: Below Hero - High visibility placement */}
+          <HomeAdSlot 
+            ad={ads['hero_below']} 
+            placement="hero_below"
+            onImpression={trackImpression}
+            onClick={trackClick}
+          />
+
           {/* Popular Routes - Dynamic location-based top searches */}
           <PopularRoutes />
+
+          {/* Ad Slot: Between Sections - Contextual placement */}
+          <HomeAdSlot 
+            ad={ads['between_sections']} 
+            placement="between_sections"
+            onImpression={trackImpression}
+            onClick={trackClick}
+          />
 
           {/* How It Works Banner */}
           <HowItWorks />
@@ -57,6 +77,14 @@ const Index = () => {
 
           {/* Top Deals */}
           <TopDeals />
+
+          {/* Ad Slot: Above Footer - Last chance placement */}
+          <HomeAdSlot 
+            ad={ads['footer_above']} 
+            placement="footer_above"
+            onImpression={trackImpression}
+            onClick={trackClick}
+          />
 
           {/* Trust Stats */}
           <section className="py-12 md:py-16 bg-muted/50">
