@@ -1,8 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-const FlightCardSkeleton = () => {
+interface FlightCardSkeletonProps {
+  animate?: boolean;
+}
+
+const FlightCardSkeleton = ({ animate = true }: FlightCardSkeletonProps) => {
   return (
-    <div className="bg-card rounded-xl border border-border p-4 md:p-5 shadow-sm">
+    <div className={`bg-card rounded-xl border border-border p-4 md:p-5 shadow-sm ${animate ? 'animate-pulse' : ''}`}>
       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
         {/* Airline Info Skeleton */}
         <div className="flex items-center gap-3 lg:w-40">
@@ -41,6 +45,9 @@ const FlightCardSkeleton = () => {
           <Skeleton className="h-9 w-24 lg:w-full rounded-md" />
         </div>
       </div>
+
+      {/* View details skeleton */}
+      <Skeleton className="h-4 w-20 mt-3" />
     </div>
   );
 };

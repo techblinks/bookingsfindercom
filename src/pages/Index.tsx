@@ -1,70 +1,102 @@
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import HeroSearch from "@/components/search/HeroSearch";
-import { Shield, Clock, Sparkles } from "lucide-react";
-
+import DestinationCard from "@/components/cards/DestinationCard";
+import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
+import PopularRoutes from "@/components/sections/PopularRoutes";
+import TopDeals from "@/components/sections/TopDeals";
+import { destinations } from "@/data/placeholderData";
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       <main className="flex-1">
-        {/* Hero Section - Minimal and focused */}
-        <section className="relative py-16 md:py-24 lg:py-32">
-          <div className="container max-w-4xl mx-auto px-4">
-            {/* Headline */}
-            <div className="text-center mb-10 md:mb-12">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4 tracking-tight">
-                Find the best travel deals
+        {/* Hero Section */}
+        <section className="relative py-12 md:py-20 bg-gradient-to-b from-primary/5 via-primary/5 to-background">
+          <div className="container">
+            <div className="text-center mb-8 md:mb-10">
+              <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
+                Compare & Save on Travel
               </h1>
-              <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
-                Compare prices across 500+ airlines and millions of hotels
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Search hundreds of travel sites at once. Find the best deals on flights and hotels.
               </p>
             </div>
 
-            {/* Search Box */}
             <HeroSearch />
           </div>
         </section>
 
-        {/* Trust Indicators - Minimal */}
-        <section className="py-12 md:py-16 border-t border-border">
-          <div className="container max-w-4xl mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Best prices guaranteed</h3>
-                  <p className="text-sm text-muted-foreground">
-                    We compare prices from hundreds of travel sites to find you the lowest fares
-                  </p>
-                </div>
+        {/* Popular Destinations Section */}
+        <section id="destinations" className="py-12 md:py-16">
+          <div className="container">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+                  Popular Destinations
+                </h2>
+                <p className="text-muted-foreground">
+                  Explore trending destinations loved by travelers
+                </p>
               </div>
+              <a 
+                href="#" 
+                className="hidden sm:inline-flex text-sm font-medium text-primary hover:underline"
+              >
+                View all destinations →
+              </a>
+            </div>
 
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Clock className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Search in seconds</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Find and compare flights and hotels in one simple search
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {destinations.map((destination) => (
+                <DestinationCard
+                  key={destination.id}
+                  city={destination.city}
+                  country={destination.country}
+                  image={destination.image}
+                  price={destination.price}
+                  currency={destination.currency}
+                />
+              ))}
+            </div>
+
+            <div className="mt-6 text-center sm:hidden">
+              <a href="#" className="text-sm font-medium text-primary hover:underline">
+                View all destinations →
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* Popular Routes */}
+        <PopularRoutes />
+
+        {/* Why Book With Us */}
+        <WhyBookWithUs />
+
+        {/* Top Deals */}
+        <TopDeals />
+
+        {/* Trust Stats */}
+        <section className="py-12 md:py-16">
+          <div className="container">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+              <div className="p-6">
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">500+</p>
+                <p className="text-sm text-muted-foreground">Airlines</p>
               </div>
-
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Shield className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Trusted by millions</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Join over 50 million travelers who trust us to find their perfect trip
-                  </p>
-                </div>
+              <div className="p-6">
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">1M+</p>
+                <p className="text-sm text-muted-foreground">Hotels</p>
+              </div>
+              <div className="p-6">
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">50M+</p>
+                <p className="text-sm text-muted-foreground">Happy Travelers</p>
+              </div>
+              <div className="p-6">
+                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">24/7</p>
+                <p className="text-sm text-muted-foreground">Customer Support</p>
               </div>
             </div>
           </div>
