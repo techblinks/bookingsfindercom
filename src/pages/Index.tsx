@@ -2,7 +2,7 @@ import { Helmet } from "react-helmet-async";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import HeroSection from "@/components/home/HeroSection";
-import PopularDestinations from "@/components/sections/PopularDestinations";
+import PopularRoutes from "@/components/sections/PopularRoutes";
 import HowItWorks from "@/components/sections/HowItWorks";
 import WhyBookWithUs from "@/components/sections/WhyBookWithUs";
 import TopDeals from "@/components/sections/TopDeals";
@@ -46,8 +46,8 @@ const Index = () => {
           {/* Hero Section with Search */}
           <HeroSection />
 
-          {/* Popular Destinations */}
-          <PopularDestinations />
+          {/* Popular Routes - Dynamic location-based top searches */}
+          <PopularRoutes />
 
           {/* How It Works Banner */}
           <HowItWorks />
