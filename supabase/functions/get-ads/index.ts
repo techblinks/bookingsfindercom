@@ -8,9 +8,9 @@ const corsHeaders = {
 interface AdPlacement {
   id: string;
   name: string;
-  type: 'sponsored_card' | 'html_embed';
-  placement: 'after_result_3' | 'bottom' | 'after_result_5';
-  page: 'flights' | 'hotels' | 'both';
+  type: 'sponsored_card' | 'html_embed' | 'banner' | 'native' | 'hero_banner' | 'inline_promo';
+  placement: 'after_result_3' | 'bottom' | 'after_result_5' | 'hero_below' | 'between_sections' | 'sidebar' | 'footer_above';
+  page: 'flights' | 'hotels' | 'both' | 'home' | 'all';
   device: 'mobile' | 'desktop' | 'all';
   geo: string[];
   title?: string;
@@ -22,6 +22,13 @@ interface AdPlacement {
   html_content?: string;
   priority: number;
 }
+
+// Define valid placements per page type
+const pagePlacements: Record<string, string[]> = {
+  flights: ['after_result_3', 'after_result_5', 'bottom'],
+  hotels: ['after_result_3', 'after_result_5', 'bottom'],
+  home: ['hero_below', 'between_sections', 'sidebar', 'footer_above'],
+};
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -36,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { page, device, countryCode } = await req.json();
 
-    if (!page || !['flights', 'hotels'].includes(page)) {
+    if (!page || !['flights', 'hotels', 'home'].includes(page)) {
       return new Response(
         JSON.stringify({ error: 'Invalid page parameter' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -45,12 +52,17 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString();
 
+    // Build page filter - include 'all' for pages that should show on all pages
+    const pageFilter = page === 'home' 
+      ? `page.eq.home,page.eq.all`
+      : `page.eq.${page},page.eq.both,page.eq.all`;
+
     // Fetch active ads for the specified page and device
     const { data: ads, error } = await supabase
       .from('ad_placements')
       .select('*')
       .eq('is_active', true)
-      .or(`page.eq.${page},page.eq.both`)
+      .or(pageFilter)
       .or(`device.eq.${device || 'all'},device.eq.all`)
       .or(`start_date.is.null,start_date.lte.${now}`)
       .or(`end_date.is.null,end_date.gte.${now}`)
@@ -78,12 +90,14 @@ Deno.serve(async (req) => {
       return false;
     });
 
+    // Get valid placements for this page
+    const validPlacements = pagePlacements[page] || [];
+
     // Group ads by placement
-    const adsByPlacement: Record<string, AdPlacement[]> = {
-      after_result_3: [],
-      after_result_5: [],
-      bottom: [],
-    };
+    const adsByPlacement: Record<string, AdPlacement[]> = {};
+    validPlacements.forEach(placement => {
+      adsByPlacement[placement] = [];
+    });
 
     filteredAds.forEach((ad: AdPlacement) => {
       if (adsByPlacement[ad.placement]) {
@@ -92,11 +106,10 @@ Deno.serve(async (req) => {
     });
 
     // Return only the highest priority ad for each placement
-    const result: Record<string, AdPlacement | null> = {
-      after_result_3: adsByPlacement.after_result_3[0] || null,
-      after_result_5: adsByPlacement.after_result_5[0] || null,
-      bottom: adsByPlacement.bottom[0] || null,
-    };
+    const result: Record<string, AdPlacement | null> = {};
+    validPlacements.forEach(placement => {
+      result[placement] = adsByPlacement[placement][0] || null;
+    });
 
     return new Response(
       JSON.stringify({ ads: result }),

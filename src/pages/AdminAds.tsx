@@ -94,18 +94,28 @@ const countryOptions = [
 const adTypes = [
   { value: 'sponsored_card', label: 'Sponsored Card' },
   { value: 'html_embed', label: 'HTML Embed' },
+  { value: 'banner', label: 'Banner Ad' },
+  { value: 'native', label: 'Native Ad' },
+  { value: 'hero_banner', label: 'Hero Banner' },
+  { value: 'inline_promo', label: 'Inline Promo' },
 ];
 
 const adPages = [
   { value: 'flights', label: 'Flight Results' },
   { value: 'hotels', label: 'Hotel Results' },
-  { value: 'both', label: 'Both Pages' },
+  { value: 'both', label: 'Both Result Pages' },
+  { value: 'home', label: 'Home Page' },
+  { value: 'all', label: 'All Pages' },
 ];
 
 const adPlacements = [
   { value: 'after_result_3', label: 'After Result #3' },
   { value: 'after_result_5', label: 'After Result #5' },
   { value: 'bottom', label: 'Bottom of Page' },
+  { value: 'hero_below', label: 'Below Hero Section' },
+  { value: 'between_sections', label: 'Between Sections' },
+  { value: 'sidebar', label: 'Sidebar' },
+  { value: 'footer_above', label: 'Above Footer' },
 ];
 
 const deviceOptions = [
