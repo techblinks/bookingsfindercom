@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +15,7 @@ interface WelcomeEmailRequest {
 }
 
 const getWelcomeEmailHtml = (email: string, origin?: string, destination?: string) => {
-  const baseUrl = Deno.env.get("SITE_URL") || "https://bookingsfinder.com";
+  const baseUrl = "https://bookingsfinder.com";
   
   const routeInfo = origin && destination 
     ? `<p style="color: #52525b; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">
@@ -65,29 +64,35 @@ const getWelcomeEmailHtml = (email: string, origin?: string, destination?: strin
       <h3 style="color: #18181b; margin: 25px 0 15px; font-size: 18px;">💡 How BookingsFinder Works</h3>
       
       <div style="margin-bottom: 20px;">
-        <div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
-          <div style="background-color: #6366f1; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; margin-right: 12px;">1</div>
-          <div>
-            <p style="margin: 0; color: #18181b; font-weight: 600;">Search & Compare</p>
-            <p style="margin: 5px 0 0; color: #71717a; font-size: 14px;">We scan 900+ airlines to find the cheapest flights</p>
-          </div>
-        </div>
-        
-        <div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
-          <div style="background-color: #6366f1; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; margin-right: 12px;">2</div>
-          <div>
-            <p style="margin: 0; color: #18181b; font-weight: 600;">Set Price Alerts</p>
-            <p style="margin: 5px 0 0; color: #71717a; font-size: 14px;">We track prices 24/7 and notify you when they drop</p>
-          </div>
-        </div>
-        
-        <div style="display: flex; align-items: flex-start;">
-          <div style="background-color: #6366f1; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; margin-right: 12px;">3</div>
-          <div>
-            <p style="margin: 0; color: #18181b; font-weight: 600;">Book Direct</p>
-            <p style="margin: 5px 0 0; color: #71717a; font-size: 14px;">Click through to book directly with the airline – no hidden fees!</p>
-          </div>
-        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="vertical-align: top; padding: 0 12px 15px 0; width: 40px;">
+              <div style="background-color: #6366f1; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: bold; font-size: 14px;">1</div>
+            </td>
+            <td style="vertical-align: top; padding-bottom: 15px;">
+              <p style="margin: 0; color: #18181b; font-weight: 600;">Search & Compare</p>
+              <p style="margin: 5px 0 0; color: #71717a; font-size: 14px;">We scan 900+ airlines to find the cheapest flights</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="vertical-align: top; padding: 0 12px 15px 0; width: 40px;">
+              <div style="background-color: #6366f1; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: bold; font-size: 14px;">2</div>
+            </td>
+            <td style="vertical-align: top; padding-bottom: 15px;">
+              <p style="margin: 0; color: #18181b; font-weight: 600;">Set Price Alerts</p>
+              <p style="margin: 5px 0 0; color: #71717a; font-size: 14px;">We track prices 24/7 and notify you when they drop</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="vertical-align: top; padding: 0 12px 0 0; width: 40px;">
+              <div style="background-color: #6366f1; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: bold; font-size: 14px;">3</div>
+            </td>
+            <td style="vertical-align: top;">
+              <p style="margin: 0; color: #18181b; font-weight: 600;">Book Direct</p>
+              <p style="margin: 5px 0 0; color: #71717a; font-size: 14px;">Click through to book directly with the airline – no hidden fees!</p>
+            </td>
+          </tr>
+        </table>
       </div>
       
       <!-- CTA Button -->
@@ -145,23 +150,41 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Sending welcome email to: ${email}`);
 
-    const emailResponse = await resend.emails.send({
-      from: "BookingsFinder <onboarding@resend.dev>",
-      to: [email],
-      subject: "Welcome to BookingsFinder – Let's Find Your Next Adventure! 🎉",
-      html: getWelcomeEmailHtml(email, origin, destination),
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "BookingsFinder <onboarding@resend.dev>",
+        to: [email],
+        subject: "Welcome to BookingsFinder – Let's Find Your Next Adventure! 🎉",
+        html: getWelcomeEmailHtml(email, origin, destination),
+      }),
     });
 
-    console.log("Welcome email sent successfully:", emailResponse);
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error("Resend API error:", errorData);
+      return new Response(
+        JSON.stringify({ error: errorData.message || "Failed to send email" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
-    return new Response(JSON.stringify({ success: true, data: emailResponse }), {
+    const data = await res.json();
+    console.log("Welcome email sent successfully:", data);
+
+    return new Response(JSON.stringify({ success: true, data }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
-  } catch (error: any) {
-    console.error("Error sending welcome email:", error);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error sending welcome email:", message);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
