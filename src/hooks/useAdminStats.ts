@@ -14,6 +14,9 @@ export function useAdminStats() {
     queryFn: async (): Promise<AdminStats> => {
       const today = new Date().toISOString().split('T')[0];
       
+      // Get the current session to include the access token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       // Fetch all stats in parallel
       const [alertsResult, clicksResult] = await Promise.all([
         // Active alerts count
@@ -23,9 +26,15 @@ export function useAdminStats() {
           .eq('is_active', true),
         
         // Today's affiliate clicks (we need to use edge function since affiliate_clicks has restricted SELECT)
-        supabase.functions.invoke('get-admin-stats', {
-          body: { date: today }
-        })
+        // Pass the session token explicitly in headers
+        session?.access_token 
+          ? supabase.functions.invoke('get-admin-stats', {
+              body: { date: today },
+              headers: {
+                Authorization: `Bearer ${session.access_token}`
+              }
+            })
+          : Promise.resolve({ data: null, error: new Error('No session') })
       ]);
 
       // Handle affiliate clicks - if edge function exists, use it; otherwise fallback to 0
