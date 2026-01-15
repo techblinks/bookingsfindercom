@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Clock, Play, CheckCircle, AlertCircle, ExternalLink, Copy, Loader2, LogOut, Shield } from 'lucide-react';
+import { Clock, Play, CheckCircle, AlertCircle, ExternalLink, Copy, Loader2, LogOut, Shield, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -135,12 +136,18 @@ export default function AdminAlerts() {
           <Card className="bg-muted/30">
             <CardContent className="py-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" asChild className="gap-2">
+                    <Link to="/admin">
+                      <ArrowLeft className="h-4 w-4" />
+                      Back to Admin
+                    </Link>
+                  </Button>
                   <Badge variant="secondary" className="gap-1">
                     <Shield className="h-3 w-3" />
                     Admin
                   </Badge>
-                  <span className="text-sm text-muted-foreground">{user.email}</span>
+                  <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
                   <LogOut className="h-4 w-4" />
