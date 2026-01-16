@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { Plane, Building2, ChevronRight, Home } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { CheapestMonthTable, PopularProviders, TravelTipsSection } from "@/components/destination/DestinationSections";
@@ -16,38 +17,65 @@ const DestinationPage = () => {
 
   const isFlights = pageData.type === "flights";
 
-  // Generate JSON-LD structured data
-  const structuredData = {
+  // Generate FAQPage JSON-LD structured data (schema.org)
+  const faqSchema = {
     "@context": "https://schema.org",
-    "@type": isFlights ? "FAQPage" : "Hotel",
-    ...(isFlights ? {
-      "mainEntity": pageData.travelTips.map(tip => ({
-        "@type": "Question",
-        "name": tip.title,
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": tip.content
-        }
-      }))
-    } : {
-      "name": pageData.title,
-      "description": pageData.metaDescription,
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": pageData.destination
+    "@type": "FAQPage",
+    "mainEntity": pageData.faqs.map((faq) => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
       }
-    })
+    }))
+  };
+
+  // Generate additional schema for the page type
+  const pageSchema = isFlights ? {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": pageData.title,
+    "description": pageData.metaDescription,
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://bookingsfinder.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Flights", "item": "https://bookingsfinder.com/flights" },
+        { "@type": "ListItem", "position": 3, "name": `${pageData.origin} to ${pageData.destination}` }
+      ]
+    }
+  } : {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": pageData.title,
+    "description": pageData.metaDescription,
+    "about": {
+      "@type": "City",
+      "name": pageData.destination
+    },
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://bookingsfinder.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Hotels", "item": "https://bookingsfinder.com/hotels" },
+        { "@type": "ListItem", "position": 3, "name": `Hotels in ${pageData.destination}` }
+      ]
+    }
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      {/* SEO Meta Tags & JSON-LD Schema */}
+      <Helmet>
+        <title>{pageData.title} | BookingsFinder</title>
+        <meta name="description" content={pageData.metaDescription} />
+        <link rel="canonical" href={`https://bookingsfinder.com/d/${pageData.slug}`} />
+        <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
+        <script type="application/ld+json">{JSON.stringify(pageSchema)}</script>
+      </Helmet>
 
-      {/* Schema.org JSON-LD */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-      />
+      <Header />
 
       <main className="flex-1">
         {/* Hero Section */}
