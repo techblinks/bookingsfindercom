@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import FlightResults from "./pages/FlightResults";
 import HotelResults from "./pages/HotelResults";
 import DestinationPage from "./pages/DestinationPage";
+import CountryLandingPage from "./pages/CountryLandingPage";
 import BookingRedirect from "./pages/BookingRedirect";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsConditions from "./pages/TermsConditions";
@@ -55,6 +56,8 @@ const App = () => (
             <Route path="/admin/subscribers" element={<AdminSubscribers />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/d/:slug" element={<DestinationPage />} />
+            {/* Country Landing Pages */}
+            <Route path="/:slug" element={<CountryLandingPage />} />
             <Route path="/redirect" element={<BookingRedirect />} />
             {/* Company */}
             <Route path="/about" element={<AboutUs />} />
