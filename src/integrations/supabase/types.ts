@@ -230,6 +230,66 @@ export type Database = {
         }
         Relationships: []
       }
+      country_landing_pages: {
+        Row: {
+          country_code: string
+          country_name: string
+          created_at: string
+          faqs: Json | null
+          h1_title: string
+          id: string
+          intro_paragraph: string
+          is_published: boolean
+          main_content: string
+          meta_description: string
+          popular_cities: Json | null
+          popular_routes: Json | null
+          slug: string
+          title: string
+          travel_tips: Json | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          country_code: string
+          country_name: string
+          created_at?: string
+          faqs?: Json | null
+          h1_title: string
+          id?: string
+          intro_paragraph: string
+          is_published?: boolean
+          main_content: string
+          meta_description: string
+          popular_cities?: Json | null
+          popular_routes?: Json | null
+          slug: string
+          title: string
+          travel_tips?: Json | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string
+          country_name?: string
+          created_at?: string
+          faqs?: Json | null
+          h1_title?: string
+          id?: string
+          intro_paragraph?: string
+          is_published?: boolean
+          main_content?: string
+          meta_description?: string
+          popular_cities?: Json | null
+          popular_routes?: Json | null
+          slug?: string
+          title?: string
+          travel_tips?: Json | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       press_releases: {
         Row: {
           content: string
