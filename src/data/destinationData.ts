@@ -1,6 +1,11 @@
 // Placeholder data for destination pages
 // Ready for API injection - replace with CMS or API calls
 
+export interface FAQ {
+  question: string;
+  answer: string;
+}
+
 export interface DestinationPageData {
   type: "flights" | "hotels";
   slug: string;
@@ -12,6 +17,7 @@ export interface DestinationPageData {
   cheapestMonths: MonthPrice[];
   popularProviders: Provider[];
   travelTips: TravelTip[];
+  faqs: FAQ[];
 }
 
 export interface MonthPrice {
@@ -95,6 +101,28 @@ Most flights from Sydney to Kathmandu include one stopover, commonly in cities l
       icon: "car",
     },
   ],
+  faqs: [
+    {
+      question: "How long is the flight from Sydney to Kathmandu?",
+      answer: "The total flight time from Sydney to Kathmandu is approximately 12-15 hours, including one stopover. Direct flights are not currently available, with most routes connecting through Singapore, Bangkok, Kuala Lumpur, or Delhi."
+    },
+    {
+      question: "What is the cheapest month to fly from Sydney to Kathmandu?",
+      answer: "June is typically the cheapest month to fly from Sydney to Kathmandu, with average prices around $820. May and January also offer good value. Avoid September-October and December for the lowest fares as these are peak trekking and holiday seasons."
+    },
+    {
+      question: "Which airlines fly from Sydney to Kathmandu?",
+      answer: "Popular airlines for the Sydney to Kathmandu route include Singapore Airlines (via Singapore), Thai Airways (via Bangkok), Malaysia Airlines (via Kuala Lumpur), Cathay Pacific (via Hong Kong), and Qantas with partner connections."
+    },
+    {
+      question: "Do I need a visa to fly from Australia to Nepal?",
+      answer: "Yes, Australian citizens require a visa to enter Nepal. You can obtain a tourist visa on arrival at Tribhuvan International Airport in Kathmandu. Ensure your passport is valid for at least 6 months beyond your travel date and bring passport-sized photos."
+    },
+    {
+      question: "What is the baggage allowance for flights to Kathmandu?",
+      answer: "Most international airlines on the Sydney to Kathmandu route allow 23-30kg checked baggage and 7kg carry-on luggage. If you're planning to trek, consider packing light as domestic flights within Nepal have stricter weight limits of 15-20kg."
+    }
+  ],
 };
 
 // Hotel destination: Sydney
@@ -153,6 +181,28 @@ Most Sydney hotels offer modern amenities including free WiFi, fitness centers, 
       content: "Consider staying in neighborhoods like Manly (accessible by ferry) or Newtown for a more local experience at lower prices than CBD hotels.",
       icon: "sparkles",
     },
+  ],
+  faqs: [
+    {
+      question: "What is the best area to stay in Sydney for tourists?",
+      answer: "The CBD and Circular Quay are ideal for first-time visitors, offering easy access to the Opera House, Harbour Bridge, and The Rocks. Darling Harbour suits families, while Bondi Beach is perfect for beach lovers. Budget travelers should consider Surry Hills or Newtown for affordable options with great dining."
+    },
+    {
+      question: "How much does a hotel in Sydney cost per night?",
+      answer: "Sydney hotel prices vary by season and location. Budget hotels start around $120-180 per night, mid-range options are $200-350, and luxury harbourfront hotels range from $400-800+. Winter months (June-August) offer the best rates, while summer (December-February) is peak season with higher prices."
+    },
+    {
+      question: "When is the cheapest time to book hotels in Sydney?",
+      answer: "The cheapest time to stay in Sydney is during the winter months from May to August, when average hotel rates drop by 30-40%. Avoid booking during New Year's Eve, Vivid Sydney (May-June), and major events for the best deals. Book 2-3 months ahead for optimal pricing."
+    },
+    {
+      question: "Do Sydney hotels include breakfast?",
+      answer: "Many Sydney hotels offer breakfast options, but it's not always included in the room rate. Luxury hotels typically charge $30-50 for breakfast buffets. For better value, consider booking 'bed and breakfast' packages or explore the excellent café scene in surrounding neighborhoods."
+    },
+    {
+      question: "Is it better to stay in Sydney CBD or near Bondi Beach?",
+      answer: "It depends on your priorities. The CBD offers proximity to major attractions, restaurants, and public transport, ideal for sightseeing. Bondi Beach suits those seeking a relaxed beach vibe with surfing, coastal walks, and beachfront cafés. Bondi is 30 minutes from the CBD by bus or train."
+    }
   ],
 };
 
