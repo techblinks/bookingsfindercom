@@ -1,3 +1,4 @@
+// Dynamic sitemap generator for bookingsfinder.com
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -129,6 +130,25 @@ Deno.serve(async (req) => {
           lastmod,
           "monthly",
           "0.6"
+        ));
+      }
+    }
+
+    // Fetch published country landing pages from database
+    const { data: countryPages, error: countryError } = await supabase
+      .from("country_landing_pages")
+      .select("slug, updated_at")
+      .eq("is_published", true)
+      .order("updated_at", { ascending: false });
+
+    if (!countryError && countryPages) {
+      for (const page of countryPages) {
+        const lastmod = formatDate(page.updated_at || new Date());
+        urls.push(generateUrlEntry(
+          `${SITE_URL}/${page.slug}`,
+          lastmod,
+          "weekly",
+          "0.8"
         ));
       }
     }
