@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, Globe, Plane, Hotel, Loader2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, Globe, Plane, Hotel, Loader2, ExternalLink, Copy } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -210,6 +210,28 @@ export default function AdminCountryPages() {
       faqs: (page.faqs as unknown as FAQ[]) || [],
     });
     setIsDialogOpen(true);
+  };
+
+  const handleDuplicate = (page: typeof pages extends (infer T)[] ? T : never) => {
+    setEditingId(null); // Creating new, not editing
+    setFormData({
+      slug: `${page.slug}-copy`,
+      title: `${page.title} (Copy)`,
+      h1_title: page.h1_title,
+      meta_description: page.meta_description,
+      intro_paragraph: page.intro_paragraph,
+      main_content: page.main_content,
+      country_code: page.country_code,
+      country_name: page.country_name,
+      type: page.type as 'flights' | 'hotels',
+      is_published: false, // Start as draft
+      popular_cities: (page.popular_cities as unknown as PopularCity[]) || [],
+      popular_routes: (page.popular_routes as unknown as PopularRoute[]) || [],
+      travel_tips: (page.travel_tips as unknown as string[]) || [],
+      faqs: (page.faqs as unknown as FAQ[]) || [],
+    });
+    setIsDialogOpen(true);
+    toast.info('Page duplicated - update the slug and title before saving');
   };
 
   const handleSubmit = () => {
@@ -452,7 +474,16 @@ export default function AdminCountryPages() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => handleDuplicate(page)}
+                                title="Duplicate page"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleEdit(page)}
+                                title="Edit page"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
