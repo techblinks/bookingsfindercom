@@ -19,6 +19,7 @@ import AdminAlerts from "./pages/AdminAlerts";
 import AdminAds from "./pages/AdminAds";
 import AdminBlog from "./pages/AdminBlog";
 import AdminPress from "./pages/AdminPress";
+import AdminCountryPages from "./pages/AdminCountryPages";
 import AdminSubscribers from "./pages/AdminSubscribers";
 import AdminSettings from "./pages/AdminSettings";
 import AboutUs from "./pages/AboutUs";
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/admin/ads" element={<AdminAds />} />
             <Route path="/admin/blog" element={<AdminBlog />} />
             <Route path="/admin/press" element={<AdminPress />} />
+            <Route path="/admin/country-pages" element={<AdminCountryPages />} />
             <Route path="/admin/subscribers" element={<AdminSubscribers />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/d/:slug" element={<DestinationPage />} />
