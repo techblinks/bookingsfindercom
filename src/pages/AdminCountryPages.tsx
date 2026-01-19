@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, Globe, Plane, Hotel, Loader2, ExternalLink, Copy } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, Globe, Plane, Hotel, Loader2, ExternalLink, Copy, Search, Filter } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -84,6 +84,11 @@ export default function AdminCountryPages() {
   const [formData, setFormData] = useState<CountryPageFormData>(defaultFormData);
   const [activeTab, setActiveTab] = useState('basic');
   
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'flights' | 'hotels'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
+  
   // New city/route/tip/faq inputs
   const [newCity, setNewCity] = useState({ name: '', code: '' });
   const [newRoute, setNewRoute] = useState({ from: '', to: '', fromCode: '', toCode: '' });
@@ -103,6 +108,22 @@ export default function AdminCountryPages() {
       return data;
     },
     enabled: !!user && isAdmin,
+  });
+
+  // Filter pages based on search and filters
+  const filteredPages = pages?.filter(page => {
+    const matchesSearch = searchQuery === '' || 
+      page.country_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      page.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      page.slug.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesType = typeFilter === 'all' || page.type === typeFilter;
+    
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'published' && page.is_published) ||
+      (statusFilter === 'draft' && !page.is_published);
+    
+    return matchesSearch && matchesType && matchesStatus;
   });
 
   // Save mutation
@@ -401,8 +422,48 @@ export default function AdminCountryPages() {
           {/* Pages List */}
           <Card>
             <CardHeader>
-              <CardTitle>All Pages</CardTitle>
-              <CardDescription>Click to edit or manage publish status</CardDescription>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle>All Pages</CardTitle>
+                  <CardDescription>
+                    {filteredPages?.length ?? 0} of {pages?.length ?? 0} pages shown
+                  </CardDescription>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search countries..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 w-full sm:w-[200px]"
+                    />
+                  </div>
+                  {/* Type Filter */}
+                  <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="flights">Flights</SelectItem>
+                      <SelectItem value="hotels">Hotels</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {/* Status Filter */}
+                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -411,7 +472,7 @@ export default function AdminCountryPages() {
                     <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
-              ) : pages && pages.length > 0 ? (
+              ) : filteredPages && filteredPages.length > 0 ? (
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
@@ -424,7 +485,7 @@ export default function AdminCountryPages() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pages.map((page) => (
+                      {filteredPages.map((page) => (
                         <TableRow key={page.id}>
                           <TableCell>
                             <div>
