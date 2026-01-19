@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw, Users, FileText, Newspaper } from 'lucide-react';
+import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw, Users, FileText, Newspaper, Globe } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +52,14 @@ const adminFeatures = [
     href: '/admin/press',
     color: 'text-teal-500',
     bgColor: 'bg-teal-500/10',
+  },
+  {
+    title: 'Country Pages',
+    description: 'Manage SEO landing pages for countries',
+    icon: Globe,
+    href: '/admin/country-pages',
+    color: 'text-indigo-500',
+    bgColor: 'bg-indigo-500/10',
   },
   {
     title: 'Analytics Dashboard',
