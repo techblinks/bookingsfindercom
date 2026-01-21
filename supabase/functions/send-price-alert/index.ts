@@ -164,14 +164,14 @@ function generateEmailHtml(params: PriceAlertEmailRequest & {
                 <tr>
                   <td align="center">
                     <a href="${params.searchUrl || '#'}" style="display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
-                      Book This Flight Now →
+                      Compare This Flight →
                     </a>
                   </td>
                 </tr>
               </table>
               
               <p style="margin: 24px 0 0; text-align: center; color: #71717a; font-size: 14px;">
-                ⚡ Prices can change quickly. Book now to lock in this rate!
+                ⚡ Prices can change quickly. Compare deals before they're gone!
               </p>
             </td>
           </tr>

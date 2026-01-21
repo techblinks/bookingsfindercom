@@ -314,7 +314,7 @@ const TopDealsOfTheDay = () => {
                       <span>Round Trip</span>
                     </div>
                     <span className="text-primary font-medium flex items-center gap-1">
-                      Book now
+                      View Deal
                       <ArrowRight className="h-3 w-3" />
                     </span>
                   </div>

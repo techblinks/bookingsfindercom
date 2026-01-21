@@ -1,25 +1,25 @@
-import { DollarSign, ShieldCheck, Handshake, Headphones } from "lucide-react";
+import { DollarSign, ShieldCheck, Handshake, Search } from "lucide-react";
 
 const features = [
   {
-    icon: DollarSign,
-    title: "Best Prices Guaranteed",
-    description: "We compare prices from hundreds of airlines and hotels to find you the lowest fares available.",
+    icon: Search,
+    title: "Compare & Save",
+    description: "We search hundreds of travel sites to help you find and compare the best prices available.",
   },
   {
     icon: ShieldCheck,
-    title: "Secure Booking",
-    description: "Your payments are protected with bank-level encryption. Book with confidence every time.",
+    title: "Verified Partners",
+    description: "We only link to trusted, verified booking partners so you can compare with confidence.",
   },
   {
     icon: Handshake,
-    title: "Trusted Partners",
-    description: "We work with top-rated airlines and hotel chains worldwide to ensure quality experiences.",
+    title: "Trusted Network",
+    description: "We partner with top-rated airlines and hotel booking sites worldwide for quality options.",
   },
   {
-    icon: Headphones,
-    title: "24/7 Support",
-    description: "Our dedicated support team is available around the clock to assist you with any questions.",
+    icon: DollarSign,
+    title: "No Hidden Fees",
+    description: "Our comparison service is completely free. We earn from partners when you complete bookings.",
   },
 ];
 
@@ -29,7 +29,7 @@ const WhyBookWithUs = () => {
       <div className="container">
         <div className="text-center mb-12">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-            Why Book With Us
+            Why Compare With Us
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Millions of travelers trust us to find the best deals and provide exceptional service.

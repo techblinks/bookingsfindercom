@@ -293,7 +293,7 @@ const BookingRedirect = () => {
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-emerald-500" />
-                Secure checkout
+                Secure partner site
               </span>
               <span className="flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5 text-emerald-500" />
@@ -301,7 +301,7 @@ const BookingRedirect = () => {
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                Best price
+                Price compared
               </span>
             </div>
           </motion.div>
@@ -319,7 +319,7 @@ const BookingRedirect = () => {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
               >
-                Continue to booking
+                Continue to Partner
                 <ExternalLink className="h-4 w-4" />
               </a>
               <p className="text-xs text-muted-foreground mt-2">
