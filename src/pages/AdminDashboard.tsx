@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw, Users, FileText, Newspaper, Globe } from 'lucide-react';
+import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw, Users, FileText, Newspaper, Globe, ShieldCheck } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,6 +87,14 @@ const adminFeatures = [
     color: 'text-cyan-500',
     bgColor: 'bg-cyan-500/10',
     comingSoon: true,
+  },
+  {
+    title: 'Compliance Scanner',
+    description: 'Scan content for non-compliant wording',
+    icon: ShieldCheck,
+    href: '/admin/compliance',
+    color: 'text-emerald-500',
+    bgColor: 'bg-emerald-500/10',
   },
   {
     title: 'Site Settings',

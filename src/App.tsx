@@ -22,6 +22,7 @@ import AdminPress from "./pages/AdminPress";
 import AdminCountryPages from "./pages/AdminCountryPages";
 import AdminSubscribers from "./pages/AdminSubscribers";
 import AdminSettings from "./pages/AdminSettings";
+import AdminCompliance from "./pages/AdminCompliance";
 import AboutUs from "./pages/AboutUs";
 import Careers from "./pages/Careers";
 import HelpCenter from "./pages/HelpCenter";
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/admin/country-pages" element={<AdminCountryPages />} />
             <Route path="/admin/subscribers" element={<AdminSubscribers />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/compliance" element={<AdminCompliance />} />
             <Route path="/d/:slug" element={<DestinationPage />} />
             {/* Country Landing Pages */}
             <Route path="/:slug" element={<CountryLandingPage />} />
