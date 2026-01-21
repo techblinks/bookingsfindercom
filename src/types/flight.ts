@@ -97,6 +97,6 @@ export const WARNING_LABELS: Record<FlightWarning, { label: string; icon: string
 
 export const PRICE_CONFIDENCE_CONFIG: Record<PriceConfidence, { label: string; color: string; recommendation: string }> = {
   low: { label: 'Low confidence', color: 'text-amber-600', recommendation: 'Price may change' },
-  average: { label: 'Average confidence', color: 'text-blue-600', recommendation: 'Good time to book' },
-  high: { label: 'High confidence', color: 'text-emerald-600', recommendation: 'Great price - book now!' },
+  average: { label: 'Average confidence', color: 'text-blue-600', recommendation: 'Good time to compare' },
+  high: { label: 'High confidence', color: 'text-emerald-600', recommendation: 'Great price - compare now!' },
 };

@@ -19,6 +19,7 @@ const Footer = () => {
       { label: "Help Center", href: "/help" },
       { label: "Contact Us", href: "/contact" },
       { label: "FAQs", href: "/faqs" },
+      { label: "Why We Don't Sell Tickets", href: "/why-we-dont-sell-tickets" },
     ],
     legal: [
       { label: "Privacy Policy", href: "/privacy" },
@@ -110,11 +111,13 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Bottom Bar with FTC-Compliant Disclosure */}
+        {/* Bottom Bar with Meta-Search Disclosure */}
         <div className="mt-12 pt-8 border-t border-border">
-          <p className="text-xs text-muted-foreground text-center mb-4 max-w-2xl mx-auto">
-            BookingsFinder is a travel comparison site. When you book through links on our site, we may earn an affiliate commission at no extra cost to you. This helps us keep our service free.
-          </p>
+          <div className="bg-muted/50 rounded-lg p-4 mb-6">
+            <p className="text-xs text-muted-foreground text-center max-w-3xl mx-auto">
+              <strong className="text-foreground">Important:</strong> BookingsFinder is a travel meta-search platform. We do not sell flights, hotels, or any travel products. We compare prices from third-party travel sites and redirect you to complete your booking directly with our partners. When you book through our links, we may earn an affiliate commission at no extra cost to you.
+            </p>
+          </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} BookingsFinder. All rights reserved.

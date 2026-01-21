@@ -17,7 +17,7 @@ interface FlightResultCardProps {
   currency?: string;
   isDeal?: boolean;
   flightNumber?: string;
-  onBookNow: (flightId: string) => void;
+  onViewDeal: (flightId: string) => void;
 }
 
 const FlightResultCard = ({
@@ -34,7 +34,7 @@ const FlightResultCard = ({
   currency = "$",
   isDeal = false,
   flightNumber,
-  onBookNow,
+  onViewDeal,
 }: FlightResultCardProps) => {
   const [logoError, setLogoError] = useState(false);
   const logoUrl = airlineCode ? getAirlineLogo(airlineCode) : "";
@@ -138,11 +138,11 @@ const FlightResultCard = ({
             <p className="text-xs text-muted-foreground">per person</p>
           </div>
           <Button
-            onClick={() => onBookNow(id)}
+            onClick={() => onViewDeal(id)}
             className="lg:w-full gap-2"
             size="sm"
           >
-            Book Now
+            View Deal
             <ExternalLink className="h-3 w-3" />
           </Button>
         </div>
