@@ -7,6 +7,7 @@ import FlightFiltersPanel from "@/components/flights/FlightFiltersPanel";
 import FlightCard from "@/components/flights/FlightCard";
 import FlightCardSkeleton from "@/components/flights/FlightCardSkeleton";
 import EmptyFlightState from "@/components/flights/EmptyFlightState";
+import EnhancedEmptyFlightResults from "@/components/states/EnhancedEmptyFlightResults";
 import SearchingIndicator from "@/components/flights/SearchingIndicator";
 import SortDropdown from "@/components/flights/SortDropdown";
 import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
@@ -473,11 +474,13 @@ const FlightResults = () => {
                   onRetry={retry}
                 />
               ) : displayedFlights.length === 0 ? (
-                // Empty state
-                <EmptyFlightState
-                  variant="no-results"
+                // Enhanced empty state with alternatives
+                <EnhancedEmptyFlightResults
                   onClearFilters={resetFilters}
-                  searchParams={{ origin, destination }}
+                  origin={origin}
+                  destination={destination}
+                  departureDate={departureDate}
+                  returnDate={returnDate}
                 />
               ) : (
                 // Flight results with ad placements

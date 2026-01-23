@@ -35,6 +35,7 @@ import Press from "./pages/Press";
 import PressRelease from "./pages/PressRelease";
 import HowItWorks from "./pages/HowItWorks";
 import WhyWeDontSellTickets from "./pages/WhyWeDontSellTickets";
+import TopFlightDestinations from "./pages/TopFlightDestinations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,7 @@ const App = () => (
             <Route path="/affiliate-disclosure" element={<AffiliateDisclosure />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/why-we-dont-sell-tickets" element={<WhyWeDontSellTickets />} />
+            <Route path="/top-flight-destinations" element={<TopFlightDestinations />} />
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>

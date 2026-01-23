@@ -6,7 +6,7 @@ import Footer from "@/components/layout/Footer";
 import HotelFilters from "@/components/filters/HotelFilters";
 import HotelResultCard from "@/components/cards/HotelResultCard";
 import HotelCardSkeleton from "@/components/skeletons/HotelCardSkeleton";
-import EmptyHotelResults from "@/components/states/EmptyHotelResults";
+import EnhancedEmptyHotelResults from "@/components/states/EnhancedEmptyHotelResults";
 import HotelSearchSchema from "@/components/seo/HotelSearchSchema";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { Button } from "@/components/ui/button";
@@ -330,8 +330,15 @@ const HotelResults = () => {
                   <HotelCardSkeleton key={index} />
                 ))
               ) : filteredHotels.length === 0 ? (
-                // Empty state
-                <EmptyHotelResults onClearFilters={clearFilters} />
+                // Enhanced empty state
+                <EnhancedEmptyHotelResults 
+                  onClearFilters={clearFilters}
+                  destination={destination}
+                  checkIn={checkIn}
+                  checkOut={checkOut}
+                  guests={parseInt(guests)}
+                  rooms={parseInt(rooms)}
+                />
               ) : (
                 // Hotel results with ad placements
                 <>
