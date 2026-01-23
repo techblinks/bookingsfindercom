@@ -22,6 +22,7 @@ const staticPages = [
   { path: "/contact", priority: "0.5", changefreq: "monthly" },
   { path: "/faqs", priority: "0.6", changefreq: "monthly" },
   { path: "/why-we-dont-sell-tickets", priority: "0.6", changefreq: "monthly" },
+  { path: "/top-flight-destinations", priority: "0.9", changefreq: "daily" },
   { path: "/privacy", priority: "0.3", changefreq: "yearly" },
   { path: "/terms", priority: "0.3", changefreq: "yearly" },
   { path: "/cookies", priority: "0.3", changefreq: "yearly" },
