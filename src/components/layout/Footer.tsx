@@ -6,8 +6,8 @@ const Footer = () => {
     explore: [
       { label: "Flights", href: "/flights" },
       { label: "Hotels", href: "/hotels" },
+      { label: "Top Flight Destinations", href: "/top-flight-destinations" },
       { label: "Deals", href: "#deals" },
-      { label: "Destinations", href: "#destinations" },
     ],
     company: [
       { label: "About Us", href: "/about" },
