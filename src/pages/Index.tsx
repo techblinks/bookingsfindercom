@@ -1,4 +1,6 @@
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
+import { ArrowRight, Plane } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import HeroSection from "@/components/home/HeroSection";
@@ -76,6 +78,34 @@ const Index = () => {
 
           {/* Why Book With Us */}
           {homepageSections.why_book && <WhyBookWithUs />}
+
+          {/* Top Flight Destinations CTA */}
+          <section className="py-12 md:py-16 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
+            <div className="container">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-6 md:p-8 rounded-2xl bg-card border border-border shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Plane className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold text-foreground">
+                      Explore Top Flight Destinations
+                    </h2>
+                    <p className="text-muted-foreground mt-1">
+                      Discover the 20 most popular routes with the best deals from your location
+                    </p>
+                  </div>
+                </div>
+                <Link 
+                  to="/top-flight-destinations"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
+                >
+                  View Top 20 Routes
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </section>
 
           {/* Top Deals */}
           {homepageSections.top_deals && <TopDeals />}
