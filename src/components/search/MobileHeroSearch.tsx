@@ -105,28 +105,19 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
         ))}
       </div>
 
-      {/* Swipeable Content Area */}
+      {/* Content Area - Only render active form to prevent focus conflicts */}
       <div
         ref={containerRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="relative overflow-hidden"
+        className="relative"
       >
-        <div
-          className={cn(
-            "flex transition-transform duration-300 ease-out",
-            searchType === "hotels" ? "-translate-x-1/2" : "translate-x-0"
-          )}
-          style={{ width: "200%" }}
-        >
-          <div className="w-1/2 shrink-0">
-            <MobileFlightSearch />
-          </div>
-          <div className="w-1/2 shrink-0">
-            <MobileHotelSearch />
-          </div>
-        </div>
+        {searchType === "flights" ? (
+          <MobileFlightSearch />
+        ) : (
+          <MobileHotelSearch />
+        )}
       </div>
     </div>
   );
