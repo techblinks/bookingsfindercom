@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Bell, BarChart3, Settings, LogOut, Shield, Loader2, Clock, Megaphone, Database, RefreshCw, Users, FileText, Newspaper, Globe, ShieldCheck } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -11,7 +12,6 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useAdminStats } from '@/hooks/useAdminStats';
 import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
 import { toast } from 'sonner';
-
 const adminFeatures = [
   {
     title: 'Price Alert Scheduler',
@@ -172,6 +172,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>Admin Dashboard | BookingsFinder</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="googlebot" content="noindex, nofollow" />
+      </Helmet>
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">

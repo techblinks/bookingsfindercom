@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, Globe, Plane, Hotel, Loader2, ExternalLink, Copy, Search, Filter } from 'lucide-react';
 import Header from '@/components/layout/Header';
@@ -362,6 +363,11 @@ export default function AdminCountryPages() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>Country Landing Pages | Admin | BookingsFinder</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="googlebot" content="noindex, nofollow" />
+      </Helmet>
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">
