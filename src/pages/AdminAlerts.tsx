@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Clock, Play, CheckCircle, AlertCircle, ExternalLink, Copy, Loader2, LogOut, Shield, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -115,6 +116,11 @@ export default function AdminAlerts() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>Price Alert Scheduler | Admin | BookingsFinder</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="googlebot" content="noindex, nofollow" />
+      </Helmet>
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">

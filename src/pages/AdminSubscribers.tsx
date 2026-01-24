@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
@@ -271,6 +272,11 @@ export default function AdminSubscribers() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Subscriber Management | Admin | BookingsFinder</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="googlebot" content="noindex, nofollow" />
+      </Helmet>
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, Loader2, Settings, ToggleLeft, ToggleRight, Save, Plane, Building, Route, HelpCircle, ThumbsUp, Tag, Users } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -102,6 +103,11 @@ export default function AdminSettings() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>Site Settings | Admin | BookingsFinder</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="googlebot" content="noindex, nofollow" />
+      </Helmet>
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">

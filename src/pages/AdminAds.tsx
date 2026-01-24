@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { 
   Megaphone, Plus, Edit2, Trash2, Loader2, LogOut, Shield, 
   ArrowLeft, Eye, EyeOff, ExternalLink, Globe, Smartphone, Monitor, MapPin, X
@@ -315,6 +316,11 @@ export default function AdminAds() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Helmet>
+        <title>Ad Management | Admin | BookingsFinder</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="googlebot" content="noindex, nofollow" />
+      </Helmet>
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">
