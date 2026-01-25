@@ -7,7 +7,9 @@ const Footer = () => {
       { label: "Flights", href: "/flights" },
       { label: "Hotels", href: "/hotels" },
       { label: "Top Flight Destinations", href: "/top-flight-destinations" },
-      { label: "Deals", href: "#deals" },
+      { label: "Top Hotel Destinations", href: "/top-hotel-destinations" },
+      { label: "Flight Deals Guide", href: "/flight-deals-guide" },
+      { label: "Hotel Booking Guide", href: "/hotel-booking-guide" },
     ],
     company: [
       { label: "About Us", href: "/about" },

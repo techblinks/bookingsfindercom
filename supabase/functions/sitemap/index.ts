@@ -23,10 +23,13 @@ const staticPages = [
   { path: "/faqs", priority: "0.6", changefreq: "monthly" },
   { path: "/why-we-dont-sell-tickets", priority: "0.6", changefreq: "monthly" },
   { path: "/top-flight-destinations", priority: "0.9", changefreq: "daily" },
-  { path: "/privacy", priority: "0.3", changefreq: "yearly" },
-  { path: "/terms", priority: "0.3", changefreq: "yearly" },
-  { path: "/cookies", priority: "0.3", changefreq: "yearly" },
-  { path: "/affiliate-disclosure", priority: "0.3", changefreq: "yearly" },
+  { path: "/top-hotel-destinations", priority: "0.9", changefreq: "daily" },
+  { path: "/flight-deals-guide", priority: "0.8", changefreq: "weekly" },
+  { path: "/hotel-booking-guide", priority: "0.8", changefreq: "weekly" },
+  { path: "/privacy", priority: "0.4", changefreq: "yearly" },
+  { path: "/terms", priority: "0.4", changefreq: "yearly" },
+  { path: "/cookies", priority: "0.4", changefreq: "yearly" },
+  { path: "/affiliate-disclosure", priority: "0.4", changefreq: "yearly" },
   { path: "/my-alerts", priority: "0.4", changefreq: "weekly" },
 ];
 

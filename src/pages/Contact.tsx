@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, MessageSquare, Clock, MapPin } from "lucide-react";
+import { Mail, MessageSquare, Clock, MapPin, Info } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -42,7 +43,7 @@ const Contact = () => {
     // Simulate form submission
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    toast.success("Message sent! We'll get back to you within 24 hours.");
+    toast.success("Message sent! We'll get back to you within 24-48 hours.");
     setFormData({ name: "", email: "", subject: "", message: "" });
     setIsSubmitting(false);
   };
@@ -51,7 +52,8 @@ const Contact = () => {
     <>
       <Helmet>
         <title>Contact Us | BookingsFinder</title>
-        <meta name="description" content="Get in touch with BookingsFinder support team. We're here to help with any questions about flights, hotels, or your bookings." />
+        <meta name="description" content="Get in touch with BookingsFinder. Contact our support team for questions about our travel comparison service. We're here to help!" />
+        <link rel="canonical" href="https://bookingsfinder.com/contact" />
       </Helmet>
 
       <div className="min-h-screen flex flex-col bg-background">
@@ -63,15 +65,34 @@ const Contact = () => {
             <div className="container text-center">
               <h1 className="text-4xl md:text-5xl font-bold mb-6">Contact Us</h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Have a question or need assistance? We're here to help. Send us a message and we'll respond as soon as possible.
+                Have a question about our travel comparison service? We're here to help. Send us a message and we'll respond as soon as possible.
               </p>
             </div>
           </section>
 
-          {/* Contact Form & Info */}
-          <section className="py-16">
+          {/* Important Notice */}
+          <section className="py-8">
             <div className="container">
-              <div className="grid lg:grid-cols-3 gap-12">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-amber-800 dark:text-amber-300 font-medium text-sm">Important: Booking-Related Inquiries</p>
+                      <p className="text-amber-700 dark:text-amber-400 text-sm mt-1">
+                        BookingsFinder is a travel comparison platform. We do not process bookings, payments, cancellations, or refunds. For booking-related issues, please contact the airline, hotel, or travel agency where you made your purchase directly.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Contact Form & Info */}
+          <section className="py-8 pb-16">
+            <div className="container">
+              <div className="grid lg:grid-cols-3 gap-12 max-w-6xl mx-auto">
                 {/* Form */}
                 <div className="lg:col-span-2">
                   <Card>
@@ -110,10 +131,11 @@ const Contact = () => {
                               <SelectValue placeholder="Select a subject" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="booking">Booking Inquiry</SelectItem>
+                              <SelectItem value="general">General Inquiry</SelectItem>
                               <SelectItem value="technical">Technical Issue</SelectItem>
-                              <SelectItem value="refund">Refund Request</SelectItem>
-                              <SelectItem value="partnership">Partnership</SelectItem>
+                              <SelectItem value="price-alerts">Price Alerts Help</SelectItem>
+                              <SelectItem value="partnership">Partnership Inquiry</SelectItem>
+                              <SelectItem value="advertising">Advertising Inquiry</SelectItem>
                               <SelectItem value="feedback">Feedback</SelectItem>
                               <SelectItem value="other">Other</SelectItem>
                             </SelectContent>
@@ -148,11 +170,15 @@ const Contact = () => {
                         </div>
                         <div>
                           <h3 className="font-semibold mb-1">Email</h3>
-                          <p className="text-sm text-muted-foreground">support@bookingsfinder.com</p>
+                          <a href="mailto:support@bookingsfinder.com" className="text-sm text-primary hover:underline">
+                            support@bookingsfinder.com
+                          </a>
+                          <p className="text-xs text-muted-foreground mt-1">General support inquiries</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
+                  
                   <Card>
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
@@ -160,12 +186,20 @@ const Contact = () => {
                           <MessageSquare className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <h3 className="font-semibold mb-1">Live Chat</h3>
-                          <p className="text-sm text-muted-foreground">Available 24/7</p>
+                          <h3 className="font-semibold mb-1">Other Contacts</h3>
+                          <p className="text-sm text-muted-foreground">
+                            <a href="mailto:partnerships@bookingsfinder.com" className="text-primary hover:underline">partnerships@bookingsfinder.com</a>
+                            <span className="block text-xs">Business partnerships</span>
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            <a href="mailto:advertising@bookingsfinder.com" className="text-primary hover:underline">advertising@bookingsfinder.com</a>
+                            <span className="block text-xs">Advertising inquiries</span>
+                          </p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
+
                   <Card>
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
@@ -174,11 +208,13 @@ const Contact = () => {
                         </div>
                         <div>
                           <h3 className="font-semibold mb-1">Response Time</h3>
-                          <p className="text-sm text-muted-foreground">Within 24 hours</p>
+                          <p className="text-sm text-muted-foreground">Within 24-48 hours</p>
+                          <p className="text-xs text-muted-foreground mt-1">Monday - Friday</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
+
                   <Card>
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
@@ -196,6 +232,15 @@ const Contact = () => {
                       </div>
                     </CardContent>
                   </Card>
+
+                  <div className="text-sm text-muted-foreground">
+                    <p className="mb-2">Looking for more information?</p>
+                    <ul className="space-y-1">
+                      <li><Link to="/faqs" className="text-primary hover:underline">Frequently Asked Questions</Link></li>
+                      <li><Link to="/how-it-works" className="text-primary hover:underline">How BookingsFinder Works</Link></li>
+                      <li><Link to="/about" className="text-primary hover:underline">About Us</Link></li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
