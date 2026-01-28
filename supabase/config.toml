@@ -2,3 +2,6 @@ project_id = "nrxupicbzblbxolyxksg"
 
 [functions.search-airports]
 verify_jwt = false
+
+[functions.generate-seo-content]
+verify_jwt = false
