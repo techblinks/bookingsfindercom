@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, Globe, Plane, Hotel, Loader2, ExternalLink, Copy, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, Globe, Plane, Hotel, Loader2, ExternalLink, Copy, Search, Filter, Clock, CalendarClock } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,7 @@ interface CountryPageFormData {
   country_name: string;
   type: 'flights' | 'hotels';
   is_published: boolean;
+  scheduled_publish_at: string | null;
   popular_cities: PopularCity[];
   popular_routes: PopularRoute[];
   travel_tips: string[];
@@ -69,6 +70,7 @@ const defaultFormData: CountryPageFormData = {
   country_name: '',
   type: 'flights',
   is_published: false,
+  scheduled_publish_at: null,
   popular_cities: [],
   popular_routes: [],
   travel_tips: [],
@@ -141,6 +143,7 @@ export default function AdminCountryPages() {
         country_name: data.country_name,
         type: data.type,
         is_published: data.is_published,
+        scheduled_publish_at: data.scheduled_publish_at || null,
         popular_cities: data.popular_cities as unknown as Json,
         popular_routes: data.popular_routes as unknown as Json,
         travel_tips: data.travel_tips as unknown as Json,
@@ -226,6 +229,7 @@ export default function AdminCountryPages() {
       country_name: page.country_name,
       type: page.type as 'flights' | 'hotels',
       is_published: page.is_published,
+      scheduled_publish_at: page.scheduled_publish_at || null,
       popular_cities: (page.popular_cities as unknown as PopularCity[]) || [],
       popular_routes: (page.popular_routes as unknown as PopularRoute[]) || [],
       travel_tips: (page.travel_tips as unknown as string[]) || [],
@@ -247,6 +251,7 @@ export default function AdminCountryPages() {
       country_name: page.country_name,
       type: page.type as 'flights' | 'hotels',
       is_published: false, // Start as draft
+      scheduled_publish_at: null,
       popular_cities: (page.popular_cities as unknown as PopularCity[]) || [],
       popular_routes: (page.popular_routes as unknown as PopularRoute[]) || [],
       travel_tips: (page.travel_tips as unknown as string[]) || [],
@@ -516,16 +521,24 @@ export default function AdminCountryPages() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={page.is_published}
-                                onCheckedChange={(checked) => 
-                                  togglePublishMutation.mutate({ id: page.id, is_published: checked })
-                                }
-                              />
-                              <span className={page.is_published ? 'text-green-600' : 'text-muted-foreground'}>
-                                {page.is_published ? 'Published' : 'Draft'}
-                              </span>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={page.is_published}
+                                  onCheckedChange={(checked) => 
+                                    togglePublishMutation.mutate({ id: page.id, is_published: checked })
+                                  }
+                                />
+                                <span className={page.is_published ? 'text-green-600' : 'text-muted-foreground'}>
+                                  {page.is_published ? 'Published' : 'Draft'}
+                                </span>
+                              </div>
+                              {!page.is_published && page.scheduled_publish_at && (
+                                <div className="flex items-center gap-1 text-xs text-amber-600">
+                                  <CalendarClock className="h-3 w-3" />
+                                  {new Date(page.scheduled_publish_at).toLocaleDateString()} {new Date(page.scheduled_publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -719,12 +732,40 @@ export default function AdminCountryPages() {
                 <p className="text-xs text-muted-foreground">{formData.meta_description.length}/160 characters</p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={formData.is_published}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_published: checked }))}
-                />
-                <Label>Publish immediately</Label>
+              <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.is_published}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      is_published: checked,
+                      scheduled_publish_at: checked ? null : prev.scheduled_publish_at 
+                    }))}
+                  />
+                  <Label>Publish immediately</Label>
+                </div>
+
+                {!formData.is_published && (
+                  <div className="space-y-2">
+                    <Label htmlFor="scheduled_publish_at" className="flex items-center gap-2">
+                      <CalendarClock className="h-4 w-4" />
+                      Schedule Publishing (Optional)
+                    </Label>
+                    <Input
+                      id="scheduled_publish_at"
+                      type="datetime-local"
+                      value={formData.scheduled_publish_at ? new Date(formData.scheduled_publish_at).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        scheduled_publish_at: e.target.value ? new Date(e.target.value).toISOString() : null 
+                      }))}
+                      min={new Date().toISOString().slice(0, 16)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty to save as draft. Set a date/time to auto-publish.
+                    </p>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
