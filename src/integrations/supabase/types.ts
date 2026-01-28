@@ -244,6 +244,7 @@ export type Database = {
           meta_description: string
           popular_cities: Json | null
           popular_routes: Json | null
+          scheduled_publish_at: string | null
           slug: string
           title: string
           travel_tips: Json | null
@@ -263,6 +264,7 @@ export type Database = {
           meta_description: string
           popular_cities?: Json | null
           popular_routes?: Json | null
+          scheduled_publish_at?: string | null
           slug: string
           title: string
           travel_tips?: Json | null
@@ -282,6 +284,7 @@ export type Database = {
           meta_description?: string
           popular_cities?: Json | null
           popular_routes?: Json | null
+          scheduled_publish_at?: string | null
           slug?: string
           title?: string
           travel_tips?: Json | null

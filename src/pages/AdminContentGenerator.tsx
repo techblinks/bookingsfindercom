@@ -11,7 +11,9 @@ import {
   Plane,
   Hotel,
   Eye,
-  RefreshCw
+  RefreshCw,
+  CalendarClock,
+  Clock
 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -54,6 +56,7 @@ export default function AdminContentGenerator() {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editedContent, setEditedContent] = useState<GeneratedContent | null>(null);
+  const [scheduledPublishAt, setScheduledPublishAt] = useState<string>('');
 
   const handleGenerate = async () => {
     if (!destination.trim()) {
@@ -92,7 +95,7 @@ export default function AdminContentGenerator() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (publishNow: boolean = false) => {
     if (!editedContent) return;
 
     setIsSaving(true);
@@ -114,7 +117,8 @@ export default function AdminContentGenerator() {
           : [],
         travel_tips: editedContent.travelTips,
         faqs: editedContent.faqs,
-        is_published: false,
+        is_published: publishNow,
+        scheduled_publish_at: !publishNow && scheduledPublishAt ? new Date(scheduledPublishAt).toISOString() : null,
       };
 
       const { error } = await supabase
@@ -123,7 +127,13 @@ export default function AdminContentGenerator() {
 
       if (error) throw error;
 
-      toast.success('Content saved successfully! Navigate to Country Pages to publish.');
+      if (publishNow) {
+        toast.success('Content published successfully!');
+      } else if (scheduledPublishAt) {
+        toast.success(`Content scheduled to publish on ${new Date(scheduledPublishAt).toLocaleString()}`);
+      } else {
+        toast.success('Content saved as draft!');
+      }
       navigate('/admin/country-pages');
     } catch (error) {
       console.error('Save error:', error);
@@ -281,29 +291,58 @@ export default function AdminContentGenerator() {
                       Review and edit before saving
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerate}
-                      disabled={isGenerating}
-                      className="gap-2"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Regenerate
-                    </Button>
-                    <Button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="gap-2"
-                    >
-                      {isSaving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      Save as Draft
-                    </Button>
+                  <div className="flex flex-col gap-3">
+                    {/* Scheduling options */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                      <CalendarClock className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex-1">
+                        <Label htmlFor="schedule" className="text-sm">Schedule Publishing</Label>
+                        <Input
+                          id="schedule"
+                          type="datetime-local"
+                          value={scheduledPublishAt}
+                          onChange={(e) => setScheduledPublishAt(e.target.value)}
+                          min={new Date().toISOString().slice(0, 16)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerate}
+                        disabled={isGenerating}
+                        className="gap-2"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Regenerate
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleSave(false)}
+                        disabled={isSaving}
+                        className="gap-2"
+                      >
+                        {isSaving ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : scheduledPublishAt ? (
+                          <Clock className="h-4 w-4" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        {scheduledPublishAt ? 'Schedule' : 'Save Draft'}
+                      </Button>
+                      <Button
+                        onClick={() => handleSave(true)}
+                        disabled={isSaving}
+                        className="gap-2"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Publish Now
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardHeader>

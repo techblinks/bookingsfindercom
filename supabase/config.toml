@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-seo-content]
 verify_jwt = false
+
+[functions.publish-scheduled-pages]
+verify_jwt = false
