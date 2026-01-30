@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.get-subscription-status]
 verify_jwt = false
+
+[functions.run-optimizer]
+verify_jwt = false

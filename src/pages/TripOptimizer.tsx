@@ -1,0 +1,183 @@
+import { useState } from "react";
+import { Helmet } from "react-helmet-async";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import OptimizerForm from "@/components/optimizer/OptimizerForm";
+import OptimizerResults from "@/components/optimizer/OptimizerResults";
+import { useOptimizer, OptimizerRequest, OptimizerResult } from "@/hooks/useOptimizer";
+import { Loader2, Sparkles, Shield, DollarSign, Clock } from "lucide-react";
+
+const TripOptimizer = () => {
+  const [result, setResult] = useState<OptimizerResult | null>(null);
+  const [request, setRequest] = useState<OptimizerRequest | null>(null);
+  const { runOptimizer, isLoading, error } = useOptimizer();
+
+  const handleSubmit = async (data: OptimizerRequest) => {
+    setRequest(data);
+    const optimizerResult = await runOptimizer(data);
+    if (optimizerResult) {
+      setResult(optimizerResult);
+    }
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setRequest(null);
+  };
+
+  return (
+    <>
+      <Helmet>
+        <title>Smart Trip Optimizer | BookingsFinder</title>
+        <meta
+          name="description"
+          content="Get personalized travel recommendations with cost breakdowns, timing advice, and risk alerts. Make smarter travel decisions before booking."
+        />
+        <meta name="keywords" content="trip optimizer, travel planner, flight cost breakdown, travel advice, cheap flights" />
+        <link rel="canonical" href="https://bookingsfinder.com/optimizer" />
+      </Helmet>
+
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+
+        <main className="flex-1">
+          {/* Hero Section */}
+          <section className="bg-gradient-to-br from-primary/10 via-background to-primary/5 py-12 md:py-16">
+            <div className="container">
+              <div className="max-w-3xl mx-auto text-center mb-8">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+                  <Sparkles className="h-4 w-4" />
+                  Travel Intelligence Tool
+                </div>
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">
+                  Smart Trip Optimizer
+                </h1>
+                <p className="text-lg text-muted-foreground">
+                  Get personalized route recommendations, total cost estimates, and timing advice.
+                  Make smarter decisions before you book.
+                </p>
+              </div>
+
+              {/* Features Grid */}
+              {!result && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-8">
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border">
+                    <div className="p-2 rounded-full bg-emerald-500/10">
+                      <DollarSign className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm">Total Cost Breakdown</p>
+                      <p className="text-xs text-muted-foreground">Fare + bags + transfers</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border">
+                    <div className="p-2 rounded-full bg-blue-500/10">
+                      <Clock className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm">Timing Advice</p>
+                      <p className="text-xs text-muted-foreground">Buy now or wait?</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border">
+                    <div className="p-2 rounded-full bg-amber-500/10">
+                      <Shield className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm">Risk Alerts</p>
+                      <p className="text-xs text-muted-foreground">Layovers & transfers</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Main Content */}
+          <section className="py-8 md:py-12">
+            <div className="container">
+              {isLoading ? (
+                <div className="max-w-2xl mx-auto">
+                  <div className="bg-card border border-border rounded-xl p-8 md:p-12 text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold text-foreground mb-2">
+                      Optimizing Your Trip
+                    </h2>
+                    <p className="text-muted-foreground">
+                      Analyzing routes, estimating costs, and checking for risks...
+                    </p>
+                  </div>
+                </div>
+              ) : result && request ? (
+                <OptimizerResults
+                  result={result}
+                  request={request}
+                  onReset={handleReset}
+                />
+              ) : (
+                <div className="max-w-2xl mx-auto">
+                  <OptimizerForm onSubmit={handleSubmit} error={error} />
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* FAQ Section for SEO */}
+          <section className="py-12 bg-muted/30">
+            <div className="container max-w-3xl">
+              <h2 className="text-2xl font-bold text-foreground mb-6 text-center">
+                Frequently Asked Questions
+              </h2>
+              <div className="space-y-4">
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <h3 className="font-semibold text-foreground mb-2">
+                    What is the Smart Trip Optimizer?
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    The Smart Trip Optimizer is a travel intelligence tool that helps you make smarter
+                    booking decisions. It analyzes your trip requirements and provides cost breakdowns,
+                    timing recommendations, and risk alerts before you book with our partner sites.
+                  </p>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <h3 className="font-semibold text-foreground mb-2">
+                    How does the cost breakdown work?
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    We estimate your total trip cost including base fare, baggage fees, and potential
+                    transfer costs. This gives you a realistic picture of what you'll actually spend,
+                    not just the advertised fare.
+                  </p>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <h3 className="font-semibold text-foreground mb-2">
+                    Do you sell tickets directly?
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    No, BookingsFinder is a travel intelligence platform. We provide insights and
+                    recommendations, then connect you with trusted booking partners where you complete
+                    your purchase.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Disclaimer */}
+          <div className="py-6 bg-muted/50">
+            <div className="container">
+              <p className="text-xs text-muted-foreground text-center max-w-2xl mx-auto">
+                BookingsFinder provides travel insights and recommendations. All bookings are completed
+                on partner websites. Prices shown are estimates and may vary at time of booking.
+              </p>
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    </>
+  );
+};
+
+export default TripOptimizer;
