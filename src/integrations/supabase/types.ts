@@ -293,6 +293,101 @@ export type Database = {
         }
         Relationships: []
       }
+      optimizer_requests: {
+        Row: {
+          created_at: string
+          destination: string
+          has_bags: boolean | null
+          id: string
+          origin: string
+          priority: string
+          session_id: string | null
+          travel_window_end: string | null
+          travel_window_start: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          destination: string
+          has_bags?: boolean | null
+          id?: string
+          origin: string
+          priority?: string
+          session_id?: string | null
+          travel_window_end?: string | null
+          travel_window_start: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          destination?: string
+          has_bags?: boolean | null
+          id?: string
+          origin?: string
+          priority?: string
+          session_id?: string | null
+          travel_window_end?: string | null
+          travel_window_start?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      optimizer_results: {
+        Row: {
+          affiliate_links: Json | null
+          baggage_estimate: number | null
+          created_at: string
+          estimated_total_cost: number
+          extra_fees_estimate: number | null
+          fare_estimate: number | null
+          id: string
+          recommended_route: Json
+          request_id: string
+          risk_alerts: Json | null
+          timing_advice: string
+          timing_reason: string | null
+          transfer_estimate: number | null
+        }
+        Insert: {
+          affiliate_links?: Json | null
+          baggage_estimate?: number | null
+          created_at?: string
+          estimated_total_cost: number
+          extra_fees_estimate?: number | null
+          fare_estimate?: number | null
+          id?: string
+          recommended_route: Json
+          request_id: string
+          risk_alerts?: Json | null
+          timing_advice: string
+          timing_reason?: string | null
+          transfer_estimate?: number | null
+        }
+        Update: {
+          affiliate_links?: Json | null
+          baggage_estimate?: number | null
+          created_at?: string
+          estimated_total_cost?: number
+          extra_fees_estimate?: number | null
+          fare_estimate?: number | null
+          id?: string
+          recommended_route?: Json
+          request_id?: string
+          risk_alerts?: Json | null
+          timing_advice?: string
+          timing_reason?: string | null
+          transfer_estimate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimizer_results_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "optimizer_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       press_releases: {
         Row: {
           content: string
@@ -511,6 +606,81 @@ export type Database = {
           unsubscribe_token?: string
           unsubscribed_at?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          last_optimizer_reset: string
+          monthly_optimizer_uses: number
+          plan: string
+          preferences: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          last_optimizer_reset?: string
+          monthly_optimizer_uses?: number
+          plan?: string
+          preferences?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          last_optimizer_reset?: string
+          monthly_optimizer_uses?: number
+          plan?: string
+          preferences?: Json | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
