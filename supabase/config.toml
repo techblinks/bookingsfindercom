@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.publish-scheduled-pages]
 verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.get-subscription-status]
+verify_jwt = false
