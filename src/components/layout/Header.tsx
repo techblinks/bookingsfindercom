@@ -1,4 +1,4 @@
-import { Menu, X, Bell, Plane, Building2, MapPin, ChevronDown } from "lucide-react";
+import { Menu, X, Bell, Plane, Building2, MapPin, ChevronDown, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -14,6 +14,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
+    { label: "Trip Optimizer", href: "/optimizer", isLink: true, icon: Sparkles },
     { label: "Flights", href: "/#flights", icon: Plane },
     { label: "Hotels", href: "/#hotels", icon: Building2 },
     { label: "My Alerts", href: "/my-alerts", isLink: true, icon: Bell },
