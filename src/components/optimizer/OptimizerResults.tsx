@@ -15,6 +15,7 @@ import {
   CheckCircle,
   XCircle,
   Info,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +120,33 @@ const OptimizerResults = ({ result, request, onReset }: OptimizerResultsProps) =
             </p>
           )}
         </div>
+
+        {/* Price Context from real API data */}
+        {result.priceContext && (
+          <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">Live Market Data</span>
+              <Badge variant="outline" className="text-xs">
+                {result.priceContext.optionsFound} options found
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Lowest</p>
+                <p className="font-semibold text-emerald-600">${result.priceContext.lowestPrice}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Average</p>
+                <p className="font-semibold text-foreground">${result.priceContext.averagePrice}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Highest</p>
+                <p className="font-semibold text-muted-foreground">${result.priceContext.highestPrice}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cost Breakdown */}
