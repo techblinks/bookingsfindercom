@@ -21,6 +21,13 @@ export interface AffiliateLink {
   url: string;
 }
 
+export interface PriceContext {
+  optionsFound: number;
+  averagePrice: number;
+  lowestPrice: number;
+  highestPrice: number;
+}
+
 export interface OptimizerResult {
   recommendedRoute: {
     summary: string;
@@ -39,6 +46,7 @@ export interface OptimizerResult {
   timingReason?: string;
   riskAlerts?: RiskAlert[];
   affiliateLinks?: AffiliateLink[];
+  priceContext?: PriceContext | null;
 }
 
 export const useOptimizer = () => {
