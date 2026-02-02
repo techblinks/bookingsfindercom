@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import OptimizerForm from "@/components/optimizer/OptimizerForm";
 import OptimizerResults from "@/components/optimizer/OptimizerResults";
 import { useOptimizer, OptimizerRequest, OptimizerResult } from "@/hooks/useOptimizer";
-import { Loader2, Sparkles, Shield, DollarSign, Clock } from "lucide-react";
+import { Loader2, Sparkles, Shield, DollarSign, Clock, Zap, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 const TripOptimizer = () => {
+  const navigate = useNavigate();
   const [result, setResult] = useState<OptimizerResult | null>(null);
   const [request, setRequest] = useState<OptimizerRequest | null>(null);
-  const { runOptimizer, isLoading, error } = useOptimizer();
+  const { runOptimizer, isLoading, error, paywallError, clearPaywallError } = useOptimizer();
 
   const handleSubmit = async (data: OptimizerRequest) => {
     setRequest(data);
@@ -23,6 +27,11 @@ const TripOptimizer = () => {
   const handleReset = () => {
     setResult(null);
     setRequest(null);
+    clearPaywallError();
+  };
+
+  const handleUpgrade = () => {
+    navigate("/pricing");
   };
 
   return (
@@ -107,6 +116,34 @@ const TripOptimizer = () => {
                       Analyzing routes, estimating costs, and checking for risks...
                     </p>
                   </div>
+                </div>
+              ) : paywallError ? (
+                <div className="max-w-lg mx-auto">
+                  <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-background">
+                    <CardContent className="p-8 text-center">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                        <Lock className="h-8 w-8 text-primary" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-foreground mb-2">
+                        Upgrade to Continue
+                      </h2>
+                      <p className="text-muted-foreground mb-6">
+                        {paywallError.message}
+                      </p>
+                      <div className="space-y-3">
+                        <Button onClick={handleUpgrade} size="lg" className="w-full">
+                          <Zap className="h-4 w-4 mr-2" />
+                          Upgrade to Pro - $15/month
+                        </Button>
+                        <Button variant="outline" onClick={handleReset} className="w-full">
+                          Start Over
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-4">
+                        Pro members get unlimited trip optimizations
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
               ) : result && request ? (
                 <OptimizerResults

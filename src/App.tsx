@@ -42,6 +42,8 @@ import TopHotelDestinations from "./pages/TopHotelDestinations";
 import FlightDealsGuide from "./pages/FlightDealsGuide";
 import HotelBookingGuide from "./pages/HotelBookingGuide";
 import TripOptimizer from "./pages/TripOptimizer";
+import Pricing from "./pages/Pricing";
+import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +58,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/optimizer" element={<TripOptimizer />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/account" element={<Account />} />
             <Route path="/flights" element={<FlightResults />} />
             <Route path="/hotels" element={<HotelResults />} />
             <Route path="/my-alerts" element={<MyAlerts />} />

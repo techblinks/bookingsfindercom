@@ -49,13 +49,21 @@ export interface OptimizerResult {
   priceContext?: PriceContext | null;
 }
 
+export interface PaywallError {
+  type: "paywall";
+  message: string;
+  upgradeUrl: string;
+}
+
 export const useOptimizer = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paywallError, setPaywallError] = useState<PaywallError | null>(null);
 
   const runOptimizer = async (request: OptimizerRequest): Promise<OptimizerResult | null> => {
     setIsLoading(true);
     setError(null);
+    setPaywallError(null);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("run-optimizer", {
@@ -64,6 +72,16 @@ export const useOptimizer = () => {
 
       if (fnError) {
         throw new Error(fnError.message || "Failed to run optimizer");
+      }
+
+      // Check for paywall error
+      if (data?.error === "paywall") {
+        setPaywallError({
+          type: "paywall",
+          message: data.message || "Upgrade required",
+          upgradeUrl: data.upgradeUrl || "/pricing",
+        });
+        return null;
       }
 
       if (data?.error) {
@@ -80,9 +98,36 @@ export const useOptimizer = () => {
     }
   };
 
+  const trackAffiliateClick = async (params: {
+    type: "flight" | "hotel";
+    action: "redirect" | "compare" | "view_deal";
+    origin?: string;
+    destination?: string;
+    departureDate?: string;
+    returnDate?: string;
+    price?: number;
+    redirectUrl: string;
+  }) => {
+    try {
+      await supabase.functions.invoke("track-affiliate-click", {
+        body: params,
+      });
+    } catch (err) {
+      // Silently fail - don't block the redirect
+      console.error("Failed to track affiliate click:", err);
+    }
+  };
+
+  const clearPaywallError = () => {
+    setPaywallError(null);
+  };
+
   return {
     runOptimizer,
+    trackAffiliateClick,
     isLoading,
     error,
+    paywallError,
+    clearPaywallError,
   };
 };

@@ -408,11 +408,69 @@ serve(async (req) => {
 
     // Get user ID if authenticated (optional)
     let userId: string | null = null;
+    let userPlan = "free";
+    let monthlyUses = 0;
+    
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
       const { data: userData } = await supabase.auth.getUser(token);
       userId = userData?.user?.id || null;
+      
+      if (userId) {
+        // Check user's plan and usage
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("plan, monthly_optimizer_uses, last_optimizer_reset")
+          .eq("user_id", userId)
+          .single();
+        
+        if (profile) {
+          userPlan = profile.plan || "free";
+          
+          // Check if we need to reset monthly uses
+          const now = new Date();
+          const lastReset = profile.last_optimizer_reset ? new Date(profile.last_optimizer_reset) : null;
+          const needsReset = !lastReset || 
+            (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear());
+          
+          if (needsReset) {
+            monthlyUses = 0;
+            await supabase.from("user_profiles").update({
+              monthly_optimizer_uses: 0,
+              last_optimizer_reset: now.toISOString(),
+            }).eq("user_id", userId);
+          } else {
+            monthlyUses = profile.monthly_optimizer_uses || 0;
+          }
+          
+          // Check subscription status for Pro users
+          if (userPlan === "pro") {
+            const { data: subscription } = await supabase
+              .from("subscriptions")
+              .select("status")
+              .eq("user_id", userId)
+              .single();
+            
+            if (subscription?.status !== "active") {
+              userPlan = "free"; // Downgrade if subscription not active
+            }
+          }
+        }
+      }
+    }
+    
+    // Enforce paywall: Free users get 1 optimization per month
+    const FREE_LIMIT = 1;
+    if (userPlan === "free" && monthlyUses >= FREE_LIMIT) {
+      return new Response(
+        JSON.stringify({ 
+          error: "paywall", 
+          message: "You've used your free optimization this month. Upgrade to Pro for unlimited optimizations.",
+          upgradeUrl: "/pricing"
+        }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Store the optimization request
