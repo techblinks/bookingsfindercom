@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { OptimizerRequest, OptimizerResult, RiskAlert } from "@/hooks/useOptimizer";
+import { OptimizerRequest, OptimizerResult, RiskAlert, useOptimizer } from "@/hooks/useOptimizer";
 import { cn } from "@/lib/utils";
 
 interface OptimizerResultsProps {
@@ -82,8 +82,23 @@ const RiskAlertCard = ({ alert }: { alert: RiskAlert }) => {
 };
 
 const OptimizerResults = ({ result, request, onReset }: OptimizerResultsProps) => {
+  const { trackAffiliateClick } = useOptimizer();
+  
   const affiliateUrl = result.affiliateLinks?.[0]?.url || 
     `https://www.aviasales.com/search/${request.origin}${format(new Date(request.travelWindowStart), "ddMM")}${request.destination}${request.travelWindowEnd ? format(new Date(request.travelWindowEnd), "ddMM") : ""}1`;
+
+  const handleAffiliateClick = async (action: "redirect" | "compare" | "view_deal", url: string) => {
+    await trackAffiliateClick({
+      type: "flight",
+      action,
+      origin: request.origin,
+      destination: request.destination,
+      departureDate: request.travelWindowStart,
+      returnDate: request.travelWindowEnd,
+      price: result.estimatedTotalCost,
+      redirectUrl: url,
+    });
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -271,13 +286,24 @@ const OptimizerResults = ({ result, request, onReset }: OptimizerResultsProps) =
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button asChild size="lg" className="flex-1 max-w-xs">
+          <Button 
+            asChild 
+            size="lg" 
+            className="flex-1 max-w-xs"
+            onClick={() => handleAffiliateClick("view_deal", affiliateUrl)}
+          >
             <a href={affiliateUrl} target="_blank" rel="noopener noreferrer">
               View Live Prices
               <ExternalLink className="ml-2 h-4 w-4" />
             </a>
           </Button>
-          <Button asChild variant="outline" size="lg" className="flex-1 max-w-xs">
+          <Button 
+            asChild 
+            variant="outline" 
+            size="lg" 
+            className="flex-1 max-w-xs"
+            onClick={() => handleAffiliateClick("compare", `/flights?origin=${request.origin}&destination=${request.destination}&date=${request.travelWindowStart}`)}
+          >
             <a
               href={`/flights?origin=${request.origin}&destination=${request.destination}&date=${request.travelWindowStart}`}
             >
