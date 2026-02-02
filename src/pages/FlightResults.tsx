@@ -21,6 +21,7 @@ import { useAds } from "@/hooks/useAds";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
+import TripOptimizerBanner from "@/components/optimizer/TripOptimizerBanner";
 
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
@@ -405,6 +406,17 @@ const FlightResults = () => {
                   selectedDate={departureDate}
                   currency="$"
                   onDateSelect={handleDateSelect}
+                />
+              </div>
+            )}
+
+            {/* Trip Optimizer Promotional Banner */}
+            {!isLoading && (
+              <div className="mb-4">
+                <TripOptimizerBanner
+                  origin={origin}
+                  destination={destination}
+                  departureDate={departureDate}
                 />
               </div>
             )}
