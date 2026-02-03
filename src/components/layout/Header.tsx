@@ -1,4 +1,4 @@
-import { Menu, X, Bell, Plane, Building2, MapPin, ChevronDown, Sparkles } from "lucide-react";
+import { Menu, X, Bell, Plane, Building2, MapPin, ChevronDown, Sparkles, CreditCard, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -19,6 +19,7 @@ const Header = () => {
     { label: "Hotels", href: "/#hotels", icon: Building2 },
     { label: "My Alerts", href: "/my-alerts", isLink: true, icon: Bell },
     { label: "Destinations", href: "/#destinations", icon: MapPin },
+    { label: "Pricing", href: "/pricing", isLink: true, icon: CreditCard },
   ];
 
   return (
