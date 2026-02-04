@@ -8,6 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   User, 
   CreditCard, 
@@ -18,7 +21,10 @@ import {
   TrendingUp,
   RefreshCw,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  Mail,
+  Lock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +51,12 @@ const Account = () => {
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Auth form state
+  const [authLoading, setAuthLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const success = searchParams.get("success");
 
@@ -61,17 +73,73 @@ const Account = () => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        navigate("/optimizer");
-        return;
+      if (session) {
+        setUser(session.user);
+        setIsAuthenticated(true);
+        await fetchSubscriptionStatus();
+      } else {
+        setIsLoading(false);
       }
-
-      setUser(session.user);
-      await fetchSubscriptionStatus();
     };
 
     checkAuth();
-  }, [navigate]);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        setUser(session.user);
+        setIsAuthenticated(true);
+        await fetchSubscriptionStatus();
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+        setStatus(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast({ title: "Welcome back!", description: "You are now signed in." });
+    } catch (error: any) {
+      toast({
+        title: "Sign in failed",
+        description: error.message || "Please check your credentials",
+        variant: "destructive",
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      toast({ 
+        title: "Check your email", 
+        description: "We sent you a confirmation link to complete signup." 
+      });
+    } catch (error: any) {
+      toast({
+        title: "Sign up failed",
+        description: error.message || "Could not create account",
+        variant: "destructive",
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const fetchSubscriptionStatus = async () => {
     try {
@@ -149,18 +217,149 @@ const Account = () => {
 
         <main className="flex-1 py-8 md:py-12">
           <div className="container max-w-4xl">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground">My Account</h1>
-                <p className="text-muted-foreground">
-                  Manage your subscription and view usage
+            {!isAuthenticated ? (
+              /* Auth Form */
+              <div className="max-w-md mx-auto">
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <User className="h-8 w-8 text-primary" />
+                  </div>
+                  <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                    Sign in to Your Account
+                  </h1>
+                  <p className="text-muted-foreground">
+                    Access your dashboard, track usage, and manage your subscription
+                  </p>
+                </div>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <Tabs defaultValue="signin" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2 mb-6">
+                        <TabsTrigger value="signin">Sign In</TabsTrigger>
+                        <TabsTrigger value="signup">Create Account</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="signin">
+                        <form onSubmit={handleSignIn} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="signin-email">Email</Label>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="signin-email"
+                                type="email"
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="pl-10"
+                                required
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="signin-password">Password</Label>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="signin-password"
+                                type="password"
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="pl-10"
+                                required
+                                minLength={6}
+                              />
+                            </div>
+                          </div>
+                          <Button type="submit" className="w-full" disabled={authLoading}>
+                            {authLoading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Signing in...
+                              </>
+                            ) : (
+                              "Sign In"
+                            )}
+                          </Button>
+                        </form>
+                      </TabsContent>
+
+                      <TabsContent value="signup">
+                        <form onSubmit={handleSignUp} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="signup-email">Email</Label>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="signup-email"
+                                type="email"
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="pl-10"
+                                required
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="signup-password">Password</Label>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="signup-password"
+                                type="password"
+                                placeholder="At least 6 characters"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="pl-10"
+                                required
+                                minLength={6}
+                              />
+                            </div>
+                          </div>
+                          <Button type="submit" className="w-full" disabled={authLoading}>
+                            {authLoading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Creating account...
+                              </>
+                            ) : (
+                              "Create Account"
+                            )}
+                          </Button>
+                          <p className="text-xs text-muted-foreground text-center">
+                            By creating an account, you agree to our Terms of Service
+                          </p>
+                        </form>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+
+                <p className="text-sm text-muted-foreground text-center mt-6">
+                  Free users get 1 optimization per month.{" "}
+                  <a href="/pricing" className="text-primary hover:underline">
+                    View Pro benefits
+                  </a>
                 </p>
               </div>
-              <Button variant="outline" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </div>
+            ) : (
+              /* Authenticated Dashboard */
+              <>
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-foreground">My Account</h1>
+                    <p className="text-muted-foreground">
+                      Manage your subscription and view usage
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
 
             <div className="grid gap-6">
               {/* Profile Card */}
@@ -349,8 +548,10 @@ const Account = () => {
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+            </Card>
             </div>
+              </>
+            )}
           </div>
         </main>
 
