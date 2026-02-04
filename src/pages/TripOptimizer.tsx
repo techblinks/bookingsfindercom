@@ -119,28 +119,62 @@ const TripOptimizer = () => {
                 </div>
               ) : paywallError ? (
                 <div className="max-w-lg mx-auto">
-                  <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-background">
-                    <CardContent className="p-8 text-center">
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                        <Lock className="h-8 w-8 text-primary" />
+                  <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+                    <CardContent className="p-8 relative">
+                      {/* Header */}
+                      <div className="text-center mb-6">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-4 ring-4 ring-primary/10">
+                          <Lock className="h-8 w-8 text-primary" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-foreground mb-2">
+                          You've Used Your Free Optimization
+                        </h2>
+                        <p className="text-muted-foreground">
+                          {paywallError.message}
+                        </p>
                       </div>
-                      <h2 className="text-2xl font-bold text-foreground mb-2">
-                        Upgrade to Continue
-                      </h2>
-                      <p className="text-muted-foreground mb-6">
-                        {paywallError.message}
-                      </p>
+
+                      {/* Pro Benefits */}
+                      <div className="bg-card border border-border rounded-lg p-4 mb-6">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Sparkles className="h-5 w-5 text-primary" />
+                          <span className="font-semibold text-foreground">Unlock Pro Benefits</span>
+                        </div>
+                        <ul className="space-y-2">
+                          <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Zap className="h-4 w-4 text-emerald-500 shrink-0" />
+                            <span><strong className="text-foreground">Unlimited</strong> trip optimizations</span>
+                          </li>
+                          <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <DollarSign className="h-4 w-4 text-emerald-500 shrink-0" />
+                            <span>Full cost breakdowns with hidden fees</span>
+                          </li>
+                          <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4 text-emerald-500 shrink-0" />
+                            <span>Priority timing advice & price predictions</span>
+                          </li>
+                          <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Shield className="h-4 w-4 text-emerald-500 shrink-0" />
+                            <span>Advanced risk alerts for every trip</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* CTA Buttons */}
                       <div className="space-y-3">
-                        <Button onClick={handleUpgrade} size="lg" className="w-full">
+                        <Button onClick={handleUpgrade} size="lg" className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
                           <Zap className="h-4 w-4 mr-2" />
                           Upgrade to Pro - $15/month
                         </Button>
-                        <Button variant="outline" onClick={handleReset} className="w-full">
-                          Start Over
+                        <Button variant="ghost" onClick={handleReset} className="w-full text-muted-foreground hover:text-foreground">
+                          Maybe Later
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-4">
-                        Pro members get unlimited trip optimizations
+
+                      {/* Footer note */}
+                      <p className="text-xs text-muted-foreground text-center mt-4">
+                        Cancel anytime. Your free optimization resets in 30 days.
                       </p>
                     </CardContent>
                   </Card>
