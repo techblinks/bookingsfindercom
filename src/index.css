@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 /* Travel Website Design System - Clean, Modern, Trustworthy */
+ 
+ /* Safe Area CSS Variables */
+ :root {
+   --sat: env(safe-area-inset-top, 0px);
+   --sar: env(safe-area-inset-right, 0px);
+   --sab: env(safe-area-inset-bottom, 0px);
+   --sal: env(safe-area-inset-left, 0px);
+ }
 
 @layer base {
   :root {
@@ -112,21 +120,37 @@
     --sidebar-accent-foreground: 210 20% 90%;
     --sidebar-border: 220 15% 20%;
     --sidebar-ring: 214 85% 60%;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight text-foreground;
+   }
+ }
+ 
+ @layer base {
+   * {
+     @apply border-border;
+   }
+ 
+   body {
+     @apply bg-background text-foreground antialiased;
+     font-feature-settings: "rlig" 1, "calt" 1;
+   }
+   
+   h1, h2, h3, h4, h5, h6 {
+     @apply font-semibold tracking-tight text-foreground;
+   }
+ 
+   /* iOS/Android safe area support */
+   .safe-area-inset {
+     padding-top: var(--sat);
+     padding-right: var(--sar);
+     padding-bottom: var(--sab);
+     padding-left: var(--sal);
+   }
+ 
+   .safe-area-top {
+     padding-top: var(--sat);
+   }
+ 
+   .safe-area-bottom {
+     padding-bottom: var(--sab);
   }
 }
 
@@ -153,6 +177,42 @@
     @apply text-2xl font-bold text-foreground;
   }
   
+   /* Native-like touch feedback */
+   .native-touch {
+     @apply active:opacity-70 active:scale-[0.98] transition-all duration-150;
+     -webkit-tap-highlight-color: transparent;
+   }
+ 
+   /* Native-like pressed state - sustained feedback */
+   .native-press {
+     @apply transition-all duration-150;
+     -webkit-tap-highlight-color: transparent;
+   }
+ 
+   .native-press:active {
+     @apply bg-muted scale-[0.98];
+   }
+ 
+   /* Native button */
+   .native-button {
+     @apply min-h-[56px] rounded-xl font-semibold text-base transition-all duration-150;
+     -webkit-tap-highlight-color: transparent;
+   }
+ 
+   .native-button:active {
+     @apply scale-[0.98] opacity-90;
+   }
+ 
+   /* Native input field */
+   .native-field {
+     @apply min-h-[56px] rounded-xl bg-card border border-border px-4 flex items-center gap-3 transition-all duration-150;
+     -webkit-tap-highlight-color: transparent;
+   }
+ 
+   .native-field:active {
+     @apply bg-muted;
+   }
+ 
   .price-currency {
     @apply text-base font-medium text-muted-foreground;
   }
@@ -194,5 +254,11 @@
     to {
       opacity: 1;
     }
+   }
+ 
+   /* Momentum scrolling for iOS */
+   .scroll-native {
+     -webkit-overflow-scrolling: touch;
+     overscroll-behavior: contain;
   }
 }
