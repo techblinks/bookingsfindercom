@@ -80,11 +80,11 @@ const Header = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="sm" className="rounded-full">
-            Sign In
+          <Button variant="outline" size="sm" className="rounded-full" asChild>
+            <Link to="/account">Sign In</Link>
           </Button>
-          <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90">
-            Get Started
+          <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90" asChild>
+            <Link to="/account">Get Started</Link>
           </Button>
         </div>
 
@@ -155,11 +155,11 @@ const Header = () => {
             </div>
             
             <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border/40 px-2">
-              <Button variant="outline" className="w-full rounded-full">
-                Sign In
+              <Button variant="outline" className="w-full rounded-full" asChild>
+                <Link to="/account" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
               </Button>
-              <Button className="w-full rounded-full">
-                Get Started
+              <Button className="w-full rounded-full" asChild>
+                <Link to="/account" onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
               </Button>
             </div>
           </nav>
