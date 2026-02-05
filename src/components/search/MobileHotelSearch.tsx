@@ -1,18 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Calendar, Users, ChevronRight, ChevronDown, Search, Minus, Plus } from "lucide-react";
+ import { MapPin, Calendar, Users, ChevronRight, ChevronDown, Search, Minus, Plus, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { format, addDays } from "date-fns";
+ import { format } from "date-fns";
 import { toast } from "sonner";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+ import { motion, AnimatePresence } from "framer-motion";
+ import NativeDatePicker from "./NativeDatePicker";
+ import { X } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -21,7 +16,15 @@ import {
   DrawerTrigger,
   DrawerClose,
 } from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
+ 
+ const popularDestinations = [
+   { name: "New York", country: "USA" },
+   { name: "Paris", country: "France" },
+   { name: "London", country: "UK" },
+   { name: "Tokyo", country: "Japan" },
+   { name: "Dubai", country: "UAE" },
+   { name: "Barcelona", country: "Spain" },
+ ];
 
 const MobileHotelSearch = () => {
   const navigate = useNavigate();
@@ -33,22 +36,25 @@ const MobileHotelSearch = () => {
   const [guests, setGuests] = useState(2);
   const [rooms, setRooms] = useState(1);
   
-  // Sheet/modal states
+   // Modal states
   const [destinationSheetOpen, setDestinationSheetOpen] = useState(false);
-  const [dateDrawerOpen, setDateDrawerOpen] = useState(false);
+   const [checkInDateOpen, setCheckInDateOpen] = useState(false);
+   const [checkOutDateOpen, setCheckOutDateOpen] = useState(false);
   const [guestsDrawerOpen, setGuestsDrawerOpen] = useState(false);
-  const [selectingCheckout, setSelectingCheckout] = useState(false);
+   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleDateSelect = (date: Date | undefined) => {
-    if (selectingCheckout) {
-      setCheckOut(date);
-      setDateDrawerOpen(false);
-    } else {
-      setCheckIn(date);
-      setSelectingCheckout(true);
+   const handleCheckInSelect = (date: Date) => {
+     setCheckIn(date);
+     // Clear checkout if it's before new checkin
+     if (checkOut && date >= checkOut) {
+       setCheckOut(undefined);
     }
   };
 
+   const handleCheckOutSelect = (date: Date) => {
+     setCheckOut(date);
+   };
+ 
   const handleSearch = () => {
     if (!destination || !checkIn || !checkOut) {
       toast.error("Please fill in all fields");
@@ -69,147 +75,184 @@ const MobileHotelSearch = () => {
   return (
     <div className="w-full space-y-3">
       {/* Destination Field */}
-      <Sheet open={destinationSheetOpen} onOpenChange={setDestinationSheetOpen}>
-        <SheetTrigger asChild>
-          <button className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left active:bg-muted transition-colors">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <MapPin className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground">Destination</div>
-              <div className={cn(
-                "text-base font-medium truncate",
-                !destination && "text-muted-foreground"
-              )}>
-                {destination || "Where are you going?"}
-              </div>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-          </button>
-        </SheetTrigger>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
-          <SheetHeader className="pb-4">
-            <SheetTitle>Where are you staying?</SheetTitle>
-          </SheetHeader>
-          <div className="px-1">
-            <Input
-              placeholder="Search city, hotel, or landmark..."
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              autoFocus
-              className="h-12"
-            />
-            {/* Popular destinations */}
-            <div className="mt-6">
-              <div className="text-sm font-medium text-muted-foreground mb-3">Popular destinations</div>
-              <div className="grid grid-cols-2 gap-2">
-                {["New York", "Paris", "London", "Tokyo", "Dubai", "Barcelona"].map((city) => (
-                  <button
-                    key={city}
-                    onClick={() => {
-                      setDestination(city);
-                      setDestinationSheetOpen(false);
-                    }}
-                    className="p-3 text-left rounded-xl bg-secondary hover:bg-muted transition-colors"
-                  >
-                    <div className="font-medium">{city}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+       <button 
+         onClick={() => setDestinationSheetOpen(true)}
+         className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left native-press min-h-[72px]"
+       >
+         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+           <MapPin className="h-6 w-6 text-primary" />
+         </div>
+         <div className="flex-1 min-w-0">
+           <div className="text-xs text-muted-foreground font-medium">Destination</div>
+           <div className={cn(
+             "text-base font-semibold truncate",
+             !destination && "text-muted-foreground font-medium"
+           )}>
+             {destination || "Where are you going?"}
+           </div>
+         </div>
+         <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+       </button>
 
-      {/* Dates Field */}
-      <Drawer open={dateDrawerOpen} onOpenChange={(open) => {
-        setDateDrawerOpen(open);
-        if (!open) setSelectingCheckout(false);
-      }}>
-        <DrawerTrigger asChild>
-          <button 
-            className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left active:bg-muted transition-colors"
-            onClick={() => setSelectingCheckout(false)}
-          >
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Calendar className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <div className="text-xs text-muted-foreground">Check-in – Check-out</div>
-              <div className={cn(
-                "text-base font-medium",
-                !checkIn && "text-muted-foreground"
-              )}>
-                {checkIn ? (
-                  checkOut 
-                    ? `${format(checkIn, "MMM d")} – ${format(checkOut, "MMM d")}`
-                    : `${format(checkIn, "MMM d")} – Select check-out`
-                ) : (
-                  "Select dates"
-                )}
-              </div>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-          </button>
-        </DrawerTrigger>
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="pb-2">
-            <DrawerTitle>
-              {selectingCheckout ? "Select check-out date" : "Select check-in date"}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 overflow-auto">
-            {/* Quick date chips */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-4 px-4">
-              {[
-                { label: "Tonight", date: new Date() },
-                { label: "Tomorrow", date: addDays(new Date(), 1) },
-                { label: "This weekend", date: addDays(new Date(), 5) },
-                { label: "Next week", date: addDays(new Date(), 7) },
-              ].map((quick) => (
-                <button
-                  key={quick.label}
-                  onClick={() => handleDateSelect(quick.date)}
-                  className="shrink-0 px-4 py-2 text-sm font-medium bg-secondary rounded-full active:bg-primary active:text-primary-foreground transition-colors"
-                >
-                  {quick.label}
-                </button>
-              ))}
-            </div>
-            <CalendarComponent
-              mode="single"
-              selected={selectingCheckout ? checkOut : checkIn}
-              onSelect={handleDateSelect}
-              disabled={(date) => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                if (selectingCheckout && checkIn) {
-                  return date <= checkIn;
-                }
-                return date < today;
-              }}
-              className="pointer-events-auto mx-auto"
-              numberOfMonths={1}
-            />
-            {checkIn && !selectingCheckout && (
-              <p className="text-center text-sm text-muted-foreground mt-3">
-                Select check-in, then check-out date
-              </p>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
+       {/* Native Destination Picker */}
+       <AnimatePresence>
+         {destinationSheetOpen && (
+           <motion.div
+             initial={{ opacity: 0, y: "100%" }}
+             animate={{ opacity: 1, y: 0 }}
+             exit={{ opacity: 0, y: "100%" }}
+             transition={{ type: "spring", damping: 25, stiffness: 300 }}
+             className="fixed inset-0 z-50 bg-background"
+           >
+             <div className="flex flex-col h-full safe-area-inset">
+               {/* Header */}
+               <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
+                 <button
+                   onClick={() => setDestinationSheetOpen(false)}
+                   className="w-10 h-10 flex items-center justify-center rounded-full native-press"
+                 >
+                   <X className="h-5 w-5 text-foreground" />
+                 </button>
+                 <h2 className="text-lg font-semibold text-foreground flex-1">Where are you staying?</h2>
+               </div>
+ 
+               {/* Search Input */}
+               <div className="px-4 py-3 border-b border-border bg-card">
+                 <div className="relative">
+                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                   <input
+                     type="text"
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     placeholder="Search city, hotel, or landmark..."
+                     className="w-full h-14 pl-12 pr-12 bg-secondary rounded-xl text-base font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                     autoFocus
+                     autoComplete="off"
+                   />
+                   {searchQuery && (
+                     <button
+                       onClick={() => setSearchQuery("")}
+                       className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-muted"
+                     >
+                       <X className="h-3 w-3 text-muted-foreground" />
+                     </button>
+                   )}
+                 </div>
+               </div>
+ 
+               {/* Results */}
+               <div className="flex-1 overflow-auto">
+                 <div className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                   Popular Destinations
+                 </div>
+                 <div className="divide-y divide-border">
+                   {popularDestinations
+                     .filter(d => 
+                       !searchQuery || 
+                       d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       d.country.toLowerCase().includes(searchQuery.toLowerCase())
+                     )
+                     .map((dest, index) => (
+                     <motion.button
+                       key={dest.name}
+                       initial={{ opacity: 0, y: 10 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       transition={{ delay: index * 0.05 }}
+                       onClick={() => {
+                         setDestination(dest.name);
+                         setDestinationSheetOpen(false);
+                         setSearchQuery("");
+                       }}
+                       className="w-full flex items-center gap-4 px-4 py-4 native-press transition-colors text-left min-h-[56px]"
+                     >
+                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                         <Building className="h-5 w-5 text-primary" />
+                       </div>
+                       <div className="flex-1 min-w-0">
+                         <div className="font-semibold text-foreground text-base">
+                           {dest.name}
+                         </div>
+                         <div className="text-sm text-muted-foreground">
+                           {dest.country}
+                         </div>
+                       </div>
+                     </motion.button>
+                   ))}
+                 </div>
+               </div>
+             </div>
+           </motion.div>
+         )}
+       </AnimatePresence>
+ 
+       {/* Date Fields - Separate for check-in and check-out */}
+       <div className="grid grid-cols-2 gap-2">
+         {/* Check-in Date */}
+         <button 
+           onClick={() => setCheckInDateOpen(true)}
+           className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left native-press min-h-[72px]"
+         >
+           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+             <Calendar className="h-6 w-6 text-primary" />
+           </div>
+           <div className="flex-1">
+             <div className="text-xs text-muted-foreground font-medium">Check-in</div>
+             <div className={cn(
+               "text-base font-semibold",
+               !checkIn && "text-muted-foreground font-medium"
+             )}>
+               {checkIn ? format(checkIn, "MMM d") : "Select"}
+             </div>
+           </div>
+         </button>
+ 
+         {/* Check-out Date */}
+         <button 
+           onClick={() => setCheckOutDateOpen(true)}
+           className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left native-press min-h-[72px]"
+         >
+           <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+             <Calendar className="h-6 w-6 text-accent" />
+           </div>
+           <div className="flex-1">
+             <div className="text-xs text-muted-foreground font-medium">Check-out</div>
+             <div className={cn(
+               "text-base font-semibold",
+               !checkOut && "text-muted-foreground font-medium"
+             )}>
+               {checkOut ? format(checkOut, "MMM d") : "Select"}
+             </div>
+           </div>
+         </button>
+       </div>
+ 
+       <NativeDatePicker
+         isOpen={checkInDateOpen}
+         onClose={() => setCheckInDateOpen(false)}
+         onSelect={handleCheckInSelect}
+         selected={checkIn}
+         title="Select Check-in Date"
+       />
+ 
+       <NativeDatePicker
+         isOpen={checkOutDateOpen}
+         onClose={() => setCheckOutDateOpen(false)}
+         onSelect={handleCheckOutSelect}
+         selected={checkOut}
+         minDate={checkIn}
+         title="Select Check-out Date"
+       />
 
       {/* Guests & Rooms */}
       <Drawer open={guestsDrawerOpen} onOpenChange={setGuestsDrawerOpen}>
         <DrawerTrigger asChild>
-          <button className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left active:bg-muted transition-colors">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Users className="h-5 w-5 text-primary" />
+           <button className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left native-press min-h-[72px]">
+             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+               <Users className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1">
-              <div className="text-xs text-muted-foreground">Guests & Rooms</div>
-              <div className="text-base font-medium">
+               <div className="text-xs text-muted-foreground font-medium">Guests & Rooms</div>
+               <div className="text-base font-semibold">
                 {guests} guest{guests > 1 ? 's' : ''}, {rooms} room{rooms > 1 ? 's' : ''}
               </div>
             </div>
@@ -222,7 +265,7 @@ const MobileHotelSearch = () => {
           </DrawerHeader>
           <div className="px-4 pb-6 space-y-6">
             {/* Guests */}
-            <div className="flex items-center justify-between">
+             <div className="flex items-center justify-between min-h-[56px]">
               <div>
                 <div className="font-medium">Guests</div>
                 <div className="text-sm text-muted-foreground">Total travelers</div>
@@ -231,7 +274,7 @@ const MobileHotelSearch = () => {
                 <button
                   onClick={() => setGuests(Math.max(1, guests - 1))}
                   disabled={guests <= 1}
-                  className="w-10 h-10 rounded-full border border-border flex items-center justify-center disabled:opacity-30 active:bg-muted transition-colors"
+                   className="w-12 h-12 rounded-full border border-border flex items-center justify-center disabled:opacity-30 native-press"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
@@ -239,7 +282,7 @@ const MobileHotelSearch = () => {
                 <button
                   onClick={() => setGuests(Math.min(10, guests + 1))}
                   disabled={guests >= 10}
-                  className="w-10 h-10 rounded-full border border-border flex items-center justify-center disabled:opacity-30 active:bg-muted transition-colors"
+                   className="w-12 h-12 rounded-full border border-border flex items-center justify-center disabled:opacity-30 native-press"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -247,7 +290,7 @@ const MobileHotelSearch = () => {
             </div>
 
             {/* Rooms */}
-            <div className="flex items-center justify-between">
+             <div className="flex items-center justify-between min-h-[56px]">
               <div>
                 <div className="font-medium">Rooms</div>
                 <div className="text-sm text-muted-foreground">Number of rooms</div>
@@ -256,7 +299,7 @@ const MobileHotelSearch = () => {
                 <button
                   onClick={() => setRooms(Math.max(1, rooms - 1))}
                   disabled={rooms <= 1}
-                  className="w-10 h-10 rounded-full border border-border flex items-center justify-center disabled:opacity-30 active:bg-muted transition-colors"
+                   className="w-12 h-12 rounded-full border border-border flex items-center justify-center disabled:opacity-30 native-press"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
@@ -264,7 +307,7 @@ const MobileHotelSearch = () => {
                 <button
                   onClick={() => setRooms(Math.min(5, rooms + 1))}
                   disabled={rooms >= 5}
-                  className="w-10 h-10 rounded-full border border-border flex items-center justify-center disabled:opacity-30 active:bg-muted transition-colors"
+                   className="w-12 h-12 rounded-full border border-border flex items-center justify-center disabled:opacity-30 native-press"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -272,7 +315,7 @@ const MobileHotelSearch = () => {
             </div>
 
             <DrawerClose asChild>
-              <Button className="w-full h-12 mt-4" size="lg">
+               <Button className="w-full h-14 mt-4 native-button" size="lg">
                 Done
               </Button>
             </DrawerClose>
@@ -283,7 +326,7 @@ const MobileHotelSearch = () => {
       {/* Search Button */}
       <Button 
         onClick={handleSearch}
-        className="w-full h-14 text-base font-semibold rounded-xl mt-4"
+         className="w-full h-16 text-base font-semibold rounded-xl mt-4 native-button"
         size="lg"
       >
         <Search className="h-5 w-5 mr-2" />

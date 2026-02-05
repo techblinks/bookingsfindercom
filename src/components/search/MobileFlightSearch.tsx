@@ -2,19 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plane, ArrowRightLeft, Calendar, ChevronRight, Search, X, Users, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { format, addDays } from "date-fns";
+ import { format } from "date-fns";
 import { toast } from "sonner";
-import LocationCombobox from "./LocationCombobox";
+ import NativeDatePicker from "./NativeDatePicker";
+ import NativeLocationPicker from "./NativeLocationPicker";
 import { PassengerCount } from "./PassengerPicker";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import {
   Drawer,
   DrawerContent,
@@ -23,6 +16,13 @@ import {
   DrawerTrigger,
   DrawerClose,
 } from "@/components/ui/drawer";
+ 
+ interface Airport {
+   code: string;
+   city: string;
+   country: string;
+   name: string;
+ }
 
 type TripType = "roundtrip" | "oneway" | "multicity";
 
@@ -52,9 +52,9 @@ const MobileFlightSearch = () => {
   // Sheet/modal states
   const [fromSheetOpen, setFromSheetOpen] = useState(false);
   const [toSheetOpen, setToSheetOpen] = useState(false);
-  const [dateDrawerOpen, setDateDrawerOpen] = useState(false);
+   const [departureDateOpen, setDepartureDateOpen] = useState(false);
+   const [returnDateOpen, setReturnDateOpen] = useState(false);
   const [optionsDrawerOpen, setOptionsDrawerOpen] = useState(false);
-  const [selectingReturn, setSelectingReturn] = useState(false);
   
   // Multi-city legs
   const [multiCityLegs, setMultiCityLegs] = useState<FlightLeg[]>([
@@ -91,18 +91,16 @@ const MobileFlightSearch = () => {
     return labels[cabinClass] || "Economy";
   };
 
-  const handleDateSelect = (date: Date | undefined) => {
-    if (selectingReturn) {
-      setReturnDate(date);
-      setDateDrawerOpen(false);
-    } else {
-      setDepartureDate(date);
-      if (tripType === "roundtrip") {
-        setSelectingReturn(true);
-      } else {
-        setDateDrawerOpen(false);
-      }
-    }
+   const handleDepartureDateSelect = (date: Date) => {
+     setDepartureDate(date);
+     // Clear return date if it's before new departure
+     if (returnDate && date > returnDate) {
+       setReturnDate(undefined);
+     }
+   };
+ 
+   const handleReturnDateSelect = (date: Date) => {
+     setReturnDate(date);
   };
 
   const handleSearch = () => {
@@ -148,181 +146,149 @@ const MobileFlightSearch = () => {
       {/* Location Fields - Stacked */}
       <div className="relative">
         {/* From Field */}
-        <Sheet open={fromSheetOpen} onOpenChange={setFromSheetOpen}>
-          <SheetTrigger asChild>
-            <button className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-t-xl text-left active:bg-muted transition-colors">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Plane className="h-5 w-5 text-primary -rotate-45" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-muted-foreground">From</div>
-                <div className={cn(
-                  "text-base font-medium truncate",
-                  !flightFromDisplay && "text-muted-foreground"
-                )}>
-                  {flightFromDisplay || "Select departure city"}
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
-          <SheetHeader className="pb-4">
-              <SheetTitle>Where from?</SheetTitle>
-            </SheetHeader>
-            <div className="px-1">
-              <LocationCombobox
-                value={flightFromDisplay}
-                onChange={(code, airport) => {
-                  setFlightFrom(code);
-                  setFlightFromDisplay(airport ? `${airport.city} (${airport.code})` : code);
-                  setFromSheetOpen(false);
-                }}
-                placeholder="Search airports or cities..."
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
+         <button 
+           onClick={() => setFromSheetOpen(true)}
+           className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-t-xl text-left native-press min-h-[72px]"
+         >
+           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+             <Plane className="h-6 w-6 text-primary -rotate-45" />
+           </div>
+           <div className="flex-1 min-w-0">
+             <div className="text-xs text-muted-foreground font-medium">From</div>
+             <div className={cn(
+               "text-base font-semibold truncate",
+               !flightFromDisplay && "text-muted-foreground font-medium"
+             )}>
+               {flightFromDisplay || "Select departure city"}
+             </div>
+           </div>
+           <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+         </button>
+
+         <NativeLocationPicker
+           isOpen={fromSheetOpen}
+           onClose={() => setFromSheetOpen(false)}
+           onSelect={(code: string, airport: Airport) => {
+             setFlightFrom(code);
+             setFlightFromDisplay(`${airport.city} (${airport.code})`);
+           }}
+           title="Where from?"
+           placeholder="Search airports or cities..."
+         />
 
         {/* Swap Button */}
         <button
           onClick={swapLocations}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-card border border-border rounded-full flex items-center justify-center shadow-sm active:scale-95 transition-transform"
+           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-card border border-border rounded-full flex items-center justify-center shadow-sm native-touch"
         >
           <ArrowRightLeft className="h-4 w-4 text-muted-foreground rotate-90" />
         </button>
 
         {/* To Field */}
-        <Sheet open={toSheetOpen} onOpenChange={setToSheetOpen}>
-          <SheetTrigger asChild>
-            <button className="w-full flex items-center gap-3 p-4 bg-card border border-border border-t-0 rounded-b-xl text-left active:bg-muted transition-colors">
-              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-                <Plane className="h-5 w-5 text-accent rotate-45" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-muted-foreground">To</div>
-                <div className={cn(
-                  "text-base font-medium truncate",
-                  !flightToDisplay && "text-muted-foreground"
-                )}>
-                  {flightToDisplay || "Select destination city"}
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
-          <SheetHeader className="pb-4">
-              <SheetTitle>Where to?</SheetTitle>
-            </SheetHeader>
-            <div className="px-1">
-              <LocationCombobox
-                value={flightToDisplay}
-                onChange={(code, airport) => {
-                  setFlightTo(code);
-                  setFlightToDisplay(airport ? `${airport.city} (${airport.code})` : code);
-                  setToSheetOpen(false);
-                }}
-                placeholder="Search airports or cities..."
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
+         <button 
+           onClick={() => setToSheetOpen(true)}
+           className="w-full flex items-center gap-3 p-4 bg-card border border-border border-t-0 rounded-b-xl text-left native-press min-h-[72px]"
+         >
+           <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+             <Plane className="h-6 w-6 text-accent rotate-45" />
+           </div>
+           <div className="flex-1 min-w-0">
+             <div className="text-xs text-muted-foreground font-medium">To</div>
+             <div className={cn(
+               "text-base font-semibold truncate",
+               !flightToDisplay && "text-muted-foreground font-medium"
+             )}>
+               {flightToDisplay || "Select destination city"}
+             </div>
+           </div>
+           <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+         </button>
+
+         <NativeLocationPicker
+           isOpen={toSheetOpen}
+           onClose={() => setToSheetOpen(false)}
+           onSelect={(code: string, airport: Airport) => {
+             setFlightTo(code);
+             setFlightToDisplay(`${airport.city} (${airport.code})`);
+           }}
+           title="Where to?"
+           placeholder="Search airports or cities..."
+         />
       </div>
 
-      {/* Date Field - Single Tap */}
-      <Drawer open={dateDrawerOpen} onOpenChange={(open) => {
-        setDateDrawerOpen(open);
-        if (!open) setSelectingReturn(false);
-      }}>
-        <DrawerTrigger asChild>
-          <button 
-            className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left active:bg-muted transition-colors"
-            onClick={() => setSelectingReturn(false)}
-          >
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Calendar className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <div className="text-xs text-muted-foreground">
-                {tripType === "roundtrip" ? "Departure – Return" : "Departure"}
-              </div>
-              <div className={cn(
-                "text-base font-medium",
-                !departureDate && "text-muted-foreground"
-              )}>
-                {departureDate ? (
-                  tripType === "roundtrip" ? (
-                    returnDate 
-                      ? `${format(departureDate, "MMM d")} – ${format(returnDate, "MMM d")}`
-                      : `${format(departureDate, "MMM d")} – Select return`
-                  ) : format(departureDate, "EEE, MMM d, yyyy")
-                ) : (
-                  "Select dates"
-                )}
-              </div>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-          </button>
-        </DrawerTrigger>
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="pb-2">
-            <DrawerTitle>
-              {selectingReturn ? "Select return date" : "Select departure date"}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 overflow-auto">
-            {/* Quick date chips */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-4 px-4">
-              {[
-                { label: "Today", date: new Date() },
-                { label: "Tomorrow", date: addDays(new Date(), 1) },
-                { label: "+3 days", date: addDays(new Date(), 3) },
-                { label: "+1 week", date: addDays(new Date(), 7) },
-              ].map((quick) => (
-                <button
-                  key={quick.label}
-                  onClick={() => handleDateSelect(quick.date)}
-                  className="shrink-0 px-4 py-2 text-sm font-medium bg-secondary rounded-full active:bg-primary active:text-primary-foreground transition-colors"
-                >
-                  {quick.label}
-                </button>
-              ))}
-            </div>
-            <CalendarComponent
-              mode="single"
-              selected={selectingReturn ? returnDate : departureDate}
-              onSelect={handleDateSelect}
-              disabled={(date) => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                if (selectingReturn && departureDate) {
-                  return date < departureDate;
-                }
-                return date < today;
-              }}
-              className="pointer-events-auto mx-auto"
-              numberOfMonths={1}
-            />
-            {tripType === "roundtrip" && departureDate && !selectingReturn && (
-              <p className="text-center text-sm text-muted-foreground mt-3">
-                Select departure, then return date
-              </p>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
+       {/* Date Fields - Separate for departure and return */}
+       <div className={cn(
+         "grid gap-2",
+         tripType === "roundtrip" ? "grid-cols-2" : "grid-cols-1"
+       )}>
+         {/* Departure Date */}
+         <button 
+           onClick={() => setDepartureDateOpen(true)}
+           className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left native-press min-h-[72px]"
+         >
+           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+             <Calendar className="h-6 w-6 text-primary" />
+           </div>
+           <div className="flex-1">
+             <div className="text-xs text-muted-foreground font-medium">Depart</div>
+             <div className={cn(
+               "text-base font-semibold",
+               !departureDate && "text-muted-foreground font-medium"
+             )}>
+               {departureDate ? format(departureDate, "MMM d, yyyy") : "Select date"}
+             </div>
+           </div>
+         </button>
+
+         {/* Return Date (only for roundtrip) */}
+         {tripType === "roundtrip" && (
+           <button 
+             onClick={() => setReturnDateOpen(true)}
+             className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left native-press min-h-[72px]"
+           >
+             <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+               <Calendar className="h-6 w-6 text-accent" />
+             </div>
+             <div className="flex-1">
+               <div className="text-xs text-muted-foreground font-medium">Return</div>
+               <div className={cn(
+                 "text-base font-semibold",
+                 !returnDate && "text-muted-foreground font-medium"
+               )}>
+                 {returnDate ? format(returnDate, "MMM d, yyyy") : "Select date"}
+               </div>
+             </div>
+           </button>
+         )}
+       </div>
+
+       <NativeDatePicker
+         isOpen={departureDateOpen}
+         onClose={() => setDepartureDateOpen(false)}
+         onSelect={handleDepartureDateSelect}
+         selected={departureDate}
+         title="Select Departure Date"
+       />
+
+       <NativeDatePicker
+         isOpen={returnDateOpen}
+         onClose={() => setReturnDateOpen(false)}
+         onSelect={handleReturnDateSelect}
+         selected={returnDate}
+         minDate={departureDate}
+         title="Select Return Date"
+       />
 
       {/* Travelers & Class - Combined field with progressive disclosure */}
       <Drawer open={optionsDrawerOpen} onOpenChange={setOptionsDrawerOpen}>
         <DrawerTrigger asChild>
-          <button className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left active:bg-muted transition-colors">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Users className="h-5 w-5 text-primary" />
+           <button className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left native-press min-h-[72px]">
+             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+               <Users className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1">
-              <div className="text-xs text-muted-foreground">Travelers & Class</div>
-              <div className="text-base font-medium">
+               <div className="text-xs text-muted-foreground font-medium">Travelers & Class</div>
+               <div className="text-base font-semibold">
                 {totalPassengers} traveler{totalPassengers > 1 ? 's' : ''}, {getCabinLabel()}
               </div>
             </div>
@@ -350,10 +316,10 @@ const MobileFlightSearch = () => {
                       if (type.value === "oneway") setReturnDate(undefined);
                     }}
                     className={cn(
-                      "py-3 px-4 rounded-xl text-sm font-medium transition-colors",
+                       "py-4 px-4 rounded-xl text-sm font-semibold transition-colors min-h-[52px]",
                       tripType === type.value
                         ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground active:bg-muted"
+                         : "bg-secondary text-secondary-foreground native-press"
                     )}
                   >
                     {type.label}
@@ -367,7 +333,7 @@ const MobileFlightSearch = () => {
               <div className="text-sm font-medium text-muted-foreground">Travelers</div>
               
               {/* Adults */}
-              <div className="flex items-center justify-between">
+               <div className="flex items-center justify-between min-h-[56px]">
                 <div>
                   <div className="font-medium">Adults</div>
                   <div className="text-sm text-muted-foreground">Age 12+</div>
@@ -376,7 +342,7 @@ const MobileFlightSearch = () => {
                   <button
                     onClick={() => updatePassengerCount("adults", false)}
                     disabled={passengers.adults <= 1}
-                    className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-lg font-medium disabled:opacity-30 active:bg-muted transition-colors"
+                     className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-lg font-semibold disabled:opacity-30 native-press"
                   >
                     −
                   </button>
@@ -384,7 +350,7 @@ const MobileFlightSearch = () => {
                   <button
                     onClick={() => updatePassengerCount("adults", true)}
                     disabled={totalPassengers >= 9}
-                    className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-lg font-medium disabled:opacity-30 active:bg-muted transition-colors"
+                     className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-lg font-semibold disabled:opacity-30 native-press"
                   >
                     +
                   </button>
@@ -392,7 +358,7 @@ const MobileFlightSearch = () => {
               </div>
 
               {/* Children */}
-              <div className="flex items-center justify-between">
+               <div className="flex items-center justify-between min-h-[56px]">
                 <div>
                   <div className="font-medium">Children</div>
                   <div className="text-sm text-muted-foreground">Age 2-11</div>
@@ -401,7 +367,7 @@ const MobileFlightSearch = () => {
                   <button
                     onClick={() => updatePassengerCount("children", false)}
                     disabled={passengers.children <= 0}
-                    className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-lg font-medium disabled:opacity-30 active:bg-muted transition-colors"
+                     className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-lg font-semibold disabled:opacity-30 native-press"
                   >
                     −
                   </button>
@@ -409,7 +375,7 @@ const MobileFlightSearch = () => {
                   <button
                     onClick={() => updatePassengerCount("children", true)}
                     disabled={totalPassengers >= 9}
-                    className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-lg font-medium disabled:opacity-30 active:bg-muted transition-colors"
+                     className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-lg font-semibold disabled:opacity-30 native-press"
                   >
                     +
                   </button>
@@ -417,7 +383,7 @@ const MobileFlightSearch = () => {
               </div>
 
               {/* Infants */}
-              <div className="flex items-center justify-between">
+               <div className="flex items-center justify-between min-h-[56px]">
                 <div>
                   <div className="font-medium">Infants</div>
                   <div className="text-sm text-muted-foreground">Under 2, on lap</div>
@@ -426,7 +392,7 @@ const MobileFlightSearch = () => {
                   <button
                     onClick={() => updatePassengerCount("infants", false)}
                     disabled={passengers.infants <= 0}
-                    className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-lg font-medium disabled:opacity-30 active:bg-muted transition-colors"
+                     className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-lg font-semibold disabled:opacity-30 native-press"
                   >
                     −
                   </button>
@@ -434,7 +400,7 @@ const MobileFlightSearch = () => {
                   <button
                     onClick={() => updatePassengerCount("infants", true)}
                     disabled={passengers.infants >= passengers.adults || totalPassengers >= 9}
-                    className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-lg font-medium disabled:opacity-30 active:bg-muted transition-colors"
+                     className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-lg font-semibold disabled:opacity-30 native-press"
                   >
                     +
                   </button>
@@ -456,10 +422,10 @@ const MobileFlightSearch = () => {
                     key={cabin.value}
                     onClick={() => setCabinClass(cabin.value)}
                     className={cn(
-                      "py-3 px-4 rounded-xl text-sm font-medium transition-colors",
+                       "py-4 px-4 rounded-xl text-sm font-semibold transition-colors min-h-[52px]",
                       cabinClass === cabin.value
                         ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground active:bg-muted"
+                         : "bg-secondary text-secondary-foreground native-press"
                     )}
                   >
                     {cabin.label}
@@ -469,7 +435,7 @@ const MobileFlightSearch = () => {
             </div>
 
             <DrawerClose asChild>
-              <Button className="w-full h-12 mt-4" size="lg">
+               <Button className="w-full h-14 mt-4 native-button" size="lg">
                 Done
               </Button>
             </DrawerClose>
@@ -480,7 +446,7 @@ const MobileFlightSearch = () => {
       {/* Search Button - Full width, prominent */}
       <Button 
         onClick={handleSearch}
-        className="w-full h-14 text-base font-semibold rounded-xl mt-4"
+         className="w-full h-16 text-base font-semibold rounded-xl mt-4 native-button"
         size="lg"
       >
         <Search className="h-5 w-5 mr-2" />
