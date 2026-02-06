@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plane, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import MobileFlightSearch from "./MobileFlightSearch";
 import MobileHotelSearch from "./MobileHotelSearch";
 
@@ -12,7 +13,6 @@ interface MobileHeroSearchProps {
 }
 
 const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroSearchProps) => {
-  // Determine default tab based on what's enabled
   const getDefaultTab = (): SearchType => {
     if (showFlights) return "flights";
     if (showHotels) return "hotels";
@@ -20,11 +20,11 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
   };
 
   const [searchType, setSearchType] = useState<SearchType>(getDefaultTab());
+  const [direction, setDirection] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
 
-  // Update search type if current tab becomes disabled
   useEffect(() => {
     if (searchType === "flights" && !showFlights && showHotels) {
       setSearchType("hotels");
@@ -40,6 +40,12 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
 
   const tabs = allTabs.filter(tab => tab.enabled);
 
+  const switchTab = (newTab: SearchType) => {
+    if (newTab === searchType) return;
+    setDirection(newTab === "hotels" ? 1 : -1);
+    setSearchType(newTab);
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
@@ -49,16 +55,15 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
   };
 
   const handleTouchEnd = () => {
-    if (tabs.length < 2) return; // No swiping if only one tab
-    
+    if (tabs.length < 2) return;
     const swipeThreshold = 50;
     const diff = touchStartX.current - touchEndX.current;
 
     if (Math.abs(diff) > swipeThreshold) {
       if (diff > 0 && searchType === "flights" && showHotels) {
-        setSearchType("hotels");
+        switchTab("hotels");
       } else if (diff < 0 && searchType === "hotels" && showFlights) {
-        setSearchType("flights");
+        switchTab("flights");
       }
     }
 
@@ -66,58 +71,67 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
     touchEndX.current = 0;
   };
 
-  // If no tabs are enabled, show flights as fallback
   if (tabs.length === 0) {
-    return (
-      <div className="w-full">
-        <MobileFlightSearch />
-      </div>
-    );
+    return <div className="w-full"><MobileFlightSearch /></div>;
   }
 
-  // If only one tab, show that search directly without tabs
   if (tabs.length === 1) {
-    return (
-      <div className="w-full">
-        {showFlights ? <MobileFlightSearch /> : <MobileHotelSearch />}
-      </div>
-    );
+    return <div className="w-full">{showFlights ? <MobileFlightSearch /> : <MobileHotelSearch />}</div>;
   }
+
+  const slideVariants = {
+    enter: (d: number) => ({ x: d > 0 ? 80 : -80, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (d: number) => ({ x: d > 0 ? -80 : 80, opacity: 0 }),
+  };
 
   return (
-    <div className="w-full">
-      {/* Minimal Tabs */}
-      <div className="flex gap-4 mb-6">
+    <div className="w-full safe-area-bottom">
+      {/* Tab bar */}
+      <div className="flex gap-4 mb-6 relative">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setSearchType(tab.id)}
+            onClick={() => switchTab(tab.id)}
             className={cn(
-              "flex items-center gap-2 pb-3 text-base font-medium transition-all border-b-2",
-              searchType === tab.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground"
+              "relative flex items-center gap-2 pb-3 text-base font-medium transition-colors native-touch",
+              searchType === tab.id ? "text-primary" : "text-muted-foreground"
             )}
           >
             <tab.icon className="h-5 w-5" />
             {tab.label}
+            {searchType === tab.id && (
+              <motion.div
+                layoutId="tab-indicator"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
+            )}
           </button>
         ))}
       </div>
 
-      {/* Content Area - Only render active form to prevent focus conflicts */}
+      {/* Animated content */}
       <div
         ref={containerRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="relative"
+        className="relative overflow-hidden"
       >
-        {searchType === "flights" ? (
-          <MobileFlightSearch />
-        ) : (
-          <MobileHotelSearch />
-        )}
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={searchType}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            {searchType === "flights" ? <MobileFlightSearch /> : <MobileHotelSearch />}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
