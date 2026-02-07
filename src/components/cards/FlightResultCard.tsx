@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plane, Clock, ArrowRight, ExternalLink } from "lucide-react";
+import { Plane, Clock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAirlineLogo, getAirlineName } from "@/lib/airlineLogos";
 
@@ -41,106 +41,93 @@ const FlightResultCard = ({
   const displayName = airlineCode ? getAirlineName(airlineCode) : airline;
 
   return (
-    <div className="bg-card rounded-xl border border-border p-4 md:p-6 shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-        {/* Airline Info */}
-        <div className="flex items-center gap-3 lg:w-44">
-          <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0">
-            {logoUrl && !logoError ? (
-              <img
-                src={logoUrl}
-                alt={displayName}
-                className="w-10 h-10 object-contain"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <Plane className="h-6 w-6 text-primary" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <span className="text-sm font-semibold text-foreground block truncate">
-              {displayName}
-            </span>
-            <div className="flex items-center gap-2">
-              {flightNumber && (
-                <span className="text-xs text-muted-foreground font-mono">
-                  {airlineCode}{flightNumber}
-                </span>
+    <div className="bg-card rounded-xl border border-border hover:border-primary/30 transition-all duration-200 group">
+      <div className="flex flex-col lg:flex-row lg:items-center">
+        {/* Left: Airline + Flight Info */}
+        <div className="flex-1 p-4 lg:p-5">
+          <div className="flex items-center gap-4">
+            {/* Airline Logo */}
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+              {logoUrl && !logoError ? (
+                <img
+                  src={logoUrl}
+                  alt={displayName}
+                  className="w-8 h-8 object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <Plane className="h-5 w-5 text-muted-foreground" />
               )}
-              <span className="text-xs text-muted-foreground">Economy</span>
             </div>
-          </div>
-        </div>
 
-        {/* Flight Times */}
-        <div className="flex-1 flex items-center gap-4">
-          <div className="text-center min-w-[80px]">
-            <p className="text-2xl font-bold text-foreground tracking-tight">{departureTime}</p>
-            <p className="text-sm font-medium text-muted-foreground">
-              {departureAirport}
-            </p>
-          </div>
+            {/* Flight Timeline */}
+            <div className="flex-1 flex items-center gap-3 min-w-0">
+              {/* Departure */}
+              <div className="text-center shrink-0">
+                <p className="text-lg font-bold text-foreground leading-tight">{departureTime}</p>
+                <p className="text-xs text-muted-foreground font-medium">{departureAirport}</p>
+              </div>
 
-          <div className="flex-1 flex flex-col items-center px-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <Clock className="h-3 w-3" />
-              <span className="font-medium">{duration}</span>
-            </div>
-            <div className="w-full relative py-1">
-              <div className="w-full h-0.5 bg-border rounded-full relative">
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary border-2 border-card"></div>
-                {stops > 0 && (
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-orange-400 border-2 border-card"></div>
-                )}
-                {stops > 1 && (
-                  <div className="absolute left-1/3 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-orange-400 border-2 border-card"></div>
-                )}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                  <ArrowRight className="h-4 w-4 text-primary" />
+              {/* Route Line */}
+              <div className="flex-1 flex flex-col items-center px-1 min-w-[80px]">
+                <span className="text-[11px] text-muted-foreground font-medium mb-1">{duration}</span>
+                <div className="w-full relative h-[2px]">
+                  <div className="absolute inset-0 bg-border rounded-full" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-foreground" />
+                  {stops > 0 && (
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                  )}
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-foreground" />
                 </div>
+                <span className={`text-[11px] font-medium mt-1 ${stops === 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                  {stops === 0 ? "Nonstop" : `${stops} stop${stops > 1 ? "s" : ""}`}
+                </span>
+              </div>
+
+              {/* Arrival */}
+              <div className="text-center shrink-0">
+                <p className="text-lg font-bold text-foreground leading-tight">
+                  {arrivalTime !== "--:--" ? arrivalTime : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground font-medium">{arrivalAirport}</p>
               </div>
             </div>
-            <p className="text-xs font-medium mt-1">
-              {stops === 0 ? (
-                <span className="text-green-600 font-semibold">Nonstop</span>
-              ) : (
-                <span className="text-orange-600">
-                  {stops} stop{stops > 1 ? "s" : ""}
-                </span>
-              )}
-            </p>
           </div>
 
-          <div className="text-center min-w-[80px]">
-            <p className="text-2xl font-bold text-foreground tracking-tight">
-              {arrivalTime !== "--:--" ? arrivalTime : "—"}
-            </p>
-            <p className="text-sm font-medium text-muted-foreground">
-              {arrivalAirport}
-            </p>
+          {/* Airline name + flight number */}
+          <div className="flex items-center gap-2 mt-2.5 ml-14">
+            <span className="text-xs text-muted-foreground">{displayName}</span>
+            {flightNumber && (
+              <>
+                <span className="text-xs text-border">·</span>
+                <span className="text-xs text-muted-foreground font-mono">{airlineCode}{flightNumber}</span>
+              </>
+            )}
+            {isDeal && (
+              <>
+                <span className="text-xs text-border">·</span>
+                <span className="text-[11px] font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
+                  Great price
+                </span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Price and Action */}
-        <div className="flex items-center justify-between lg:flex-col lg:items-end gap-3 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-border lg:pl-6 lg:min-w-[150px]">
+        {/* Right: Price + CTA */}
+        <div className="flex items-center justify-between lg:flex-col lg:items-end gap-2 px-4 pb-4 lg:p-5 lg:pl-0 lg:border-l border-border lg:min-w-[140px]">
           <div className="text-right">
-            {isDeal && (
-              <span className="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-0.5 rounded-full mb-1">
-                Best Deal
-              </span>
-            )}
-            <p className="text-2xl font-bold text-foreground">
-              <span className="text-sm font-normal text-muted-foreground mr-0.5">
-                {currency}
-              </span>
+            <p className="text-xl font-bold text-foreground leading-tight">
+              <span className="text-sm font-normal text-muted-foreground">{currency}</span>
               {price.toLocaleString()}
             </p>
-            <p className="text-xs text-muted-foreground">per person</p>
+            <p className="text-[11px] text-muted-foreground">per person</p>
           </div>
           <Button
             onClick={() => onViewDeal(id)}
-            className="lg:w-full gap-2"
+            variant="outline"
             size="sm"
+            className="gap-1.5 text-primary border-primary/30 hover:bg-primary hover:text-primary-foreground transition-all"
           >
             View Deal
             <ExternalLink className="h-3 w-3" />
