@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plane, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { motion } from "framer-motion";
 import ModernFlightSearch from "./ModernFlightSearch";
 import ModernHotelSearch from "./ModernHotelSearch";
 
@@ -13,7 +13,6 @@ interface ModernSearchBoxProps {
 }
 
 const ModernSearchBox = ({ showFlights = true, showHotels = true }: ModernSearchBoxProps) => {
-  // Determine default tab based on what's enabled
   const getDefaultTab = (): SearchType => {
     if (showFlights) return "flights";
     if (showHotels) return "hotels";
@@ -21,9 +20,7 @@ const ModernSearchBox = ({ showFlights = true, showHotels = true }: ModernSearch
   };
 
   const [searchType, setSearchType] = useState<SearchType>(getDefaultTab());
-  const isMobile = useIsMobile();
 
-  // Update search type if current tab becomes disabled
   useEffect(() => {
     if (searchType === "flights" && !showFlights && showHotels) {
       setSearchType("hotels");
@@ -39,7 +36,6 @@ const ModernSearchBox = ({ showFlights = true, showHotels = true }: ModernSearch
 
   const tabs = allTabs.filter(tab => tab.enabled);
 
-  // If no tabs are enabled, show flights as fallback
   if (tabs.length === 0) {
     return (
       <div className="w-full max-w-4xl mx-auto">
@@ -48,34 +44,42 @@ const ModernSearchBox = ({ showFlights = true, showHotels = true }: ModernSearch
     );
   }
 
-  // If only one tab, don't show tab navigation
   const showTabs = tabs.length > 1;
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      {/* Clean Tab Navigation */}
+      {/* Tab Navigation - Google Flights style */}
       {showTabs && (
-        <div className="flex gap-6 mb-6 border-b border-border">
+        <div className="flex gap-1 mb-5 p-1 bg-muted/50 rounded-xl w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setSearchType(tab.id)}
               className={cn(
-                "flex items-center gap-2 pb-3 text-sm font-medium transition-all border-b-2 -mb-px",
+                "relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
                 searchType === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
+              {searchType === tab.id && (
+                <motion.div
+                  layoutId="search-tab-bg"
+                  className="absolute inset-0 bg-card rounded-lg shadow-sm"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative flex items-center gap-2">
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </span>
             </button>
           ))}
         </div>
       )}
 
       {/* Search Content */}
-      <div className="min-h-[200px]">
+      <div className="min-h-[140px]">
         {searchType === "flights" && showFlights ? (
           <ModernFlightSearch />
         ) : searchType === "hotels" && showHotels ? (
