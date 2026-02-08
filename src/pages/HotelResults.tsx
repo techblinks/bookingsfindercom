@@ -10,6 +10,7 @@ import EnhancedEmptyHotelResults from "@/components/states/EnhancedEmptyHotelRes
 import HotelSearchSchema from "@/components/seo/HotelSearchSchema";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { Button } from "@/components/ui/button";
+import HotelQuickSelect from "@/components/hotels/HotelQuickSelect";
 import {
   Pagination,
   PaginationContent,
@@ -322,6 +323,20 @@ const HotelResults = () => {
               </select>
             </div>
 
+            {/* Quick Select: Best Rated / Cheapest / Best Value */}
+            {!isLoading && filteredHotels.length > 0 && (
+              <div className="mb-4">
+                <HotelQuickSelect
+                  hotels={filteredHotels}
+                  currency="$"
+                  onSelect={(id) => {
+                    const el = document.getElementById(`hotel-${id}`);
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                />
+              </div>
+            )}
+
             {/* Hotel Cards */}
             <div className={viewMode === "grid" ? "grid md:grid-cols-2 gap-4" : "space-y-4"}>
               {isLoading ? (
@@ -343,7 +358,7 @@ const HotelResults = () => {
                 // Hotel results with ad placements
                 <>
                   {filteredHotels.map((hotel, index) => (
-                    <div key={hotel.id}>
+                    <div key={hotel.id} id={`hotel-${hotel.id}`}>
                       <HotelResultCard
                         {...hotel}
                         currency="$"
