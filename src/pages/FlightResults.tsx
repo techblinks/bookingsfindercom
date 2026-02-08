@@ -22,6 +22,7 @@ import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 import TripOptimizerBanner from "@/components/optimizer/TripOptimizerBanner";
+import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
 
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
@@ -398,6 +399,20 @@ const FlightResults = () => {
 
           {/* Results */}
           <div className="flex-1 min-w-0">
+            {/* Quick Select: Best / Cheapest / Fastest */}
+            {!isLoading && filteredFlights.length > 0 && (
+              <div className="mb-4">
+                <FlightQuickSelect
+                  flights={filteredFlights}
+                  currency="$"
+                  onSelect={(id) => {
+                    const el = document.getElementById(`flight-${id}`);
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                />
+              </div>
+            )}
+
             {/* Flexible Dates Matrix */}
             {!isLoading && flexibleDates.length > 0 && (
               <div className="mb-4">
@@ -498,7 +513,7 @@ const FlightResults = () => {
                 // Flight results with ad placements
                 <>
                   {displayedFlights.map((flight, index) => (
-                    <div key={flight.id}>
+                    <div key={flight.id} id={`flight-${flight.id}`}>
                       <div
                         role="listitem"
                         className="animate-in fade-in slide-in-from-bottom-2"
