@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { HelmetProvider } from "react-helmet-async";
 import CookieConsent from "@/components/CookieConsent";
 import BottomNav from "@/components/layout/BottomNav";
@@ -49,6 +50,72 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const pageVariants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+};
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+        transition={{ type: "tween" as const, ease: "easeInOut" as const, duration: 0.2 }}
+      >
+        <Routes location={location}>
+          <Route path="/" element={<Index />} />
+          <Route path="/optimizer" element={<TripOptimizer />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/flights" element={<FlightResults />} />
+          <Route path="/hotels" element={<HotelResults />} />
+          <Route path="/my-alerts" element={<MyAlerts />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/alerts" element={<AdminAlerts />} />
+          <Route path="/admin/ads" element={<AdminAds />} />
+          <Route path="/admin/blog" element={<AdminBlog />} />
+          <Route path="/admin/press" element={<AdminPress />} />
+          <Route path="/admin/country-pages" element={<AdminCountryPages />} />
+          <Route path="/admin/subscribers" element={<AdminSubscribers />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/compliance" element={<AdminCompliance />} />
+          <Route path="/admin/content-generator" element={<AdminContentGenerator />} />
+          <Route path="/d/:slug" element={<DestinationPage />} />
+          <Route path="/:slug" element={<CountryLandingPage />} />
+          <Route path="/redirect" element={<BookingRedirect />} />
+          <Route path="/about" element={<AboutUs />} />
+          <Route path="/careers" element={<Careers />} />
+          <Route path="/press" element={<Press />} />
+          <Route path="/press/:slug" element={<PressRelease />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/help" element={<HelpCenter />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/faqs" element={<FAQs />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsConditions />} />
+          <Route path="/cookies" element={<CookiePolicy />} />
+          <Route path="/affiliate-disclosure" element={<AffiliateDisclosure />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/why-we-dont-sell-tickets" element={<WhyWeDontSellTickets />} />
+          <Route path="/top-flight-destinations" element={<TopFlightDestinations />} />
+          <Route path="/top-hotel-destinations" element={<TopHotelDestinations />} />
+          <Route path="/flight-deals-guide" element={<FlightDealsGuide />} />
+          <Route path="/hotel-booking-guide" element={<HotelBookingGuide />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
@@ -56,53 +123,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/optimizer" element={<TripOptimizer />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/account" element={<Account />} />
-            <Route path="/flights" element={<FlightResults />} />
-            <Route path="/hotels" element={<HotelResults />} />
-            <Route path="/my-alerts" element={<MyAlerts />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/alerts" element={<AdminAlerts />} />
-            <Route path="/admin/ads" element={<AdminAds />} />
-            <Route path="/admin/blog" element={<AdminBlog />} />
-            <Route path="/admin/press" element={<AdminPress />} />
-            <Route path="/admin/country-pages" element={<AdminCountryPages />} />
-            <Route path="/admin/subscribers" element={<AdminSubscribers />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
-            <Route path="/admin/compliance" element={<AdminCompliance />} />
-            <Route path="/admin/content-generator" element={<AdminContentGenerator />} />
-            <Route path="/d/:slug" element={<DestinationPage />} />
-            {/* Country Landing Pages */}
-            <Route path="/:slug" element={<CountryLandingPage />} />
-            <Route path="/redirect" element={<BookingRedirect />} />
-            {/* Company */}
-            <Route path="/about" element={<AboutUs />} />
-            <Route path="/careers" element={<Careers />} />
-            <Route path="/press" element={<Press />} />
-            <Route path="/press/:slug" element={<PressRelease />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/blog/:slug" element={<BlogPost />} />
-            {/* Support */}
-            <Route path="/help" element={<HelpCenter />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/faqs" element={<FAQs />} />
-            {/* Legal */}
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsConditions />} />
-            <Route path="/cookies" element={<CookiePolicy />} />
-            <Route path="/affiliate-disclosure" element={<AffiliateDisclosure />} />
-            <Route path="/how-it-works" element={<HowItWorks />} />
-            <Route path="/why-we-dont-sell-tickets" element={<WhyWeDontSellTickets />} />
-            <Route path="/top-flight-destinations" element={<TopFlightDestinations />} />
-            <Route path="/top-hotel-destinations" element={<TopHotelDestinations />} />
-            <Route path="/flight-deals-guide" element={<FlightDealsGuide />} />
-            <Route path="/hotel-booking-guide" element={<HotelBookingGuide />} />
-            {/* Catch-all */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AnimatedRoutes />
           <CookieConsent />
           <BottomNav />
         </BrowserRouter>
