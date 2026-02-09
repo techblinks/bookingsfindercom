@@ -48,18 +48,19 @@ const PopularRoutes = () => {
     setRoutes(initialRoutes);
   }, [regionConfig]);
 
-  // Fetch prices in batches
+  const hasLoadingRoutes = routes.some(r => r.loading);
+
+  // Fetch prices when routes are set with loading=true
   useEffect(() => {
     const fetchPrices = async () => {
       if (routes.length === 0) return;
       
-      const hasLoadingRoutes = routes.some(r => r.loading);
-      if (!hasLoadingRoutes || pricesLoading) return;
+      const loadingRoutes = routes.filter(r => r.loading);
+      if (loadingRoutes.length === 0 || pricesLoading) return;
 
       setPricesLoading(true);
 
       try {
-        // Batch routes into groups of 6 (API limit)
         const batchSize = 6;
         const allPrices: { origin: string; destination: string; price: number | null; cached?: boolean }[] = [];
         
@@ -81,12 +82,10 @@ const PopularRoutes = () => {
           }
         }
 
-        // Update all routes with fetched prices
         setRoutes((prev) =>
           prev.map((route) => {
             const priceData = allPrices.find(
-              (p: { origin: string; destination: string; price: number | null; cached?: boolean }) => 
-                p.origin === route.origin && p.destination === route.destination
+              (p) => p.origin === route.origin && p.destination === route.destination
             );
             return {
               ...route,
@@ -105,7 +104,7 @@ const PopularRoutes = () => {
     };
 
     fetchPrices();
-  }, [regionConfig, departureDate, returnDate, currency.code]); // Also depend on currency
+  }, [routes.length, hasLoadingRoutes, departureDate, returnDate, currency.code]);
 
   // Format price with currency symbol
   const formatPrice = (price: number | null | undefined) => {
