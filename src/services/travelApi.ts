@@ -88,7 +88,7 @@ export async function trackAffiliateEvent(data: {
       origin: data.origin,
       destination: data.destination,
       departure_date: data.departureDate,
-      return_date: data.returnDate,
+      return_date: data.returnDate || null,
       airline_code: data.airlineCode,
       flight_number: data.flightNumber,
       hotel_id: data.hotelId,
