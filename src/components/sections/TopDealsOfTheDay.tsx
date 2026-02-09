@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plane, ArrowRight, Clock, Loader2, MapPin } from "lucide-react";
+import { Plane, ArrowRight, Clock, MapPin } from "lucide-react";
+import TopDealsSkeleton from "@/components/skeletons/TopDealsSkeleton";
 import { format, addDays } from "date-fns";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,15 +107,7 @@ const TopDealsOfTheDay = () => {
   };
 
   if (geoLoading) {
-    return (
-      <section className="py-12 md:py-16 bg-card">
-        <div className="container">
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        </div>
-      </section>
-    );
+    return <TopDealsSkeleton />;
   }
 
   return (

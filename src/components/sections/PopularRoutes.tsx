@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plane, ArrowRight, Loader2, TrendingUp, ChevronLeft, ChevronRight, Globe, Bell } from "lucide-react";
+import { Plane, ArrowRight, TrendingUp, ChevronLeft, ChevronRight, Globe, Bell } from "lucide-react";
+import PopularRoutesSkeleton from "@/components/skeletons/PopularRoutesSkeleton";
 import { format, addDays } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
@@ -157,15 +158,7 @@ const PopularRoutes = () => {
   }, [routes]);
 
   if (geoLoading) {
-    return (
-      <section className="py-10 md:py-14">
-        <div className="container">
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        </div>
-      </section>
-    );
+    return <PopularRoutesSkeleton />;
   }
 
   return (
