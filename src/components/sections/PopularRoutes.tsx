@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Plane, ArrowRight, TrendingUp, ChevronLeft, ChevronRight, Globe, Bell } from "lucide-react";
+import { motion } from "framer-motion";
 import PopularRoutesSkeleton from "@/components/skeletons/PopularRoutesSkeleton";
 import { format, addDays } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
@@ -209,18 +210,20 @@ const PopularRoutes = () => {
           style={{ scrollSnapType: "x mandatory" }}
         >
           {routes.map((route, index) => (
-            <div
+            <motion.div
               key={`${route.origin}-${route.destination}-${index}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.06, ease: "easeOut" }}
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               className={cn(
                 "flex-shrink-0 w-[280px] md:w-[300px]",
                 "bg-card rounded-2xl border border-border p-5",
-                "hover:border-primary/50 hover:shadow-lg transition-all duration-300",
-                "animate-fade-in group relative",
+                "hover:border-primary/50 hover:shadow-lg transition-colors duration-300",
+                "group relative cursor-pointer",
               )}
-              style={{ 
-                animationDelay: `${index * 50}ms`,
-                scrollSnapAlign: "start"
-              }}
+              style={{ scrollSnapAlign: "start" }}
             >
               {/* Price Alert Button - Top Right */}
               <div className="absolute top-3 right-3 z-10">
@@ -234,12 +237,14 @@ const PopularRoutes = () => {
                   currentLowestPrice={route.price || undefined}
                   currency="USD"
                   trigger={
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.2 }}
+                      whileTap={{ scale: 0.9 }}
                       className="p-2 rounded-full bg-muted/80 hover:bg-primary/10 hover:text-primary transition-colors"
                       title="Set price alert"
                     >
                       <Bell className="h-4 w-4" />
-                    </button>
+                    </motion.button>
                   }
                 />
               </div>
@@ -248,15 +253,24 @@ const PopularRoutes = () => {
               <a href={getBookingUrl(route)} className="block">
                 {/* Route Header */}
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <motion.div
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors"
+                    whileHover={{ rotate: 12 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
                     <Plane className="h-5 w-5 text-primary" />
-                  </div>
+                  </motion.div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-foreground text-base">
                         {route.origin}
                       </span>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <motion.span
+                        animate={{ x: [0, 4, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
+                      >
+                        <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </motion.span>
                       <span className="font-bold text-foreground text-base">
                         {route.destination}
                       </span>
@@ -297,9 +311,15 @@ const PopularRoutes = () => {
                         <div className="w-20 h-8 bg-muted animate-pulse rounded" />
                       </div>
                     ) : (
-                      <p className="text-2xl md:text-3xl font-bold text-primary">
+                      <motion.p
+                        key={route.price}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 200 }}
+                        className="text-2xl md:text-3xl font-bold text-primary"
+                      >
                         {formatPrice(route.price)}
-                      </p>
+                      </motion.p>
                     )}
                   </div>
 
@@ -310,37 +330,46 @@ const PopularRoutes = () => {
                   </div>
                 </div>
               </a>
-            </div>
+            </motion.div>
           ))}
 
           {/* See All Routes Card */}
-          <Link
-            to="/flights"
-            className={cn(
-              "flex-shrink-0 w-[280px] md:w-[300px]",
-              "bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 p-5",
-              "hover:border-primary/40 hover:shadow-lg transition-all duration-300",
-              "animate-fade-in group flex flex-col items-center justify-center text-center",
-            )}
-            style={{ 
-              animationDelay: `${routes.length * 50}ms`,
-              scrollSnapAlign: "start"
-            }}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: routes.length * 0.06, ease: "easeOut" }}
+            whileHover={{ y: -6, scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            style={{ scrollSnapAlign: "start" }}
           >
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4">
-              <Globe className="h-7 w-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-foreground text-lg mb-2">
-              Explore All Routes
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Discover flights to 500+ destinations worldwide
-            </p>
-            <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-3 transition-all">
-              <span>See all routes</span>
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </div>
-          </Link>
+            <Link
+              to="/flights"
+              className={cn(
+                "flex-shrink-0 w-[280px] md:w-[300px] h-full",
+                "bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 p-5",
+                "hover:border-primary/40 hover:shadow-lg transition-colors duration-300",
+                "group flex flex-col items-center justify-center text-center",
+              )}
+            >
+              <motion.div
+                className="flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors mb-4"
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.6 }}
+              >
+                <Globe className="h-7 w-7 text-primary" />
+              </motion.div>
+              <h3 className="font-bold text-foreground text-lg mb-2">
+                Explore All Routes
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Discover flights to 500+ destinations worldwide
+              </p>
+              <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-3 transition-all">
+                <span>See all routes</span>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </Link>
+          </motion.div>
         </div>
 
         {/* Gradient overlays for scroll indication - desktop */}
