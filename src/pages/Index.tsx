@@ -11,6 +11,7 @@ import TopDeals from "@/components/sections/TopDeals";
 import { useHomeAds } from "@/hooks/useHomeAds";
 import { HomeAdSlot } from "@/components/ads/HomeAdSlot";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
+import AirlineOffers from "@/components/sections/AirlineOffers";
 
 const Index = () => {
   const { ads, trackImpression, trackClick } = useHomeAds();
@@ -106,6 +107,9 @@ const Index = () => {
               </div>
             </div>
           </section>
+
+          {/* Airline Special Offers - Live deals */}
+          <AirlineOffers />
 
           {/* Top Deals */}
           {homepageSections.top_deals && <TopDeals />}

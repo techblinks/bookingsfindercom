@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.track-affiliate-click]
 verify_jwt = false
+
+[functions.get-special-offers]
+verify_jwt = false
