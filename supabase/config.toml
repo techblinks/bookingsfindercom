@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.get-special-offers]
 verify_jwt = false
+
+[functions.get-price-calendar]
+verify_jwt = false
