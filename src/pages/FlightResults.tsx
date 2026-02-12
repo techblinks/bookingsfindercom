@@ -11,6 +11,7 @@ import EnhancedEmptyFlightResults from "@/components/states/EnhancedEmptyFlightR
 import SearchingIndicator from "@/components/flights/SearchingIndicator";
 import SortDropdown from "@/components/flights/SortDropdown";
 import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
+import PriceCalendar from "@/components/flights/PriceCalendar";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
 import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 import FlightSearchSchema from "@/components/seo/FlightSearchSchema";
@@ -418,6 +419,19 @@ const FlightResults = () => {
               <div className="mb-4">
                 <FlexibleDatesMatrix
                   dates={flexibleDates}
+                  selectedDate={departureDate}
+                  currency="$"
+                  onDateSelect={handleDateSelect}
+                />
+              </div>
+            )}
+
+            {/* Price Calendar */}
+            {origin && destination && (
+              <div className="mb-4">
+                <PriceCalendar
+                  origin={origin}
+                  destination={destination}
                   selectedDate={departureDate}
                   currency="$"
                   onDateSelect={handleDateSelect}
