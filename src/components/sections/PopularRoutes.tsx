@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+
 interface RouteData {
   origin: string;
   originName: string;
@@ -18,6 +20,7 @@ interface RouteData {
   price?: number | null;
   loading?: boolean;
   cached?: boolean;
+  live?: boolean;
 }
 
 const PopularRoutes = () => {
@@ -25,6 +28,7 @@ const PopularRoutes = () => {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [pricesLoading, setPricesLoading] = useState(false);
   const [currency, setCurrency] = useState({ code: 'USD', symbol: '$' });
+  const [isLiveData, setIsLiveData] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -39,20 +43,59 @@ const PopularRoutes = () => {
   const departureDate = format(addDays(new Date(), 14), "yyyy-MM-dd");
   const returnDate = format(addDays(new Date(), 21), "yyyy-MM-dd");
 
-  // Initialize routes from config
+  // Fetch dynamic popular directions from Travelpayouts API
   useEffect(() => {
-    const initialRoutes = regionConfig.popularRoutes.slice(0, 10).map((route) => ({
-      ...route,
-      loading: true,
-      price: null,
-    }));
-    setRoutes(initialRoutes);
-  }, [regionConfig]);
+    const origin = geoData?.defaultOrigin || regionConfig.defaultOrigin;
+    if (!origin) return;
+
+    const fetchPopularDirections = async () => {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-popular-directions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin, currency: currency.code, limit: 10 }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.routes && data.routes.length > 0) {
+          // Use live API data — routes already have prices
+          const liveRoutes: RouteData[] = data.routes.map((r: any) => ({
+            origin: r.origin,
+            originName: r.originName,
+            destination: r.destination,
+            destinationName: r.destinationName,
+            price: r.price,
+            loading: false,
+            live: true,
+          }));
+          setRoutes(liveRoutes);
+          setIsLiveData(true);
+          return;
+        }
+      } catch (err) {
+        console.log("Popular directions API failed, falling back to hardcoded routes");
+      }
+
+      // Fallback to hardcoded regional routes
+      const fallbackRoutes = regionConfig.popularRoutes.slice(0, 10).map((route) => ({
+        ...route,
+        loading: true,
+        price: null,
+      }));
+      setRoutes(fallbackRoutes);
+      setIsLiveData(false);
+    };
+
+    fetchPopularDirections();
+  }, [geoData?.defaultOrigin, regionConfig, currency.code]);
 
   const hasLoadingRoutes = routes.some(r => r.loading);
 
-  // Fetch prices when routes are set with loading=true
+  // Fetch prices only for fallback (hardcoded) routes that have loading=true
   useEffect(() => {
+    if (isLiveData) return; // Live data already includes prices
+
     const fetchPrices = async () => {
       if (routes.length === 0) return;
       
@@ -105,7 +148,7 @@ const PopularRoutes = () => {
     };
 
     fetchPrices();
-  }, [routes.length, hasLoadingRoutes, departureDate, returnDate, currency.code]);
+  }, [routes.length, hasLoadingRoutes, isLiveData, departureDate, returnDate, currency.code]);
 
   // Format price with currency symbol
   const formatPrice = (price: number | null | undefined) => {
@@ -174,7 +217,7 @@ const PopularRoutes = () => {
               </h2>
             </div>
             <p className="text-sm text-muted-foreground">
-              Popular flights from {geoData?.city || geoData?.country || "your region"} • Live prices
+              {isLiveData ? "Trending" : "Popular"} flights from {geoData?.city || geoData?.country || "your region"} • {isLiveData ? "Real-time data" : "Live prices"}
             </p>
           </div>
 
@@ -292,17 +335,19 @@ const PopularRoutes = () => {
                 <div className="flex items-end justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-xs text-muted-foreground">Round trip from</p>
+                      <p className="text-xs text-muted-foreground">{route.live ? "From" : "Round trip from"}</p>
                       {!route.loading && route.price && (
                         <span
                           className={cn(
                             "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                            route.cached
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            route.live
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              : route.cached
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                           )}
                         >
-                          {route.cached ? "Cached" : "Live"}
+                          {route.live ? "Trending" : route.cached ? "Cached" : "Live"}
                         </span>
                       )}
                     </div>

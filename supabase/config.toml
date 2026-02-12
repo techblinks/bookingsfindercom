@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.get-price-calendar]
 verify_jwt = false
+
+[functions.get-popular-directions]
+verify_jwt = false
