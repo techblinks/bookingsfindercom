@@ -3,6 +3,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import MobileHeroSearch from "@/components/search/MobileHeroSearch";
 import { Link } from "react-router-dom";
 import { Sparkles, ArrowRight, TrendingDown, Clock, Shield } from "lucide-react";
+import worldMapPattern from "@/assets/world-map-pattern.png";
 
 interface HeroSectionProps {
   showFlights?: boolean;
@@ -14,6 +15,11 @@ const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps
 
   return (
     <section className="relative bg-primary py-10 md:py-20 overflow-hidden">
+      {/* World map pattern overlay */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center opacity-[0.15] pointer-events-none"
+        style={{ backgroundImage: `url(${worldMapPattern})` }}
+      />
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
 
