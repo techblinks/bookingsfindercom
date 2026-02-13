@@ -30,13 +30,15 @@ const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps
 
         {/* Search Box */}
         <div className="max-w-5xl mx-auto">
-          <div className={`bg-card rounded-2xl ${isMobile ? 'p-3' : 'p-5'} shadow-2xl border border-border/50`}>
-            {isMobile ? (
+          {isMobile ? (
+            <div className="px-1">
               <MobileHeroSearch showFlights={showFlights} showHotels={showHotels} />
-            ) : (
+            </div>
+          ) : (
+            <div className="bg-card rounded-2xl p-5 shadow-2xl border border-border/50">
               <ModernSearchBox showFlights={showFlights} showHotels={showHotels} />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Trip Optimizer CTA - Compact */}

@@ -87,26 +87,21 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
 
   return (
     <div className="w-full safe-area-bottom">
-      {/* Tab bar */}
-      <div className="flex gap-4 mb-6 relative">
+      {/* Tab bar - pill style on dark bg */}
+      <div className="flex bg-primary-foreground/15 rounded-full p-1 w-fit mb-5">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => switchTab(tab.id)}
             className={cn(
-              "relative flex items-center gap-2 pb-3 text-base font-medium transition-colors native-touch",
-              searchType === tab.id ? "text-primary" : "text-muted-foreground"
+              "relative flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 native-touch",
+              searchType === tab.id
+                ? "bg-primary-foreground text-primary shadow-sm"
+                : "text-primary-foreground/80"
             )}
           >
-            <tab.icon className="h-5 w-5" />
+            <tab.icon className="h-4 w-4" />
             {tab.label}
-            {searchType === tab.id && (
-              <motion.div
-                layoutId="tab-indicator"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
           </button>
         ))}
       </div>
