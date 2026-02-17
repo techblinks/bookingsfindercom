@@ -12,6 +12,7 @@ import SearchingIndicator from "@/components/flights/SearchingIndicator";
 import SortDropdown from "@/components/flights/SortDropdown";
 import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
 import PriceCalendar from "@/components/flights/PriceCalendar";
+import WeeklyPriceHeatmap from "@/components/flights/WeeklyPriceHeatmap";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
 import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 import FlightSearchSchema from "@/components/seo/FlightSearchSchema";
@@ -442,6 +443,19 @@ const FlightResults = () => {
                   selectedDate={departureDate}
                   currency={currencySymbol}
                   onDateSelect={handleDateSelect}
+                />
+              </div>
+            )}
+
+            {/* Weekly Price Heatmap */}
+            {origin && destination && (
+              <div className="mb-4">
+                <WeeklyPriceHeatmap
+                  origin={origin}
+                  destination={destination}
+                  selectedDate={departureDate}
+                  currency={currencySymbol}
+                  onWeekSelect={handleDateSelect}
                 />
               </div>
             )}

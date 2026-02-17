@@ -20,7 +20,7 @@ interface UsePriceCalendarParams {
   enabled?: boolean;
 }
 
-export function usePriceCalendar({ origin, destination, month, currency = "AUD", enabled = true }: UsePriceCalendarParams) {
+export function usePriceCalendar({ origin, destination, month, currency = "USD", enabled = true }: UsePriceCalendarParams) {
   const [prices, setPrices] = useState<CalendarPrice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
