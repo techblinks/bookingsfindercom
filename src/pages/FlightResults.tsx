@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, ChevronDown } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import FlightFiltersPanel from "@/components/flights/FlightFiltersPanel";
@@ -57,6 +59,10 @@ const FlightResults = () => {
   const [searchParams] = useSearchParams();
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY_COUNT);
+  const [priceToolsOpen, setPriceToolsOpen] = useState(false);
+  const [showStickyPrice, setShowStickyPrice] = useState(false);
+  const quickSelectRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // Search params
   const origin = searchParams.get("origin") || "";
@@ -173,6 +179,17 @@ const FlightResults = () => {
 
     return () => observer.disconnect();
   }, [hasMore, isLoading, loadMore]);
+
+  // Sticky price chip observer
+  useEffect(() => {
+    if (!isMobile || !quickSelectRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyPrice(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(quickSelectRef.current);
+    return () => observer.disconnect();
+  }, [isMobile, isLoading]);
 
   // Handle booking - navigate to redirect interstitial page
   const handleBookNow = async (flightId: string) => {
@@ -338,8 +355,8 @@ const FlightResults = () => {
             </div>
           </aside>
 
-          {/* Mobile Filter Button */}
-          <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+          {/* Mobile Filter Button - positioned above bottom nav */}
+          <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-40">
             <Button
               onClick={() => setShowMobileFilters(true)}
               className="shadow-lg gap-2 h-11 px-5"
@@ -356,6 +373,16 @@ const FlightResults = () => {
               )}
             </Button>
           </div>
+
+          {/* Mobile Sticky Price Chip */}
+          {isMobile && !isLoading && cheapestPrice > 0 && showStickyPrice && (
+            <div className="lg:hidden fixed top-[60px] left-1/2 -translate-x-1/2 z-30 animate-fade-in">
+              <div className="bg-card border border-border shadow-md rounded-full px-4 py-1.5 flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">From</span>
+                <span className="font-bold text-foreground">{currencySymbol}{cheapestPrice}</span>
+              </div>
+            </div>
+          )}
 
           {/* Mobile Filter Drawer */}
           {showMobileFilters && (
@@ -410,7 +437,7 @@ const FlightResults = () => {
           <div className="flex-1 min-w-0">
             {/* Quick Select: Best / Cheapest / Fastest */}
             {!isLoading && filteredFlights.length > 0 && (
-              <div className="mb-4">
+              <div className="mb-4" ref={quickSelectRef}>
                 <FlightQuickSelect
                   flights={filteredFlights}
                   currency="$"
@@ -434,30 +461,53 @@ const FlightResults = () => {
               </div>
             )}
 
-            {/* Price Calendar */}
+            {/* Price Tools - Collapsible on mobile */}
             {origin && destination && (
-              <div className="mb-4">
-                <PriceCalendar
-                  origin={origin}
-                  destination={destination}
-                  selectedDate={departureDate}
-                  currency={currencySymbol}
-                  onDateSelect={handleDateSelect}
-                />
-              </div>
-            )}
-
-            {/* Weekly Price Heatmap */}
-            {origin && destination && (
-              <div className="mb-4">
-                <WeeklyPriceHeatmap
-                  origin={origin}
-                  destination={destination}
-                  selectedDate={departureDate}
-                  currency={currencySymbol}
-                  onWeekSelect={handleDateSelect}
-                />
-              </div>
+              isMobile ? (
+                <Collapsible open={priceToolsOpen} onOpenChange={setPriceToolsOpen} className="mb-4">
+                  <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-card border border-border rounded-xl text-sm font-semibold native-touch">
+                    <span>📊 Price Tools</span>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${priceToolsOpen ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 mt-3">
+                    <PriceCalendar
+                      origin={origin}
+                      destination={destination}
+                      selectedDate={departureDate}
+                      currency={currencySymbol}
+                      onDateSelect={handleDateSelect}
+                    />
+                    <WeeklyPriceHeatmap
+                      origin={origin}
+                      destination={destination}
+                      selectedDate={departureDate}
+                      currency={currencySymbol}
+                      onWeekSelect={handleDateSelect}
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <PriceCalendar
+                      origin={origin}
+                      destination={destination}
+                      selectedDate={departureDate}
+                      currency={currencySymbol}
+                      onDateSelect={handleDateSelect}
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <WeeklyPriceHeatmap
+                      origin={origin}
+                      destination={destination}
+                      selectedDate={departureDate}
+                      currency={currencySymbol}
+                      onWeekSelect={handleDateSelect}
+                    />
+                  </div>
+                </>
+              )
             )}
 
             {/* Trip Optimizer Promotional Banner */}

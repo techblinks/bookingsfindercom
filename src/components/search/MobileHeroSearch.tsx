@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Plane, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,14 +24,6 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
-
-  useEffect(() => {
-    if (searchType === "flights" && !showFlights && showHotels) {
-      setSearchType("hotels");
-    } else if (searchType === "hotels" && !showHotels && showFlights) {
-      setSearchType("flights");
-    }
-  }, [showFlights, showHotels, searchType]);
 
   const allTabs = [
     { id: "flights" as const, label: "Flights", icon: Plane, enabled: showFlights },
@@ -87,12 +79,13 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
 
   return (
     <div className="w-full safe-area-bottom">
-      {/* Tab bar - pill style on dark bg */}
+      {/* Tab bar - pill style with scale bounce */}
       <div className="flex bg-primary-foreground/15 rounded-full p-1 w-fit mb-5">
         {tabs.map((tab) => (
-          <button
+          <motion.button
             key={tab.id}
             onClick={() => switchTab(tab.id)}
+            whileTap={{ scale: 0.93 }}
             className={cn(
               "relative flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 native-touch",
               searchType === tab.id
@@ -102,7 +95,7 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
           >
             <tab.icon className="h-4 w-4" />
             {tab.label}
-          </button>
+          </motion.button>
         ))}
       </div>
 
@@ -127,6 +120,21 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
             {searchType === "flights" ? <MobileFlightSearch /> : <MobileHotelSearch />}
           </motion.div>
         </AnimatePresence>
+      </div>
+
+      {/* Swipe indicator dots */}
+      <div className="flex justify-center gap-1.5 mt-4">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            className={cn(
+              "h-1.5 rounded-full transition-all duration-300",
+              searchType === tab.id
+                ? "w-4 bg-primary-foreground/60"
+                : "w-1.5 bg-primary-foreground/25"
+            )}
+          />
+        ))}
       </div>
     </div>
   );

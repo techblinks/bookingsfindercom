@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, SlidersHorizontal, X, Grid, List } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, X, Grid, List, ArrowUpDown } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -31,6 +31,7 @@ const HotelResults = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [sortOption, setSortOption] = useState("recommended");
 
   // Search params
   const destination = searchParams.get("destination") || "";
@@ -244,8 +245,8 @@ const HotelResults = () => {
             </div>
           </aside>
 
-          {/* Mobile Filter Button */}
-          <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+          {/* Mobile Filter & Sort Buttons - positioned above bottom nav */}
+          <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex gap-2">
             <Button
               onClick={() => setShowMobileFilters(true)}
               className="shadow-lg gap-2"
@@ -253,6 +254,16 @@ const HotelResults = () => {
               <SlidersHorizontal className="h-4 w-4" />
               Filters
             </Button>
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)}
+              className="h-10 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow-lg appearance-none cursor-pointer"
+            >
+              <option value="recommended">Sort</option>
+              <option value="price-low">Price ↑</option>
+              <option value="price-high">Price ↓</option>
+              <option value="rating">Rating</option>
+            </select>
           </div>
 
           {/* Mobile Filter Drawer */}
