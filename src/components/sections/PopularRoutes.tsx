@@ -278,7 +278,7 @@ const PopularRoutes = () => {
                   passengers={1}
                   cabinClass="economy"
                   currentLowestPrice={route.price || undefined}
-                  currency="USD"
+                  currency={currency.code}
                   trigger={
                     <motion.button
                       whileHover={{ scale: 1.2 }}

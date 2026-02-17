@@ -139,10 +139,11 @@ const TopHotelDestinations = () => {
     return `/hotels?${params.toString()}`;
   };
 
+  const geoCurrency = geoData?.currency || "USD";
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: geoCurrency,
       minimumFractionDigits: 0,
     }).format(price);
   };

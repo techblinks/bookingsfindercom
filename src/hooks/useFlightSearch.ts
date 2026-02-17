@@ -12,6 +12,7 @@ interface UseFlightSearchParams {
   returnDate?: string;
   passengers: number;
   cabinClass: string;
+  currency?: string;
 }
 
 interface UseFlightSearchReturn {
@@ -163,7 +164,7 @@ function convertApiFlight(apiFlight: any, allApiFlights: any[]): Flight {
     airline: apiFlight.airline || "Unknown",
     airline_code: apiFlight.airline_code || apiFlight.airline || "",
     price: apiFlight.price || 0,
-    currency: apiFlight.currency || "AUD",
+    currency: apiFlight.currency || "USD",
     duration_minutes: apiFlight.duration_minutes || 0,
     stops: apiFlight.stops || 0,
     segments: (apiFlight.segments || []).map((seg: any) => ({
@@ -384,7 +385,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
           depart_date: params.departureDate,
           ...(params.returnDate ? { return_date: params.returnDate } : {}),
           adults: params.passengers,
-          currency: 'AUD',
+          currency: params.currency || 'USD',
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -433,7 +434,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       setIsLoading(false);
       setIsSearching(false);
     }
-  }, [params.origin, params.destination, params.departureDate, params.returnDate, params.passengers, params.cabinClass]);
+  }, [params.origin, params.destination, params.departureDate, params.returnDate, params.passengers, params.cabinClass, params.currency]);
 
   useEffect(() => {
     fetchFlights();

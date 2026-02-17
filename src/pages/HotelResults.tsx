@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/pagination";
 import { searchHotels, getRedirectUrl, HotelResult } from "@/services/travelApi";
 import { useAds } from "@/hooks/useAds";
+import { useGeoLocation } from "@/hooks/useGeoLocation";
 import { toast } from "sonner";
 
 const HotelResults = () => {
@@ -46,6 +47,11 @@ const HotelResults = () => {
 
   // Fetch ads (lazy loaded, non-blocking)
   const { ads, trackImpression, trackClick } = useAds('hotels');
+
+  // Get geo-based currency
+  const { geoData } = useGeoLocation();
+  const currencyCode = geoData?.currency || "USD";
+  const currencySymbol = geoData?.currencySymbol || "$";
 
   useEffect(() => {
     const fetchHotels = async () => {
@@ -164,7 +170,7 @@ const HotelResults = () => {
         guests={parseInt(guests)}
         rooms={parseInt(rooms)}
         lowestPrice={cheapestPrice}
-        currency="USD"
+        currency={currencyCode}
         totalResults={totalResults}
       />
 
@@ -328,7 +334,7 @@ const HotelResults = () => {
               <div className="mb-4">
                 <HotelQuickSelect
                   hotels={filteredHotels}
-                  currency="$"
+                  currency={currencySymbol}
                   onSelect={(id) => {
                     const el = document.getElementById(`hotel-${id}`);
                     el?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -361,7 +367,7 @@ const HotelResults = () => {
                     <div key={hotel.id} id={`hotel-${hotel.id}`}>
                       <HotelResultCard
                         {...hotel}
-                        currency="$"
+                        currency={currencySymbol}
                         onViewDeal={handleViewDeal}
                       />
                       
