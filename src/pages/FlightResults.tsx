@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, ChevronDown } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, ChevronDown, Search, Calendar } from "lucide-react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Header from "@/components/layout/Header";
@@ -374,13 +374,33 @@ const FlightResults = () => {
             </Button>
           </div>
 
-          {/* Mobile Sticky Price Chip */}
-          {isMobile && !isLoading && cheapestPrice > 0 && showStickyPrice && (
-            <div className="lg:hidden fixed top-[60px] left-1/2 -translate-x-1/2 z-30 animate-fade-in">
-              <div className="bg-card border border-border shadow-md rounded-full px-4 py-1.5 flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">From</span>
-                <span className="font-bold text-foreground">{currencySymbol}{cheapestPrice}</span>
-              </div>
+          {/* Mobile Floating Search Bar */}
+          {isMobile && showStickyPrice && (
+            <div className="lg:hidden fixed top-[60px] left-4 right-4 z-30 animate-fade-in">
+              <Link to="/">
+                <div className="bg-card border border-border shadow-lg rounded-2xl px-4 py-2.5 flex items-center gap-3 native-touch">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Search className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                      <span className="truncate">{origin}</span>
+                      <Plane className="h-3 w-3 text-muted-foreground shrink-0 rotate-90" />
+                      <span className="truncate">{destination}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {formatDate(departureDate)}
+                      {returnDate && ` – ${formatDate(returnDate)}`}
+                      {" · "}{passengers} pax
+                    </p>
+                  </div>
+                  {!isLoading && cheapestPrice > 0 && (
+                    <div className="shrink-0 bg-primary/10 rounded-full px-2.5 py-1">
+                      <span className="text-xs font-bold text-primary">{currencySymbol}{cheapestPrice}</span>
+                    </div>
+                  )}
+                </div>
+              </Link>
             </div>
           )}
 
