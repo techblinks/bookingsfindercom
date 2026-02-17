@@ -32,7 +32,7 @@ function OfferCard({ offer, currency, currencySymbol, index }: { offer: SpecialO
   const departureDate = offer.departure_date ? new Date(offer.departure_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
   const foundAgo = offer.found_at ? formatDistanceToNow(new Date(offer.found_at), { addSuffix: true }) : "";
 
-  const searchUrl = `/flights?origin=${offer.origin}&destination=${offer.destination}&date=${offer.departure_date || ""}`;
+  const searchUrl = `/flights?origin=${offer.origin}&destination=${offer.destination}&departureDate=${offer.departure_date || ""}`;
 
   return (
     <motion.div
