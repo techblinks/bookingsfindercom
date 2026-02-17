@@ -47,15 +47,12 @@ const Header = () => {
       <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md border-b border-border/50 safe-area-top">
         <div className="container flex h-14 lg:h-[60px] items-center justify-between gap-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0 group" onClick={close}>
+          <Link to="/" className="flex items-center gap-2.5 shrink-0 group" onClick={close}>
             <img
               src={logo}
               alt="BookingsFinder"
               className="h-10 lg:h-11 w-auto transition-transform duration-200 group-hover:scale-[1.03]"
             />
-            <span className="hidden sm:inline text-lg lg:text-xl font-bold leading-tight tracking-tight text-foreground">
-              BookingsFinder
-            </span>
           </Link>
 
           {/* Desktop Navigation */}
