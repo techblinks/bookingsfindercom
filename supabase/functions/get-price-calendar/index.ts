@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { origin, destination, month, currency = "AUD" } = await req.json();
+    const { origin, destination, month, currency = "USD" } = await req.json();
 
     if (!origin || !destination || !month) {
       return new Response(
