@@ -51,7 +51,7 @@ const Header = () => {
             <img
               src={logo}
               alt="BookingsFinder"
-              className="h-9 lg:h-10 w-auto transition-transform duration-200 group-hover:scale-[1.03]"
+              className="h-10 lg:h-11 w-auto transition-transform duration-200 group-hover:scale-[1.03]"
             />
           </Link>
 
