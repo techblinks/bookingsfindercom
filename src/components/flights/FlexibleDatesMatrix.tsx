@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DatePrice {
@@ -42,59 +41,61 @@ const FlexibleDatesMatrix = ({
       return {
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
         date: date.getDate(),
-        month: date.toLocaleDateString('en-US', { month: 'short' }),
       };
     } catch {
-      return { day: '--', date: '--', month: '--' };
+      return { day: '--', date: '--' };
     }
   };
 
-  const getColorClass = (price: number | null, isSelected: boolean) => {
+  const getStyle = (price: number | null, isSelected: boolean) => {
     if (isSelected) {
-      return "bg-primary text-primary-foreground border-primary";
+      return "bg-primary text-primary-foreground ring-2 ring-primary/30";
     }
     if (price === null) {
-      return "bg-muted/50 text-muted-foreground border-border cursor-not-allowed";
+      return "bg-muted/30 text-muted-foreground opacity-50 cursor-not-allowed";
     }
     if (price === cheapestPrice) {
-      return "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 hover:border-emerald-500";
+      return "bg-accent/15 text-accent-foreground ring-1 ring-accent/40 hover:ring-accent";
     }
     if (price <= cheapestPrice * 1.1) {
-      return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:border-blue-400";
+      return "bg-primary/5 text-foreground ring-1 ring-primary/20 hover:ring-primary/40";
     }
-    return "bg-card border-border hover:border-primary/50";
+    return "bg-secondary/50 text-foreground ring-1 ring-border hover:ring-primary/30";
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <CalendarDays className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold text-foreground">Flexible Dates</h3>
         </div>
-        {onExpand && (
-          <Button variant="ghost" size="sm" className="text-xs h-7" onClick={onExpand}>
-            View calendar
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setStartIndex(prev => Math.max(0, prev - 1))}
+            disabled={!canGoBack}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-secondary disabled:opacity-30 transition-colors native-touch"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setStartIndex(prev => Math.min(dates.length - visibleCount, prev + 1))}
+            disabled={!canGoForward}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-secondary disabled:opacity-30 transition-colors native-touch"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={() => setStartIndex(prev => Math.max(0, prev - 1))}
-          disabled={!canGoBack}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-
-        <div className="flex-1 grid grid-cols-7 gap-1.5">
+      {/* Date cards - horizontal scroll on mobile, grid on desktop */}
+      <div className="px-4 pb-3">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide sm:grid sm:grid-cols-7 sm:overflow-visible">
           {visibleDates.map((datePrice) => {
             const formatted = formatDate(datePrice.date);
             const isSelected = datePrice.date === selectedDate;
-            const isCheapest = datePrice.price === cheapestPrice;
+            const isCheapest = datePrice.price === cheapestPrice && !isSelected;
 
             return (
               <button
@@ -102,52 +103,52 @@ const FlexibleDatesMatrix = ({
                 onClick={() => datePrice.price !== null && onDateSelect(datePrice.date)}
                 disabled={datePrice.price === null}
                 className={cn(
-                  "flex flex-col items-center p-2 rounded-lg border transition-all duration-200",
-                  getColorClass(datePrice.price, isSelected)
+                  "flex flex-col items-center justify-center min-w-[48px] py-2.5 px-2 rounded-xl transition-all duration-200 native-touch",
+                  getStyle(datePrice.price, isSelected)
                 )}
               >
-                <span className="text-[10px] uppercase font-medium opacity-75">
+                <span className={cn(
+                  "text-[10px] uppercase font-semibold tracking-wide",
+                  isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
+                )}>
                   {formatted.day}
                 </span>
-                <span className="text-sm font-bold">{formatted.date}</span>
+                <span className={cn(
+                  "text-base font-bold leading-tight mt-0.5",
+                  isSelected && "text-primary-foreground"
+                )}>
+                  {formatted.date}
+                </span>
                 {datePrice.price !== null ? (
                   <span className={cn(
-                    "text-xs font-semibold mt-0.5 tabular-nums",
-                    isCheapest && !isSelected && "text-emerald-600 dark:text-emerald-400"
+                    "text-[11px] font-bold mt-1 tabular-nums",
+                    isSelected && "text-primary-foreground/90",
+                    isCheapest && "text-accent"
                   )}>
                     {currency}{datePrice.price}
                   </span>
                 ) : (
-                  <span className="text-xs text-muted-foreground mt-0.5">--</span>
+                  <span className="text-[11px] text-muted-foreground mt-1">—</span>
                 )}
               </button>
             );
           })}
         </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={() => setStartIndex(prev => Math.min(dates.length - visibleCount, prev + 1))}
-          disabled={!canGoForward}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
       </div>
 
-      <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
+      {/* Legend - minimal */}
+      <div className="flex items-center justify-center gap-5 px-4 py-2.5 border-t border-border/50 bg-secondary/30">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700" />
-          <span>Cheapest</span>
+          <div className="w-2.5 h-2.5 rounded-full bg-accent/40 ring-1 ring-accent/60" />
+          <span className="text-[10px] font-medium text-muted-foreground">Cheapest</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800" />
-          <span>Good price</span>
+          <div className="w-2.5 h-2.5 rounded-full bg-primary/20 ring-1 ring-primary/40" />
+          <span className="text-[10px] font-medium text-muted-foreground">Good price</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-primary" />
-          <span>Selected</span>
+          <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+          <span className="text-[10px] font-medium text-muted-foreground">Selected</span>
         </div>
       </div>
     </div>
