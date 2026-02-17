@@ -47,28 +47,30 @@ const Header = () => {
       <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md border-b border-border/50 safe-area-top">
         <div className="container flex h-14 lg:h-[60px] items-center justify-between gap-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 shrink-0 group" onClick={close}>
+          <Link to="/" className="flex items-center gap-2.5 shrink-0 group" onClick={close} aria-label="BookingsFinder - Go to homepage">
             <img
               src={logo}
-              alt="BookingsFinder"
-              className="h-10 lg:h-11 w-auto transition-transform duration-200 group-hover:scale-[1.03]"
+              alt="BookingsFinder logo"
+              className="h-10 lg:h-11 w-auto transition-transform duration-200 group-hover:scale-[1.03] drop-shadow-sm"
             />
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-0.5 flex-1 justify-center">
+          <nav className="hidden lg:flex items-center gap-0.5 flex-1 justify-center" aria-label="Main navigation">
             {navItems.map((item) => (
               <Link
                 key={item.label}
                 to={item.href}
+                aria-label={item.label}
+                aria-current={isActive(item.href) ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium rounded-full transition-all duration-150",
+                  "flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold rounded-full transition-all duration-150",
                   isActive(item.href)
-                    ? "text-primary bg-primary/8"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                    ? "text-primary bg-primary/10"
+                    : "text-foreground/70 hover:text-foreground hover:bg-accent/60"
                 )}
               >
-                <item.icon className="h-3.5 w-3.5" />
+                <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
                 {item.label}
               </Link>
             ))}
@@ -76,9 +78,9 @@ const Header = () => {
             {/* Explore Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-3.5 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground rounded-full transition-all duration-150 hover:bg-accent/60 outline-none">
+                <button className="flex items-center gap-1 px-3.5 py-2 text-[13px] font-semibold text-foreground/70 hover:text-foreground rounded-full transition-all duration-150 hover:bg-accent/60 outline-none" aria-label="Explore travel options">
                   Explore
-                  <ChevronDown className="h-3 w-3 opacity-60" />
+                  <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-52">
@@ -96,9 +98,9 @@ const Header = () => {
             {/* Support Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-3.5 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground rounded-full transition-all duration-150 hover:bg-accent/60 outline-none">
+                <button className="flex items-center gap-1 px-3.5 py-2 text-[13px] font-semibold text-foreground/70 hover:text-foreground rounded-full transition-all duration-150 hover:bg-accent/60 outline-none" aria-label="Help and support">
                   Help
-                  <ChevronDown className="h-3 w-3 opacity-60" />
+                  <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-44">
