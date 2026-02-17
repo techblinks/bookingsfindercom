@@ -24,6 +24,7 @@ import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 import TripOptimizerBanner from "@/components/optimizer/TripOptimizerBanner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
+import { useGeoLocation } from "@/hooks/useGeoLocation";
 
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
@@ -64,6 +65,11 @@ const FlightResults = () => {
   const passengers = parseInt(searchParams.get("passengers") || "1", 10);
   const cabinClass = searchParams.get("cabinClass") || "economy";
 
+  // Get geo-based currency
+  const { geoData } = useGeoLocation();
+  const currencyCode = geoData?.currency || "USD";
+  const currencySymbol = geoData?.currencySymbol || "$";
+
   // Use the flight search hook
   const {
     flights,
@@ -89,6 +95,7 @@ const FlightResults = () => {
     returnDate,
     passengers,
     cabinClass,
+    currency: currencyCode,
   });
 
   // Fetch ads (lazy loaded, non-blocking)
@@ -247,7 +254,7 @@ const FlightResults = () => {
         passengers={passengers}
         cabinClass={cabinClass}
         lowestPrice={cheapestPrice > 0 ? cheapestPrice : undefined}
-        currency="AUD"
+        currency={currencyCode}
         totalResults={filteredFlights.length}
       />
 
@@ -283,7 +290,7 @@ const FlightResults = () => {
               {/* Quick stats */}
               {!isLoading && cheapestPrice > 0 && (
                 <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground mr-2">
-                  <span>From <span className="font-semibold text-foreground">${cheapestPrice}</span></span>
+                  <span>From <span className="font-semibold text-foreground">{currencySymbol}{cheapestPrice}</span></span>
                   <span className="w-px h-4 bg-border" />
                   <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
                 </div>
@@ -298,7 +305,7 @@ const FlightResults = () => {
                   passengers={passengers}
                   cabinClass={cabinClass}
                   currentLowestPrice={cheapestPrice}
-                  currency="AUD"
+                  currency={currencyCode}
                 />
               )}
               <Link to="/" className="shrink-0">
@@ -325,7 +332,7 @@ const FlightResults = () => {
                 onFilterChange={updateFilter}
                 onReset={resetFilters}
                 totalResults={totalResults}
-                currency="$"
+                currency={currencySymbol}
               />
             </div>
           </aside>
@@ -420,7 +427,7 @@ const FlightResults = () => {
                 <FlexibleDatesMatrix
                   dates={flexibleDates}
                   selectedDate={departureDate}
-                  currency="$"
+                  currency={currencySymbol}
                   onDateSelect={handleDateSelect}
                 />
               </div>
@@ -433,7 +440,7 @@ const FlightResults = () => {
                   origin={origin}
                   destination={destination}
                   selectedDate={departureDate}
-                  currency="$"
+                  currency={currencySymbol}
                   onDateSelect={handleDateSelect}
                 />
               </div>
@@ -457,7 +464,7 @@ const FlightResults = () => {
                   airport={bestDealFlight.nearby_airport_savings.airport}
                   airportName={bestDealFlight.nearby_airport_savings.airport_name}
                   savings={bestDealFlight.nearby_airport_savings.savings}
-                  currency="$"
+                  currency={currencySymbol}
                 />
               </div>
             )}
@@ -535,7 +542,7 @@ const FlightResults = () => {
                       >
                         <FlightCard
                           flight={flight}
-                          currency="$"
+                          currency={currencySymbol}
                           onBookNow={handleBookNow}
                         />
                       </div>

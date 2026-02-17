@@ -15,7 +15,7 @@ const FlightSearchSchema = z.object({
     z.undefined(),
   ]).optional().transform(val => val || undefined),
   adults: z.number().int().min(1).max(9).default(1),
-  currency: z.string().length(3).default('AUD'),
+  currency: z.string().length(3).default('USD'),
 });
 
 type FlightSearchRequest = z.infer<typeof FlightSearchSchema>;
