@@ -1,71 +1,61 @@
 
+# Geo-Based Currency Display
 
-# Airline Special Offers Feed on Homepage
+## Problem
+Currency is hardcoded across the app -- `"AUD"` in flight search, `"USD"` in hotel search, and `"$"` as the symbol in dozens of component props. Users in India see prices in AUD/USD instead of INR, users in the UK see `$` instead of GBP, etc.
 
-## Overview
-Add a dynamic "Airline Special Offers" section to the homepage that displays real-time deals from the Travelpayouts API, replacing the current hardcoded `TopDeals` component with live data.
+## Solution
+Use the existing `useGeoLocation` hook (which already provides `currency` and `currencySymbol`) to dynamically set currency everywhere.
 
-## Approach
-The Travelpayouts `/v2/prices/special-offers` endpoint returns XML, which adds parsing complexity. Instead, we will use the **`/v2/prices/latest`** endpoint (JSON) with `sorting=price` and the user's geo-detected origin to fetch the cheapest recent flight deals. This provides real, fresh deal data in a clean JSON format.
+## Changes
 
-We will also attempt the **`/v3/get_special_offers`** endpoint first (if it returns usable JSON data), with a fallback to `/v2/prices/latest`.
+### 1. Flight Search -- Pass geo currency to API
+**File: `src/hooks/useFlightSearch.ts`**
+- Accept `currency` as a parameter (default `"USD"`)
+- Use it in the API request body instead of hardcoded `'AUD'`
+- Use it in `convertApiFlight` default currency
 
-## What Changes
+### 2. Flight Results Page
+**File: `src/pages/FlightResults.tsx`**
+- Import and call `useGeoLocation`
+- Pass `geoData.currency` to `useFlightSearch`
+- Replace all hardcoded `"AUD"` and `"$"` with geo values:
+  - `FlightSearchSchema` currency prop
+  - `PriceAlertDialog` currency prop
+  - `FlightFiltersPanel` currency prop (x2: desktop + mobile)
+  - `FlightQuickSelect` currency prop
+  - `FlexibleDatesMatrix` currency prop
+  - `PriceCalendar` currency prop
+  - `NearbyAirportSuggestion` currency prop
+  - Cheapest price display in the header bar
 
-### 1. New Edge Function: `get-special-offers`
-- Calls Travelpayouts API to fetch the latest cheap deals
-- Uses the user's origin (from geo-detection) to personalize results
-- Returns up to 8 deals with origin, destination, price, airline, departure date, and affiliate link
-- Includes basic caching (1-hour TTL) via the existing `route_price_cache` table to reduce API calls
+### 3. Hotel Results Page
+**File: `src/pages/HotelResults.tsx`**
+- Import and call `useGeoLocation`
+- Replace all hardcoded `"USD"` and `"$"`:
+  - `HotelSearchSchema` currency prop
+  - `HotelQuickSelect` currency prop
+  - `HotelResultCard` currency prop
 
-### 2. New Component: `AirlineOffers.tsx`
-- Replaces or sits alongside the existing hardcoded `TopDeals` section
-- Displays a horizontal scrollable card grid (mobile-friendly)
-- Each card shows:
-  - Airline logo (using existing `getAirlineLogo` helper)
-  - Route (origin to destination city names)
-  - Price with currency
-  - Departure date
-  - "Found X hours ago" freshness indicator
-  - Number of stops
-  - Affiliate-safe CTA: "View Live Prices"
-- Skeleton loading state while data fetches
-- Framer Motion animations (consistent with Popular Routes)
-- Graceful fallback to existing hardcoded deals if API returns empty
+### 4. Popular Routes Section
+**File: `src/components/sections/PopularRoutes.tsx`**
+- Already uses `useGeoLocation` for routes; pass geo currency to `PriceAlertDialog` instead of hardcoded `"USD"`
 
-### 3. Homepage Integration
-- Add the new `AirlineOffers` section to `Index.tsx`
-- Position it where `TopDeals` currently sits (or alongside it)
-- Pass geo-detected origin and currency from the existing `useGeoLocation` hook
+### 5. Top Hotel Destinations
+**File: `src/pages/TopHotelDestinations.tsx`**
+- Use geo currency in `Intl.NumberFormat` instead of hardcoded `"USD"`
 
-### 4. New Hook: `useSpecialOffers.ts`
-- Fetches offers from the new edge function
-- Accepts origin IATA code and currency
-- Returns loading state, offers array, and error state
-- Auto-refreshes on origin/currency change
+### 6. Edge Functions
+**File: `supabase/functions/search-flights/index.ts`**
+- Verify it respects the `currency` parameter from the request body (it likely already does via Travelpayouts API)
 
-## Technical Details
+## What stays unchanged
+- Component default props (e.g., `currency = "$"`) remain as safe fallbacks
+- Static placeholder/demo data keeps `"$"` since it's illustrative
+- The `useGeoLocation` hook itself -- no changes needed
+- `AirlineOffers` section -- already uses geo currency correctly
 
-### Edge Function (`supabase/functions/get-special-offers/index.ts`)
-- Endpoint: POST with `{ origin, currency, limit }`
-- Calls: `https://api.travelpayouts.com/v2/prices/latest?origin={origin}&currency={currency}&sorting=price&limit=8&period_type=year&show_to_affiliates=true`
-- Uses existing `getConfig()` from `_shared/travelpayouts.ts` for API token
-- Returns normalized JSON array of deal objects
-- Generates Aviasales affiliate links using the existing marker
-
-### Component Structure
-- Cards use the existing `Card` UI component
-- Airline logos from `getAirlineLogo()`
-- Airline names from `getAirlineName()`
-- Click tracking via existing `trackAffiliateEvent()`
-- Links route to the flight search page with pre-filled params
-
-### Files to Create
-- `supabase/functions/get-special-offers/index.ts`
-- `src/components/sections/AirlineOffers.tsx`
-- `src/hooks/useSpecialOffers.ts`
-
-### Files to Modify
-- `src/pages/Index.tsx` -- add the AirlineOffers section
-- `supabase/config.toml` -- will auto-update with new function
-
+## Technical Notes
+- The `useGeoLocation` hook caches results in localStorage for 24 hours, so there's no performance concern
+- Currency conversion is handled by the upstream APIs (Travelpayouts returns prices in the requested currency)
+- If geolocation fails, USD / `$` is used as the fallback
