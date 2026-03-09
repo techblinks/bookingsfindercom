@@ -27,6 +27,7 @@ import AdminSubscribers from "./pages/AdminSubscribers";
 import AdminSettings from "./pages/AdminSettings";
 import AdminCompliance from "./pages/AdminCompliance";
 import AdminContentGenerator from "./pages/AdminContentGenerator";
+import AdminRouteGenerator from "./pages/AdminRouteGenerator";
 import AboutUs from "./pages/AboutUs";
 import Careers from "./pages/Careers";
 import HelpCenter from "./pages/HelpCenter";
