@@ -546,6 +546,69 @@ export type Database = {
         }
         Relationships: []
       }
+      seo_route_pages: {
+        Row: {
+          created_at: string
+          destination_city: string
+          destination_iata: string
+          faqs: Json | null
+          generation_status: string
+          h1_title: string
+          id: string
+          intro_paragraph: string
+          is_published: boolean
+          main_content: string
+          meta_description: string
+          origin_city: string
+          origin_iata: string
+          related_routes: Json | null
+          slug: string
+          title: string
+          travel_tips: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          destination_city: string
+          destination_iata: string
+          faqs?: Json | null
+          generation_status?: string
+          h1_title: string
+          id?: string
+          intro_paragraph: string
+          is_published?: boolean
+          main_content: string
+          meta_description: string
+          origin_city: string
+          origin_iata: string
+          related_routes?: Json | null
+          slug: string
+          title: string
+          travel_tips?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          destination_city?: string
+          destination_iata?: string
+          faqs?: Json | null
+          generation_status?: string
+          h1_title?: string
+          id?: string
+          intro_paragraph?: string
+          is_published?: boolean
+          main_content?: string
+          meta_description?: string
+          origin_city?: string
+          origin_iata?: string
+          related_routes?: Json | null
+          slug?: string
+          title?: string
+          travel_tips?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           created_at: string
