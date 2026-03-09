@@ -70,6 +70,14 @@ const adminFeatures = [
     bgColor: 'bg-gradient-to-br from-purple-500/10 to-pink-500/10',
   },
   {
+    title: 'Bulk Route Generator',
+    description: 'Mass-generate 500+ SEO route pages with AI',
+    icon: Route,
+    href: '/admin/route-generator',
+    color: 'text-cyan-500',
+    bgColor: 'bg-gradient-to-br from-cyan-500/10 to-blue-500/10',
+  },
+  {
     title: 'Analytics Dashboard',
     description: 'View site traffic, conversions, and revenue metrics',
     icon: BarChart3,
