@@ -126,7 +126,16 @@ Deno.serve(async (req) => {
       ));
     }
 
-    // Fetch published blog posts from database
+    // Add SEO route pages
+    for (const route of routePages) {
+      urls.push(generateUrlEntry(
+        `${SITE_URL}/${route.slug}`,
+        today,
+        route.changefreq,
+        route.priority
+      ));
+    }
+
     const { data: blogPosts, error: blogError } = await supabase
       .from("blog_posts")
       .select("slug, updated_at, published_at")
