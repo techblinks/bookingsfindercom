@@ -46,6 +46,8 @@ import HotelBookingGuide from "./pages/HotelBookingGuide";
 import TripOptimizer from "./pages/TripOptimizer";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
+import RoutePage from "./pages/RoutePage";
+import ExitIntentPopup from "./components/ExitIntentPopup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
