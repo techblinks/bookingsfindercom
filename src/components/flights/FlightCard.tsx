@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import DealScoreBadge from "./DealScoreBadge";
 import PriceConfidenceIndicator from "./PriceConfidenceIndicator";
 import FlightWarningBadges from "./FlightWarningBadges";
+import UrgencyBadges from "./UrgencyBadges";
 
 interface FlightCardProps {
   flight: Flight;
