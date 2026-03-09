@@ -95,8 +95,8 @@ const FlightResultCard = ({
             </div>
           </div>
 
-          {/* Airline name + flight number */}
-          <div className="flex items-center gap-2 mt-2.5 ml-14">
+          {/* Airline name + flight number + urgency badges */}
+          <div className="flex flex-wrap items-center gap-2 mt-2.5 ml-14">
             <span className="text-xs text-muted-foreground">{displayName}</span>
             {flightNumber && (
               <>
@@ -112,6 +112,9 @@ const FlightResultCard = ({
                 </span>
               </>
             )}
+          </div>
+          <div className="mt-2 ml-14">
+            <UrgencyBadges price={price} />
           </div>
         </div>
 
