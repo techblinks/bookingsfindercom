@@ -68,6 +68,25 @@ const RoutePage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const route = slug ? parseRouteSlug(slug) : null;
+  const [dbContent, setDbContent] = useState<any>(null);
+  const [isLoadingContent, setIsLoadingContent] = useState(true);
+
+  // Fetch AI-generated content from DB
+  useEffect(() => {
+    if (!slug) return;
+    const fetchContent = async () => {
+      setIsLoadingContent(true);
+      const { data } = await supabase
+        .from('seo_route_pages' as any)
+        .select('*')
+        .eq('slug', slug)
+        .eq('is_published', true)
+        .single();
+      setDbContent(data);
+      setIsLoadingContent(false);
+    };
+    fetchContent();
+  }, [slug]);
 
   if (!route) {
     return (
@@ -83,15 +102,25 @@ const RoutePage = () => {
     );
   }
 
-  const originIATA = getIATA(route.originCity);
-  const destIATA = getIATA(route.destinationCity);
+  const originIATA = dbContent?.origin_iata || getIATA(route.originCity);
+  const destIATA = dbContent?.destination_iata || getIATA(route.destinationCity);
   const basePrice = getRoutePrice(originIATA, destIATA);
   const today = new Date();
   const searchDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const handleSearch = () => {
-    navigate(`/flights?from=${originIATA}&to=${destIATA}&date=${searchDate}&passengers=1&cabin=economy`);
+    navigate(`/flights?origin=${originIATA}&destination=${destIATA}&departureDate=${searchDate}&passengers=1&cabinClass=economy`);
   };
+
+  // Use DB content for title/description/content if available
+  const pageTitle = dbContent?.title || `Cheap Flights from ${route.originCity} to ${route.destinationCity}`;
+  const pageDescription = dbContent?.meta_description || `Compare cheap flights from ${route.originCity} to ${route.destinationCity} from $${basePrice}. Find the best deals, airlines, and travel tips for this route.`;
+  const h1Title = dbContent?.h1_title || `Cheap Flights from ${route.originCity} to ${route.destinationCity}`;
+  const introText = dbContent?.intro_paragraph || `Compare prices across multiple airlines and booking partners. Find the best deals for ${route.originCity} (${originIATA}) → ${route.destinationCity} (${destIATA}).`;
+  const mainContent = dbContent?.main_content || null;
+  const dbTips = dbContent?.travel_tips as any[] | null;
+  const dbFaqs = dbContent?.faqs as any[] | null;
+  const dbRelated = dbContent?.related_routes as any[] | null;
 
   const faqSchema = {
     "@context": "https://schema.org",
