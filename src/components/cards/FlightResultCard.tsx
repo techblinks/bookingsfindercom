@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plane, Clock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAirlineLogo, getAirlineName } from "@/lib/airlineLogos";
+import UrgencyBadges from "@/components/flights/UrgencyBadges";
 
 interface FlightResultCardProps {
   id: string;
