@@ -5,21 +5,27 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plane, ArrowRight, Calendar, TrendingDown, Search, Star, Clock, ExternalLink } from "lucide-react";
+import { Plane, ArrowRight, Calendar, TrendingDown, Search, Star, Clock, ExternalLink, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 // Convert slug like "london-to-dubai" to route info
 const parseRouteSlug = (slug: string) => {
   const parts = slug.split("-to-");
-  if (parts.length !== 2) return null;
-  
+  if (parts.length < 2) return null;
+
+  // Handle multi-word cities like "new-york-to-los-angeles" vs "london-to-new-york"
+  // The slug format is [origin-words]-to-[destination-words]
+  const toIndex = slug.indexOf("-to-");
+  const originSlug = slug.substring(0, toIndex);
+  const destinationSlug = slug.substring(toIndex + 4);
+
   const capitalize = (s: string) => s.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-  
+
   return {
-    originCity: capitalize(parts[0]),
-    destinationCity: capitalize(parts[1]),
-    originSlug: parts[0],
-    destinationSlug: parts[1],
+    originCity: capitalize(originSlug),
+    destinationCity: capitalize(destinationSlug),
+    originSlug,
+    destinationSlug,
   };
 };
 
