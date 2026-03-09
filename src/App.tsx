@@ -127,6 +127,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AnimatedRoutes />
+          <ExitIntentPopup />
           <CookieConsent />
           <BottomNav />
         </BrowserRouter>
