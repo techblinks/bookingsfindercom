@@ -165,7 +165,7 @@ const TripOptimizer = () => {
                       <div className="space-y-3">
                         <Button onClick={handleUpgrade} size="lg" className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
                           <Zap className="h-4 w-4 mr-2" />
-                          Upgrade to Pro - $15/month
+                          Upgrade to Pro — $9.99/month
                         </Button>
                         <Button variant="ghost" onClick={handleReset} className="w-full text-muted-foreground hover:text-foreground">
                           Maybe Later

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import DealScoreBadge from "./DealScoreBadge";
 import PriceConfidenceIndicator from "./PriceConfidenceIndicator";
 import FlightWarningBadges from "./FlightWarningBadges";
+import UrgencyBadges from "./UrgencyBadges";
 
 interface FlightCardProps {
   flight: Flight;
@@ -287,6 +288,14 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               )}
               
               <p className="text-xs text-muted-foreground">per person</p>
+              
+              {/* Urgency/Scarcity Badges */}
+              <UrgencyBadges
+                price={flight.price}
+                averagePrice={flight.average_price}
+                dealScore={flight.deal_score}
+                departureDate={flight.segments[0]?.depart_time}
+              />
             </div>
             <Button
               onClick={() => onBookNow(flight.id)}

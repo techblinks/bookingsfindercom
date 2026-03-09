@@ -39,6 +39,31 @@ const destinationPages = [
   { slug: "hotels-in-sydney", priority: "0.8", changefreq: "weekly" },
 ];
 
+// Auto-generated SEO route pages
+const routePages = [
+  "london-to-dubai", "london-to-new-york", "london-to-paris", "london-to-bangkok",
+  "london-to-istanbul", "london-to-singapore", "london-to-tokyo", "london-to-rome",
+  "london-to-barcelona", "london-to-amsterdam", "london-to-lisbon", "london-to-madrid",
+  "new-york-to-london", "new-york-to-paris", "new-york-to-dubai", "new-york-to-tokyo",
+  "new-york-to-cancun", "new-york-to-miami", "new-york-to-los-angeles", "new-york-to-rome",
+  "dubai-to-london", "dubai-to-paris", "dubai-to-bangkok", "dubai-to-istanbul",
+  "dubai-to-singapore", "dubai-to-mumbai", "dubai-to-delhi", "dubai-to-maldives",
+  "paris-to-london", "paris-to-new-york", "paris-to-dubai", "paris-to-rome",
+  "paris-to-barcelona", "paris-to-lisbon", "paris-to-amsterdam", "paris-to-tokyo",
+  "bangkok-to-singapore", "bangkok-to-tokyo", "bangkok-to-bali", "bangkok-to-kuala-lumpur",
+  "singapore-to-bali", "singapore-to-tokyo", "singapore-to-london", "singapore-to-sydney",
+  "istanbul-to-london", "istanbul-to-dubai", "istanbul-to-paris", "istanbul-to-rome",
+  "tokyo-to-london", "tokyo-to-new-york", "tokyo-to-seoul", "tokyo-to-bangkok",
+  "sydney-to-bali", "sydney-to-singapore", "sydney-to-tokyo", "sydney-to-london",
+  "mumbai-to-dubai", "mumbai-to-london", "mumbai-to-singapore", "mumbai-to-bangkok",
+  "delhi-to-dubai", "delhi-to-london", "delhi-to-bangkok", "delhi-to-singapore",
+  "los-angeles-to-tokyo", "los-angeles-to-london", "los-angeles-to-cancun",
+  "miami-to-cancun", "miami-to-london", "chicago-to-london", "toronto-to-london",
+  "doha-to-london", "doha-to-dubai", "cairo-to-london", "nairobi-to-london",
+  "johannesburg-to-london", "cape-town-to-dubai", "sao-paulo-to-london",
+  "mexico-city-to-new-york", "bogota-to-miami", "lima-to-new-york",
+].map(slug => ({ slug: `flights/${slug}`, priority: "0.7", changefreq: "weekly" }));
+
 function escapeXml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -101,7 +126,16 @@ Deno.serve(async (req) => {
       ));
     }
 
-    // Fetch published blog posts from database
+    // Add SEO route pages
+    for (const route of routePages) {
+      urls.push(generateUrlEntry(
+        `${SITE_URL}/${route.slug}`,
+        today,
+        route.changefreq,
+        route.priority
+      ));
+    }
+
     const { data: blogPosts, error: blogError } = await supabase
       .from("blog_posts")
       .select("slug, updated_at, published_at")

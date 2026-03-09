@@ -46,6 +46,8 @@ import HotelBookingGuide from "./pages/HotelBookingGuide";
 import TripOptimizer from "./pages/TripOptimizer";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
+import RoutePage from "./pages/RoutePage";
+import ExitIntentPopup from "./components/ExitIntentPopup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -75,6 +77,7 @@ const AnimatedRoutes = () => {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/account" element={<Account />} />
           <Route path="/flights" element={<FlightResults />} />
+          <Route path="/flights/:slug" element={<RoutePage />} />
           <Route path="/hotels" element={<HotelResults />} />
           <Route path="/my-alerts" element={<MyAlerts />} />
           <Route path="/admin" element={<AdminDashboard />} />
@@ -124,6 +127,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AnimatedRoutes />
+          <ExitIntentPopup />
           <CookieConsent />
           <BottomNav />
         </BrowserRouter>
