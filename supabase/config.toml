@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.get-popular-directions]
 verify_jwt = false
+
+[functions.generate-route-page]
+verify_jwt = false
