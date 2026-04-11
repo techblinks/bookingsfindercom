@@ -4,6 +4,7 @@ import MobileHeroSearch from "@/components/search/MobileHeroSearch";
 import { Link } from "react-router-dom";
 import { Sparkles, ArrowRight, TrendingDown, Clock, Shield } from "lucide-react";
 import worldMapPattern from "@/assets/world-map-pattern.png";
+import HeroEmailCapture from "@/components/home/HeroEmailCapture";
 
 interface HeroSectionProps {
   showFlights?: boolean;
@@ -78,6 +79,9 @@ const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps
             </div>
           </Link>
         </div>
+
+        {/* Email Signup Banner */}
+        <HeroEmailCapture />
       </div>
     </section>
   );
