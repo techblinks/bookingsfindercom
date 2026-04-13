@@ -344,7 +344,27 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
 
   const fetchFlights = useCallback(async () => {
     if (!params.origin || !params.destination || !params.departureDate) {
+      console.warn('Flight search skipped: missing required params', {
+        origin: params.origin,
+        destination: params.destination,
+        departureDate: params.departureDate,
+      });
       setIsLoading(false);
+      setError(!params.origin || !params.destination 
+        ? 'Please select both origin and destination airports.' 
+        : 'Please select a departure date.');
+      return;
+    }
+
+    // Validate airport codes (3-letter IATA)
+    const iataRegex = /^[A-Z]{3}$/;
+    if (!iataRegex.test(params.origin.toUpperCase()) || !iataRegex.test(params.destination.toUpperCase())) {
+      console.warn('Flight search skipped: invalid airport codes', {
+        origin: params.origin,
+        destination: params.destination,
+      });
+      setIsLoading(false);
+      setError('Invalid airport code. Please select a valid airport.');
       return;
     }
 
@@ -373,31 +393,61 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     });
 
     try {
+      // Set a 30-second timeout for the search
+      const timeoutId = setTimeout(() => {
+        abortControllerRef.current?.abort();
+      }, 30000);
+
+      const requestBody = {
+        origin: params.origin.toUpperCase(),
+        destination: params.destination.toUpperCase(),
+        depart_date: params.departureDate,
+        ...(params.returnDate ? { return_date: params.returnDate } : {}),
+        adults: params.passengers || 1,
+        currency: params.currency || 'USD',
+      };
+
+      console.log('Flight search request:', JSON.stringify(requestBody));
+
+      // Use anon key as fallback when user is not authenticated
+      const session = (await supabase.auth.getSession()).data.session;
+      const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+
       const response = await fetch(`${SUPABASE_URL}/functions/v1/search-flights`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
         },
-        body: JSON.stringify({
-          origin: params.origin,
-          destination: params.destination,
-          depart_date: params.departureDate,
-          ...(params.returnDate ? { return_date: params.returnDate } : {}),
-          adults: params.passengers,
-          currency: params.currency || 'USD',
-        }),
+        body: JSON.stringify(requestBody),
         signal: abortControllerRef.current.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to search flights');
+        const errorMsg = data.error || data.message || `Search failed (${response.status})`;
+        console.error('Flight search API error:', { status: response.status, error: errorMsg, details: data });
+        throw new Error(errorMsg);
       }
 
-      // Handle new API format: { flights: [], meta: { total_found, is_complete } }
+      // Handle API response
       const apiFlights = data.flights || data.results || [];
+      
+      console.log(`Flight search response: ${apiFlights.length} flights received`);
+
+      if (apiFlights.length === 0) {
+        console.info('Flight search returned 0 results', {
+          origin: params.origin,
+          destination: params.destination,
+          departureDate: params.departureDate,
+          returnDate: params.returnDate,
+        });
+      }
+
       const convertedFlights = apiFlights.map((f: any) => convertApiFlight(f, apiFlights));
       
       // Deduplicate by ID
@@ -412,8 +462,12 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       setMeta({
         total_found: data.meta?.total_found || enhancedFlights.length,
         is_complete: data.meta?.is_complete ?? true,
-        cheapest_price: Math.min(...enhancedFlights.map(f => f.price).filter(p => p > 0)),
-        fastest_duration: Math.min(...enhancedFlights.map(f => f.duration_minutes).filter(d => d > 0)),
+        cheapest_price: enhancedFlights.length > 0 
+          ? Math.min(...enhancedFlights.map(f => f.price).filter(p => p > 0))
+          : undefined,
+        fastest_duration: enhancedFlights.length > 0
+          ? Math.min(...enhancedFlights.map(f => f.duration_minutes).filter(d => d > 0))
+          : undefined,
       });
       setSearchProgress(100);
 
@@ -426,10 +480,12 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
 
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
+        console.warn('Flight search aborted (timeout or navigation)');
+        setError('Search timed out. Please try again.');
         return;
       }
       console.error('Flight search error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
       setIsSearching(false);
