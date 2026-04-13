@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plane, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,10 +10,12 @@ type SearchType = "flights" | "hotels";
 interface MobileHeroSearchProps {
   showFlights?: boolean;
   showHotels?: boolean;
+  defaultTab?: SearchType;
 }
 
-const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroSearchProps) => {
+const MobileHeroSearch = ({ showFlights = true, showHotels = true, defaultTab }: MobileHeroSearchProps) => {
   const getDefaultTab = (): SearchType => {
+    if (defaultTab) return defaultTab;
     if (showFlights) return "flights";
     if (showHotels) return "hotels";
     return "flights";
@@ -21,9 +23,14 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
 
   const [searchType, setSearchType] = useState<SearchType>(getDefaultTab());
   const [direction, setDirection] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number>(0);
-  const touchEndX = useRef<number>(0);
+
+  // Respond to defaultTab changes (from bottom nav)
+  useEffect(() => {
+    if (defaultTab && defaultTab !== searchType) {
+      setDirection(defaultTab === "hotels" ? 1 : -1);
+      setSearchType(defaultTab);
+    }
+  }, [defaultTab]);
 
   const allTabs = [
     { id: "flights" as const, label: "Flights", icon: Plane, enabled: showFlights },
@@ -36,31 +43,6 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
     if (newTab === searchType) return;
     setDirection(newTab === "hotels" ? 1 : -1);
     setSearchType(newTab);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = () => {
-    if (tabs.length < 2) return;
-    const swipeThreshold = 50;
-    const diff = touchStartX.current - touchEndX.current;
-
-    if (Math.abs(diff) > swipeThreshold) {
-      if (diff > 0 && searchType === "flights" && showHotels) {
-        switchTab("hotels");
-      } else if (diff < 0 && searchType === "hotels" && showFlights) {
-        switchTab("flights");
-      }
-    }
-
-    touchStartX.current = 0;
-    touchEndX.current = 0;
   };
 
   if (tabs.length === 0) {
@@ -78,9 +60,9 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
   };
 
   return (
-    <div className="w-full safe-area-bottom">
-      {/* Tab bar - pill style with scale bounce */}
-      <div className="flex bg-primary-foreground/15 rounded-full p-1 w-fit mb-5">
+    <div className="w-full">
+      {/* Tab bar - compact pill style */}
+      <div className="flex bg-primary-foreground/15 rounded-full p-1 w-fit mb-4">
         {tabs.map((tab) => (
           <motion.button
             key={tab.id}
@@ -100,13 +82,7 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
       </div>
 
       {/* Animated content */}
-      <div
-        ref={containerRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className="relative overflow-hidden"
-      >
+      <div className="relative overflow-hidden">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={searchType}
@@ -120,21 +96,6 @@ const MobileHeroSearch = ({ showFlights = true, showHotels = true }: MobileHeroS
             {searchType === "flights" ? <MobileFlightSearch /> : <MobileHotelSearch />}
           </motion.div>
         </AnimatePresence>
-      </div>
-
-      {/* Swipe indicator dots */}
-      <div className="flex justify-center gap-1.5 mt-4">
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={cn(
-              "h-1.5 rounded-full transition-all duration-300",
-              searchType === tab.id
-                ? "w-4 bg-primary-foreground/60"
-                : "w-1.5 bg-primary-foreground/25"
-            )}
-          />
-        ))}
       </div>
     </div>
   );

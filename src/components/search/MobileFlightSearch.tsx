@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plane, ArrowRightLeft, Calendar, Search, Users, ChevronDown, Clock, Zap } from "lucide-react";
+import { Plane, ArrowRightLeft, Calendar, Search, Users, ChevronDown, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import NativeDatePicker from "./NativeDatePicker";
 import NativeLocationPicker from "./NativeLocationPicker";
 import { PassengerCount } from "./PassengerPicker";
@@ -38,13 +38,6 @@ interface RecentFlightSearch {
 const RECENT_FLIGHTS_KEY = "bf_recent_flight_searches";
 const MAX_RECENT = 3;
 
-const popularRoutes = [
-  { from: "LON", fromCity: "London", to: "NYC", toCity: "New York" },
-  { from: "DXB", fromCity: "Dubai", to: "PAR", toCity: "Paris" },
-  { from: "LON", fromCity: "London", to: "BCN", toCity: "Barcelona" },
-  { from: "NYC", fromCity: "New York", to: "MIA", toCity: "Miami" },
-];
-
 const getRecentSearches = (): RecentFlightSearch[] => {
   try {
     return JSON.parse(localStorage.getItem(RECENT_FLIGHTS_KEY) || "[]");
@@ -64,7 +57,6 @@ const MobileFlightSearch = () => {
   const [tripType, setTripType] = useState<TripType>("roundtrip");
   const [flexibleDates, setFlexibleDates] = useState(false);
   const [swapRotation, setSwapRotation] = useState(0);
-  const [recentSearches, setRecentSearches] = useState<RecentFlightSearch[]>([]);
 
   const [flightFrom, setFlightFrom] = useState("");
   const [flightFromDisplay, setFlightFromDisplay] = useState("");
@@ -80,10 +72,6 @@ const MobileFlightSearch = () => {
   const [departureDateOpen, setDepartureDateOpen] = useState(false);
   const [returnDateOpen, setReturnDateOpen] = useState(false);
   const [optionsDrawerOpen, setOptionsDrawerOpen] = useState(false);
-
-  useEffect(() => {
-    setRecentSearches(getRecentSearches());
-  }, []);
 
   const swapLocations = () => {
     setSwapRotation(prev => prev + 180);
@@ -114,24 +102,12 @@ const MobileFlightSearch = () => {
     }
   };
 
-  const handleReturnDateSelect = (date: Date) => {
-    setReturnDate(date);
-  };
-
-  const applyRoute = (from: string, fromCity: string, to: string, toCity: string) => {
-    setFlightFrom(from);
-    setFlightFromDisplay(fromCity);
-    setFlightTo(to);
-    setFlightToDisplay(toCity);
-  };
-
   const handleSearch = () => {
     if (!flightFrom || !flightTo || !departureDate) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    // Save to recent searches
     saveRecentSearch({
       from: flightFrom,
       fromDisplay: flightFromDisplay,
@@ -173,13 +149,13 @@ const MobileFlightSearch = () => {
   };
 
   return (
-    <div className="w-full space-y-4">
-      {/* Trip Type Toggle - Pill style */}
-      <div className="flex items-center gap-3">
-        <div className="flex bg-primary-foreground/15 rounded-full p-1 w-fit">
+    <div className="w-full space-y-3">
+      {/* Trip Type + Flexible - Single compact row */}
+      <div className="flex items-center gap-2">
+        <div className="flex bg-primary-foreground/15 rounded-full p-0.5">
           {[
-            { value: "roundtrip" as const, label: "Round Trip" },
-            { value: "oneway" as const, label: "Oneway" },
+            { value: "roundtrip" as const, label: "Round" },
+            { value: "oneway" as const, label: "One Way" },
           ].map((type) => (
             <button
               key={type.value}
@@ -188,7 +164,7 @@ const MobileFlightSearch = () => {
                 if (type.value === "oneway") setReturnDate(undefined);
               }}
               className={cn(
-                "px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200",
+                "px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200",
                 tripType === type.value
                   ? "bg-primary-foreground text-primary shadow-sm"
                   : "text-primary-foreground/80"
@@ -199,126 +175,126 @@ const MobileFlightSearch = () => {
           ))}
         </div>
 
-        {/* Flexible Dates Toggle */}
         <button
           onClick={() => setFlexibleDates(!flexibleDates)}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-all duration-200 border",
+            "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 border",
             flexibleDates
               ? "bg-accent/20 border-accent text-accent-foreground"
               : "border-primary-foreground/20 text-primary-foreground/70"
           )}
         >
           <Zap className="h-3 w-3" />
-          Flexible
+          ±3d
         </button>
       </div>
 
-      {/* From Field */}
-      <div className="relative space-y-3">
-        <div>
-          <label className="text-xs font-medium text-primary-foreground/60 mb-1 block">From</label>
-          <button
-            onClick={() => setFromSheetOpen(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 bg-primary-foreground/95 rounded-xl text-left native-press min-h-[52px]"
-          >
-            <Plane className="h-5 w-5 text-primary -rotate-45 shrink-0" />
+      {/* Stacked From/To card */}
+      <div className="relative bg-primary-foreground/95 rounded-2xl overflow-hidden">
+        {/* From */}
+        <button
+          onClick={() => setFromSheetOpen(true)}
+          className="w-full flex items-center gap-3 px-4 py-3 text-left native-press border-b border-border/30"
+        >
+          <Plane className="h-4 w-4 text-primary -rotate-45 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">From</div>
             <span className={cn(
-              "text-base font-medium truncate",
+              "text-sm font-medium truncate block",
               flightFromDisplay ? "text-foreground" : "text-muted-foreground"
             )}>
               {flightFromDisplay || "Select city"}
             </span>
-          </button>
-        </div>
+          </div>
+        </button>
 
-        <NativeLocationPicker
-          isOpen={fromSheetOpen}
-          onClose={() => setFromSheetOpen(false)}
-          onSelect={(code: string, airport: Airport) => {
-            setFlightFrom(code);
-            setFlightFromDisplay(`${airport.city}`);
-          }}
-          title="Where from?"
-          placeholder="Search airports or cities..."
-        />
-
-        {/* Swap Button with rotation animation */}
+        {/* Swap Button */}
         <motion.button
           onClick={swapLocations}
           animate={{ rotate: swapRotation }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="absolute right-4 top-1/2 translate-y-[2px] z-10 w-9 h-9 bg-primary rounded-full flex items-center justify-center shadow-md border-2 border-primary-foreground/20 native-touch"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-md border-2 border-background native-touch"
         >
-          <ArrowRightLeft className="h-3.5 w-3.5 text-primary-foreground rotate-90" />
+          <ArrowRightLeft className="h-3 w-3 text-primary-foreground rotate-90" />
         </motion.button>
 
-        {/* To Field */}
-        <div>
-          <label className="text-xs font-medium text-primary-foreground/60 mb-1 block">To</label>
-          <button
-            onClick={() => setToSheetOpen(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 bg-primary-foreground/95 rounded-xl text-left native-press min-h-[52px]"
-          >
-            <Plane className="h-5 w-5 text-primary rotate-45 shrink-0" />
+        {/* To */}
+        <button
+          onClick={() => setToSheetOpen(true)}
+          className="w-full flex items-center gap-3 px-4 py-3 text-left native-press"
+        >
+          <Plane className="h-4 w-4 text-primary rotate-45 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">To</div>
             <span className={cn(
-              "text-base font-medium truncate",
+              "text-sm font-medium truncate block",
               flightToDisplay ? "text-foreground" : "text-muted-foreground"
             )}>
               {flightToDisplay || "Select city"}
             </span>
-          </button>
-        </div>
-
-        <NativeLocationPicker
-          isOpen={toSheetOpen}
-          onClose={() => setToSheetOpen(false)}
-          onSelect={(code: string, airport: Airport) => {
-            setFlightTo(code);
-            setFlightToDisplay(`${airport.city}`);
-          }}
-          title="Where to?"
-          placeholder="Search airports or cities..."
-        />
+          </div>
+        </button>
       </div>
 
-      {/* Date Fields - Side by side */}
+      <NativeLocationPicker
+        isOpen={fromSheetOpen}
+        onClose={() => setFromSheetOpen(false)}
+        onSelect={(code: string, airport: Airport) => {
+          setFlightFrom(code);
+          setFlightFromDisplay(`${airport.city}`);
+        }}
+        title="Where from?"
+        placeholder="Search airports or cities..."
+      />
+
+      <NativeLocationPicker
+        isOpen={toSheetOpen}
+        onClose={() => setToSheetOpen(false)}
+        onSelect={(code: string, airport: Airport) => {
+          setFlightTo(code);
+          setFlightToDisplay(`${airport.city}`);
+        }}
+        title="Where to?"
+        placeholder="Search airports or cities..."
+      />
+
+      {/* Date Fields */}
       <div className={cn(
-        "grid gap-3",
+        "grid gap-2",
         tripType === "roundtrip" ? "grid-cols-2" : "grid-cols-1"
       )}>
-        <div>
-          <label className="text-xs font-medium text-primary-foreground/60 mb-1 block">Depart</label>
-          <button
-            onClick={() => setDepartureDateOpen(true)}
-            className="w-full flex items-center gap-2 px-4 py-3.5 bg-primary-foreground/95 rounded-xl text-left native-press min-h-[52px]"
-          >
-            <Calendar className="h-4 w-4 text-primary shrink-0" />
+        <button
+          onClick={() => setDepartureDateOpen(true)}
+          className="flex items-center gap-2 px-4 py-3 bg-primary-foreground/95 rounded-xl text-left native-press"
+        >
+          <Calendar className="h-4 w-4 text-primary shrink-0" />
+          <div>
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Depart</div>
             <span className={cn(
               "text-sm font-medium",
               departureDate ? "text-foreground" : "text-muted-foreground"
             )}>
-              {departureDate ? format(departureDate, "d MMMM") : "Select"}
+              {departureDate ? format(departureDate, "d MMM") : "Select"}
             </span>
-          </button>
-        </div>
+          </div>
+        </button>
 
         {tripType === "roundtrip" && (
-          <div>
-            <label className="text-xs font-medium text-primary-foreground/60 mb-1 block">Return</label>
-            <button
-              onClick={() => setReturnDateOpen(true)}
-              className="w-full flex items-center gap-2 px-4 py-3.5 bg-primary-foreground/95 rounded-xl text-left native-press min-h-[52px]"
-            >
-              <Calendar className="h-4 w-4 text-primary shrink-0" />
+          <button
+            onClick={() => setReturnDateOpen(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-primary-foreground/95 rounded-xl text-left native-press"
+          >
+            <Calendar className="h-4 w-4 text-primary shrink-0" />
+            <div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Return</div>
               <span className={cn(
                 "text-sm font-medium",
                 returnDate ? "text-foreground" : "text-muted-foreground"
               )}>
-                {returnDate ? format(returnDate, "d MMMM") : "Select"}
+                {returnDate ? format(returnDate, "d MMM") : "Select"}
               </span>
-            </button>
-          </div>
+            </div>
+          </button>
         )}
       </div>
 
@@ -333,31 +309,30 @@ const MobileFlightSearch = () => {
       <NativeDatePicker
         isOpen={returnDateOpen}
         onClose={() => setReturnDateOpen(false)}
-        onSelect={handleReturnDateSelect}
+        onSelect={(date: Date) => setReturnDate(date)}
         selected={returnDate}
         minDate={departureDate}
         title="Select Return Date"
       />
 
-      {/* Passengers & Class - Side by side compact */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Passengers & Class - Compact row */}
+      <div className="grid grid-cols-2 gap-2">
         <Drawer open={optionsDrawerOpen} onOpenChange={setOptionsDrawerOpen}>
           <DrawerTrigger asChild>
-            <div>
-              <label className="text-xs font-medium text-primary-foreground/60 mb-1 block">Passengers</label>
-              <button className="w-full flex items-center gap-2 px-4 py-3.5 bg-primary-foreground/95 rounded-xl text-left native-press min-h-[52px]">
-                <Users className="h-4 w-4 text-primary shrink-0" />
+            <button className="flex items-center gap-2 px-4 py-3 bg-primary-foreground/95 rounded-xl text-left native-press">
+              <Users className="h-4 w-4 text-primary shrink-0" />
+              <div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Travelers</div>
                 <span className="text-sm font-medium text-foreground">{totalPassengers}</span>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
-              </button>
-            </div>
+              </div>
+              <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto shrink-0" />
+            </button>
           </DrawerTrigger>
           <DrawerContent>
             <DrawerHeader>
               <DrawerTitle>Travelers & Class</DrawerTitle>
             </DrawerHeader>
             <div className="px-4 pb-6 space-y-6">
-              {/* Passenger Counts */}
               <div className="space-y-4">
                 {([
                   { type: "adults" as const, label: "Adults", sub: "Age 12+", min: 1 },
@@ -390,7 +365,6 @@ const MobileFlightSearch = () => {
                 ))}
               </div>
 
-              {/* Cabin Class */}
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-3">Cabin class</div>
                 <div className="grid grid-cols-2 gap-2">
@@ -425,23 +399,22 @@ const MobileFlightSearch = () => {
           </DrawerContent>
         </Drawer>
 
-        {/* Class display */}
-        <div>
-          <label className="text-xs font-medium text-primary-foreground/60 mb-1 block">Class</label>
-          <button
-            onClick={() => setOptionsDrawerOpen(true)}
-            className="w-full flex items-center gap-2 px-4 py-3.5 bg-primary-foreground/95 rounded-xl text-left native-press min-h-[52px]"
-          >
+        <button
+          onClick={() => setOptionsDrawerOpen(true)}
+          className="flex items-center gap-2 px-4 py-3 bg-primary-foreground/95 rounded-xl text-left native-press"
+        >
+          <div>
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Class</div>
             <span className="text-sm font-medium text-foreground">{getCabinLabel()}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
-          </button>
-        </div>
+          </div>
+          <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto shrink-0" />
+        </button>
       </div>
 
       {/* Search Button */}
       <Button
         onClick={handleSearch}
-        className="w-full h-14 text-base font-semibold rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground native-button relative"
+        className="w-full h-13 text-base font-semibold rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground native-button"
         size="lg"
       >
         <Search className="h-5 w-5 mr-2" />
@@ -452,47 +425,6 @@ const MobileFlightSearch = () => {
           </span>
         )}
       </Button>
-
-      {/* Popular Routes */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-primary-foreground/50">Popular routes</p>
-        <div className="flex flex-wrap gap-2">
-          {popularRoutes.map((route) => (
-            <button
-              key={`${route.from}-${route.to}`}
-              onClick={() => applyRoute(route.from, route.fromCity, route.to, route.toCity)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-primary-foreground/10 hover:bg-primary-foreground/20 rounded-full text-xs font-medium text-primary-foreground/80 transition-colors native-touch"
-            >
-              {route.fromCity}
-              <Plane className="h-3 w-3 rotate-90" />
-              {route.toCity}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Searches */}
-      {recentSearches.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-primary-foreground/50 flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            Recent searches
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {recentSearches.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => applyRoute(s.from, s.fromDisplay, s.to, s.toDisplay)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-primary-foreground/10 hover:bg-primary-foreground/20 rounded-full text-xs font-medium text-primary-foreground/80 transition-colors native-touch"
-              >
-                {s.fromDisplay}
-                <Plane className="h-3 w-3 rotate-90" />
-                {s.toDisplay}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

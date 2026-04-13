@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, Plane } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -12,10 +12,18 @@ import { useHomeAds } from "@/hooks/useHomeAds";
 import { HomeAdSlot } from "@/components/ads/HomeAdSlot";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import AirlineOffers from "@/components/sections/AirlineOffers";
+import HeroEmailCapture from "@/components/home/HeroEmailCapture";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Index = () => {
   const { ads, trackImpression, trackClick } = useHomeAds();
   const { homepageSections, heroSearchTabs, isLoading: settingsLoading } = useSiteSettings();
+  const [searchParams] = useSearchParams();
+  const isMobile = useIsMobile();
+
+  // Read tab from URL for bottom nav integration
+  const tabParam = searchParams.get("tab") as "flights" | "hotels" | null;
+  const defaultTab = tabParam === "flights" || tabParam === "hotels" ? tabParam : undefined;
 
   return (
     <>
@@ -52,10 +60,25 @@ const Index = () => {
         <Header />
 
         <main className="flex-1">
-          {/* Hero Section with Search - Pass settings for tab visibility */}
-          <HeroSection showFlights={heroSearchTabs.flights} showHotels={heroSearchTabs.hotels} />
+          {/* Hero Section with Search */}
+          <HeroSection showFlights={heroSearchTabs.flights} showHotels={heroSearchTabs.hotels} defaultTab={defaultTab} />
 
-          {/* Ad Slot: Below Hero - High visibility placement */}
+          {/* Mobile Trust Stats Strip - Right after hero */}
+          {isMobile && homepageSections.trust_stats && (
+            <div className="py-3 bg-muted/50 border-b border-border/50">
+              <div className="container">
+                <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground font-medium">
+                  <span><strong className="text-foreground">500+</strong> Airlines</span>
+                  <span className="text-border">•</span>
+                  <span><strong className="text-foreground">1M+</strong> Hotels</span>
+                  <span className="text-border">•</span>
+                  <span><strong className="text-foreground">50M+</strong> Travelers</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ad Slot: Below Hero */}
           <HomeAdSlot 
             ad={ads['hero_below']} 
             placement="hero_below"
@@ -63,10 +86,10 @@ const Index = () => {
             onClick={trackClick}
           />
 
-          {/* Popular Routes - Dynamic location-based top searches */}
+          {/* Popular Routes */}
           {homepageSections.popular_routes && <PopularRoutes />}
 
-          {/* Ad Slot: Between Sections - Contextual placement */}
+          {/* Ad Slot: Between Sections */}
           <HomeAdSlot 
             ad={ads['between_sections']} 
             placement="between_sections"
@@ -74,47 +97,58 @@ const Index = () => {
             onClick={trackClick}
           />
 
+          {/* Mobile Email Capture - standalone section below fold */}
+          {isMobile && (
+            <section className="py-8 bg-primary">
+              <div className="container">
+                <HeroEmailCapture />
+              </div>
+            </section>
+          )}
+
           {/* How It Works Banner */}
           {homepageSections.how_it_works && <HowItWorks />}
 
-          {/* Why Book With Us */}
-          {homepageSections.why_book && <WhyBookWithUs />}
+          {/* Why Book With Us - desktop only */}
+          {!isMobile && homepageSections.why_book && <WhyBookWithUs />}
 
-          {/* Top Flight Destinations CTA */}
-          <section className="py-12 md:py-16 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
-            <div className="container">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-6 md:p-8 rounded-2xl bg-card border border-border shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-primary/10">
-                    <Plane className="h-6 w-6 text-primary" />
+          {/* Top Flight Destinations CTA - desktop only */}
+          {!isMobile && (
+            <section className="py-12 md:py-16 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
+              <div className="container">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-6 md:p-8 rounded-2xl bg-card border border-border shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-full bg-primary/10">
+                      <Plane className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl md:text-2xl font-bold text-foreground">
+                        Explore Top Flight Destinations
+                      </h2>
+                      <p className="text-muted-foreground mt-1">
+                        Discover the 20 most popular routes with the best deals from your location
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-bold text-foreground">
-                      Explore Top Flight Destinations
-                    </h2>
-                    <p className="text-muted-foreground mt-1">
-                      Discover the 20 most popular routes with the best deals from your location
-                    </p>
-                  </div>
+                  <Link 
+                    to="/top-flight-destinations"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
+                  >
+                    View Top 20 Routes
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
-                <Link 
-                  to="/top-flight-destinations"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
-                >
-                  View Top 20 Routes
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
 
-          {/* Airline Special Offers - Live deals */}
-          <AirlineOffers />
+          {/* Airline Special Offers - desktop only */}
+          {!isMobile && <AirlineOffers />}
 
           {/* Top Deals */}
           {homepageSections.top_deals && <TopDeals />}
 
-          {/* Ad Slot: Above Footer - Last chance placement */}
+          {/* Ad Slot: Above Footer */}
           <HomeAdSlot 
             ad={ads['footer_above']} 
             placement="footer_above"
@@ -122,8 +156,17 @@ const Index = () => {
             onClick={trackClick}
           />
 
-          {/* Trust Stats */}
-          {homepageSections.trust_stats && (
+          {/* Desktop Email Capture - in hero context */}
+          {!isMobile && (
+            <section className="py-8 bg-primary">
+              <div className="container">
+                <HeroEmailCapture />
+              </div>
+            </section>
+          )}
+
+          {/* Trust Stats - Desktop full version */}
+          {!isMobile && homepageSections.trust_stats && (
             <section className="py-12 md:py-16 bg-muted/50">
               <div className="container">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">

@@ -1,20 +1,20 @@
 import { Home, Plane, Building2, User } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const tabs = [
   { label: "Home", href: "/", icon: Home, key: "home" },
-  { label: "Flights", href: "/flights", icon: Plane, key: "flights" },
-  { label: "Hotels", href: "/hotels", icon: Building2, key: "hotels" },
+  { label: "Flights", href: "/?tab=flights", icon: Plane, key: "flights" },
+  { label: "Hotels", href: "/?tab=hotels", icon: Building2, key: "hotels" },
   { label: "Account", href: "/account", icon: User, key: "account" },
 ];
 
 const BottomNav = () => {
   const [activeAlerts, setActiveAlerts] = useState(0);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const checkAlerts = async () => {
@@ -31,23 +31,36 @@ const BottomNav = () => {
     checkAlerts();
   }, []);
 
-  const isActive = (href: string) => {
-    if (href === "/") return location.pathname === "/";
-    return location.pathname.startsWith(href);
+  const isActive = (key: string) => {
+    if (key === "home") return location.pathname === "/" && !location.search.includes("tab=");
+    if (key === "flights") return location.search.includes("tab=flights") || location.pathname.startsWith("/flights");
+    if (key === "hotels") return location.search.includes("tab=hotels") || location.pathname.startsWith("/hotels");
+    if (key === "account") return location.pathname.startsWith("/account");
+    return false;
+  };
+
+  const handleTabClick = (tab: typeof tabs[0], e: React.MouseEvent) => {
+    e.preventDefault();
+
+    if (tab.key === "flights" || tab.key === "hotels") {
+      // Navigate to homepage with tab param and scroll to top
+      navigate(`/?tab=${tab.key}`);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      navigate(tab.href);
+    }
   };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/98 backdrop-blur-xl border-t border-border/30 lg:hidden safe-area-bottom">
       <div className="flex items-stretch justify-around h-[60px]">
         {tabs.map((tab) => {
-          const active = isActive(tab.href);
+          const active = isActive(tab.key);
           return (
-            <NavLink
+            <button
               key={tab.key}
-              to={tab.href}
-              end={tab.href === "/"}
+              onClick={(e) => handleTabClick(tab, e)}
               className="relative flex flex-col items-center justify-center flex-1 gap-0.5 transition-colors native-touch"
-              activeClassName=""
             >
               <div className="relative flex flex-col items-center">
                 {/* Active pill indicator */}
@@ -72,7 +85,7 @@ const BottomNav = () => {
                   {tab.label}
                 </span>
               </div>
-            </NavLink>
+            </button>
           );
         })}
       </div>
