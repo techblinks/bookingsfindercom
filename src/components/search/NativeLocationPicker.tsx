@@ -61,7 +61,7 @@
    const [isLoading, setIsLoading] = useState(false);
    const [recentAirports, setRecentAirports] = useState<Airport[]>([]);
    const inputRef = useRef<HTMLInputElement>(null);
-   const debounceRef = useRef<NodeJS.Timeout>();
+   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
  
    useEffect(() => {
      if (isOpen) {
