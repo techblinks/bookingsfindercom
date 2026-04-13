@@ -66,7 +66,7 @@ const LocationCombobox = ({
   const [selectedAirport, setSelectedAirport] = useState<Airport | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Sync query with external value changes
   useEffect(() => {
