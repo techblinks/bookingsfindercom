@@ -4,18 +4,18 @@ import MobileHeroSearch from "@/components/search/MobileHeroSearch";
 import { Link } from "react-router-dom";
 import { Sparkles, ArrowRight, TrendingDown, Clock, Shield } from "lucide-react";
 import worldMapPattern from "@/assets/world-map-pattern.png";
-import HeroEmailCapture from "@/components/home/HeroEmailCapture";
 
 interface HeroSectionProps {
   showFlights?: boolean;
   showHotels?: boolean;
+  defaultTab?: "flights" | "hotels";
 }
 
-const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps) => {
+const HeroSection = ({ showFlights = true, showHotels = true, defaultTab }: HeroSectionProps) => {
   const isMobile = useIsMobile();
 
   return (
-    <section className="relative bg-primary py-10 md:py-20 overflow-hidden">
+    <section className="relative bg-primary py-6 md:py-20 overflow-hidden">
       {/* World map pattern overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-[0.15] pointer-events-none"
@@ -26,11 +26,11 @@ const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps
 
       <div className="container relative">
         {/* Hero Title */}
-        <div className="text-center mb-6 md:mb-10">
-          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-primary-foreground mb-2 md:mb-3 tracking-tight leading-tight">
+        <div className="text-center mb-4 md:mb-10">
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-primary-foreground mb-1 md:mb-3 tracking-tight leading-tight">
             {isMobile ? "Find cheap flights" : "Compare flights & hotels"}
           </h1>
-          <p className="text-sm md:text-lg text-primary-foreground/75 max-w-xl mx-auto font-normal">
+          <p className="text-sm md:text-lg text-primary-foreground/75 max-w-xl mx-auto font-normal hidden md:block">
             Search hundreds of travel sites at once
           </p>
         </div>
@@ -39,7 +39,7 @@ const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps
         <div className="max-w-5xl mx-auto">
           {isMobile ? (
             <div className="px-1">
-              <MobileHeroSearch showFlights={showFlights} showHotels={showHotels} />
+              <MobileHeroSearch showFlights={showFlights} showHotels={showHotels} defaultTab={defaultTab} />
             </div>
           ) : (
             <div className="bg-card rounded-2xl p-5 shadow-2xl border border-border/50">
@@ -48,8 +48,8 @@ const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps
           )}
         </div>
 
-        {/* Trip Optimizer CTA - Compact */}
-        <div className="max-w-3xl mx-auto mt-4 md:mt-6">
+        {/* Trip Optimizer CTA - Hidden on mobile */}
+        <div className="max-w-3xl mx-auto mt-4 md:mt-6 hidden md:block">
           <Link to="/optimizer" className="block group">
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/15 hover:bg-primary-foreground/15 transition-all">
               <div className="p-2 rounded-full bg-primary-foreground/15">
@@ -79,9 +79,6 @@ const HeroSection = ({ showFlights = true, showHotels = true }: HeroSectionProps
             </div>
           </Link>
         </div>
-
-        {/* Email Signup Banner */}
-        <HeroEmailCapture />
       </div>
     </section>
   );
