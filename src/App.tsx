@@ -81,6 +81,11 @@ const AnimatedRoutes = () => {
           <Route path="/tools" element={<PlaceholderPage title="Travel Tools" description="Visa checker, passport validity, packing lists and more — coming soon." />} />
           <Route path="/tools/visa" element={<PlaceholderPage title="Visa Checker" description="Check visa requirements for your destination — coming soon." />} />
           <Route path="/trip-cost" element={<PlaceholderPage title="Trip Cost Planner" description="Estimate the full cost of your journey — coming soon." />} />
+          <Route path="/passport-validity" element={<PlaceholderPage title="Passport Validity Guide" description="Tools to help you review passport validity requirements are coming soon." />} />
+          <Route path="/visa-requirements" element={<PlaceholderPage title="Visa Requirements Guide" description="Official-source travel requirement guidance is coming soon." />} />
+          <Route path="/packing-checklist" element={<PlaceholderPage title="Packing Checklist" description="Create and organise your travel packing list — coming soon." />} />
+          <Route path="/currency-converter" element={<PlaceholderPage title="Currency Converter" description="Convert currencies for trip planning — coming soon." />} />
+          <Route path="/travel-insurance" element={<PlaceholderPage title="Travel Insurance Guide" description="Guidance for reviewing travel insurance options is coming soon." />} />
           <Route path="/trips" element={<PlaceholderPage title="My Trips" description="Sign in to manage your upcoming trips — coming soon." />} />
           <Route path="/optimizer" element={<TripOptimizer />} />
           <Route path="/pricing" element={<Pricing />} />

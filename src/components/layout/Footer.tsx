@@ -4,36 +4,29 @@ import logo from "@/assets/logo.webp";
 const Footer = () => {
   const footerLinks = {
     plan: [
-      { label: "Trip Workspace", href: "/trips" },
-      { label: "True Trip Cost", href: "/trip-cost" },
-      { label: "Travel Readiness", href: "/trips" },
-      { label: "Destination Finder", href: "/discover" },
+      { label: "Trip Planner", href: "/plan" },
+      { label: "Trip Cost Planner", href: "/trip-cost" },
+      { label: "My Trips", href: "/trips" },
     ],
     tools: [
-      { label: "Visa Checker", href: "/tools/visa" },
-      { label: "Passport Validity", href: "/tools" },
-      { label: "Packing List", href: "/tools" },
-      { label: "Insurance Comparison", href: "/tools" },
-      { label: "eSIM Finder", href: "/tools" },
+      { label: "Passport Validity", href: "/passport-validity" },
+      { label: "Visa Requirements", href: "/visa-requirements" },
+      { label: "Packing Checklist", href: "/packing-checklist" },
+      { label: "Currency Converter", href: "/currency-converter" },
+      { label: "Travel Insurance", href: "/travel-insurance" },
     ],
     book: [
-      { label: "Search Flights", href: "/flights" },
-      { label: "Flight Deals", href: "/flight-deals-guide" },
-      { label: "Price Alerts", href: "/my-alerts" },
+      { label: "Flights", href: "/flights" },
     ],
     company: [
-      { label: "About Us", href: "/about" },
-      { label: "How It Works", href: "/how-it-works" },
-      { label: "Blog", href: "/blog" },
-      { label: "Press", href: "/press" },
+      { label: "About", href: "/about" },
       { label: "Contact", href: "/contact" },
+      { label: "Blog", href: "/blog" },
     ],
     legal: [
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Service", href: "/terms" },
-      { label: "Cookie Policy", href: "/cookies" },
       { label: "Affiliate Disclosure", href: "/affiliate-disclosure" },
-      { label: "Why We Don't Sell", href: "/why-we-dont-sell-tickets" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
     ],
   };
 

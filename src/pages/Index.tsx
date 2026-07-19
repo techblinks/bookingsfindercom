@@ -6,7 +6,9 @@ import { IntentSelector } from "@/components/home-v2/IntentSelector";
 import { ReadinessPreview } from "@/components/home-v2/ReadinessPreview";
 import { TrueTripCostPreview } from "@/components/home-v2/TrueTripCostPreview";
 import { TripWorkspacePreview } from "@/components/home-v2/TripWorkspacePreview";
+import { TravelToolsGrid } from "@/components/home-v2/TravelToolsGrid";
 import { FlightHandoff } from "@/components/home-v2/FlightHandoff";
+import { TrustTransparency } from "@/components/home-v2/TrustTransparency";
 import { SectionContainer } from "@/components/home-v2/SectionContainer";
 import { SectionHeading } from "@/components/home-v2/SectionHeading";
 import PopularRoutes from "@/components/sections/PopularRoutes";
@@ -70,37 +72,23 @@ const Index = () => {
           {/* 5. Trip Workspace Preview */}
           <TripWorkspacePreview />
 
-          {/* 6. Flight Search Handoff */}
+          {/* 6. Travel Tools Grid */}
+          <TravelToolsGrid />
+
+          {/* 7. Flight Search Handoff */}
           <FlightHandoff />
 
-          {/* 7. Destination Discovery — keep legacy PopularRoutes */}
+          {/* 8. Destination Discovery — legacy PopularRoutes */}
           <SectionContainer className="bg-muted/50">
             <SectionHeading
               headline="Not sure where to go?"
               supporting="Browse popular routes and see indicative flight prices from your nearest airport."
             />
-            <PopularRoutes />
+            <PopularRoutes showHeading={false} />
           </SectionContainer>
 
-          {/* 8. Trust and transparency */}
-          <SectionContainer className="bg-background">
-            <SectionHeading
-              headline="How we work"
-              supporting="BookingsFinder is a travel planning platform. We help you plan, prepare, and compare — then connect you to our booking partners. We earn a commission when you book through our partners, at no extra cost to you."
-            />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto text-center">
-              {[
-                { title: "Compare with partners", description: "We work with travel booking partners to show you available offers." },
-                { title: "Plan in one place", description: "Organise every trip, booking, and deadline in a single workspace." },
-                { title: "Travel ready", description: "Know exactly what you need before you go — visas, documents, insurance." },
-              ].map((item) => (
-                <div key={item.title} className="p-6 rounded-xl bg-card border border-border">
-                  <h3 className="text-base font-semibold text-foreground mb-2">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </SectionContainer>
+          {/* 9. Trust and Transparency */}
+          <TrustTransparency />
         </main>
 
         <Footer />

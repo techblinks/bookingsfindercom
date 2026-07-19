@@ -23,7 +23,7 @@ interface RouteData {
   live?: boolean;
 }
 
-const PopularRoutes = () => {
+const PopularRoutes = ({ showHeading = true }: { showHeading?: boolean }) => {
   const { geoData, regionConfig, loading: geoLoading } = useGeoLocation();
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [pricesLoading, setPricesLoading] = useState(false);
@@ -206,44 +206,46 @@ const PopularRoutes = () => {
 
   return (
     <section className="py-10 md:py-14 overflow-hidden">
-      {/* Header */}
-      <div className="container mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <h2 className="text-xl md:text-2xl font-bold text-foreground">
-                Top Searched Routes
-              </h2>
+      {/* Header — hidden when parent provides its own heading via showHeading={false} */}
+      {showHeading && (
+        <div className="container mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <h2 className="text-xl md:text-2xl font-bold text-foreground">
+                  Top Searched Routes
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {isLiveData ? "Trending" : "Popular"} flights from {geoData?.city || geoData?.country || "your region"} • Indicative prices from travel partners
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {isLiveData ? "Trending" : "Popular"} flights from {geoData?.city || geoData?.country || "your region"} • Indicative prices from travel partners
-            </p>
-          </div>
 
-          {/* Navigation arrows - desktop only */}
-          <div className="hidden md:flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={() => scroll("left")}
-              disabled={!canScrollLeft}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={() => scroll("right")}
-              disabled={!canScrollRight}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            {/* Navigation arrows - desktop only */}
+            <div className="hidden md:flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => scroll("left")}
+                disabled={!canScrollLeft}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => scroll("right")}
+                disabled={!canScrollRight}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Carousel */}
       <div className="relative">
