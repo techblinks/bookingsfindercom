@@ -1,4 +1,6 @@
-import { MapPin, FileCheck, Calculator, Mail, Plane, ClipboardCheck } from "lucide-react";
+import { MapPin, FileCheck, Calculator, Mail, Plane, ClipboardCheck, Hotel, Car, Shield, Wifi, Bus, UtensilsCrossed, Ticket, PiggyBank } from "lucide-react";
+
+// ── Intent Card types and data ──
 
 export interface IntentCard {
   id: string;
@@ -68,12 +70,7 @@ export const intentCards: IntentCard[] = [
 ];
 
 export const iconMap: Record<string, React.ComponentType<Record<string, never>>> = {
-  MapPin: MapPin,
-  FileCheck: FileCheck,
-  Calculator: Calculator,
-  Mail: Mail,
-  Plane: Plane,
-  ClipboardCheck: ClipboardCheck,
+  MapPin, FileCheck, Calculator, Mail, Plane, ClipboardCheck,
 };
 
 export interface LaunchBadgeInfo {
@@ -85,4 +82,54 @@ export const launchBadge: Record<string, LaunchBadgeInfo | null> = {
   mvp: null,
   "post-mvp": { label: "Soon", className: "bg-accent/10 text-accent border-accent/20" },
   "coming-soon": { label: "Coming soon", className: "bg-muted text-muted-foreground border-border" },
+};
+
+// ── Trip Cost Preview types and example data ──
+
+export interface TripCostCategory {
+  label: string;
+  amount: number;
+  icon: string;
+  note?: string;
+}
+
+export const exampleTripCostCategories: TripCostCategory[] = [
+  { label: "Flights", amount: 620, icon: "Plane", note: "Round trip — Sydney to Bali" },
+  { label: "Accommodation", amount: 480, icon: "Hotel", note: "7 nights, mid-range hotel" },
+  { label: "Airport transfers", amount: 85, icon: "Car", note: "Both ends, private transfer" },
+  { label: "Travel insurance", amount: 65, icon: "Shield", note: "Standard single-trip cover" },
+  { label: "eSIM / mobile data", amount: 25, icon: "Wifi", note: "7-day data plan" },
+  { label: "Local transport", amount: 40, icon: "Bus", note: "Scooter hire, taxis" },
+  { label: "Food and daily spending", amount: 210, icon: "UtensilsCrossed", note: "~$30/day for 7 days" },
+  { label: "Activities", amount: 120, icon: "Ticket", note: "Tours, entry fees, experiences" },
+  { label: "Contingency", amount: 100, icon: "PiggyBank", note: "Unexpected costs buffer" },
+];
+
+export const exampleTripCostTotal = exampleTripCostCategories.reduce((sum, c) => sum + c.amount, 0);
+
+export const costIconMap: Record<string, React.ComponentType<Record<string, never>>> = {
+  Plane, Hotel, Car, Shield, Wifi, Bus, UtensilsCrossed, Ticket, PiggyBank,
+};
+
+// ── Trip Workspace Preview types and example data ──
+
+export interface WorkspaceTimelineItem {
+  label: string;
+  status: "confirmed" | "pending" | "attention";
+  detail: string;
+  icon: string;
+}
+
+export const exampleWorkspaceItems: WorkspaceTimelineItem[] = [
+  { label: "Flight booking", status: "confirmed", detail: "QF41 SYD→DPS — Aug 15, 9:30am — confirmed", icon: "Plane" },
+  { label: "Accommodation", status: "confirmed", detail: "7 nights at Kuta Seaside — confirmed", icon: "Hotel" },
+  { label: "Passport validity", status: "confirmed", detail: "Valid until Feb 2027 — 8 months beyond return", icon: "Shield" },
+  { label: "Travel insurance", status: "pending", detail: "Not yet arranged — compare options now", icon: "Shield" },
+  { label: "Airport transfer", status: "pending", detail: "Book DPS airport pickup — ~$25", icon: "Car" },
+  { label: "Visa on arrival", status: "attention", detail: "Available at DPS — bring USD $35 cash", icon: "Ticket" },
+  { label: "Packing checklist", status: "pending", detail: "Adapter Type C/F, sunscreen, insect repellent", icon: "PiggyBank" },
+];
+
+export const workspaceIconMap: Record<string, React.ComponentType<Record<string, never>>> = {
+  Plane, Hotel, Shield, Car, Ticket, PiggyBank,
 };

@@ -1,7 +1,10 @@
 export { HeroV2 } from "./HeroV2";
 export { IntentSelector } from "./IntentSelector";
 export { ReadinessPreview } from "./ReadinessPreview";
+export { TrueTripCostPreview } from "./TrueTripCostPreview";
+export { TripWorkspacePreview } from "./TripWorkspacePreview";
+export { FlightHandoff } from "./FlightHandoff";
 export { SectionContainer } from "./SectionContainer";
 export { SectionHeading } from "./SectionHeading";
-export { intentCards, iconMap, launchBadge } from "./homeV2Config";
-export type { IntentCard } from "./homeV2Config";
+export { intentCards, iconMap, launchBadge, exampleTripCostCategories, exampleTripCostTotal, costIconMap, exampleWorkspaceItems, workspaceIconMap } from "./homeV2Config";
+export type { IntentCard, LaunchBadgeInfo, TripCostCategory, WorkspaceTimelineItem } from "./homeV2Config";

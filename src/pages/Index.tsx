@@ -1,10 +1,12 @@
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { HeroV2 } from "@/components/home-v2/HeroV2";
 import { IntentSelector } from "@/components/home-v2/IntentSelector";
 import { ReadinessPreview } from "@/components/home-v2/ReadinessPreview";
+import { TrueTripCostPreview } from "@/components/home-v2/TrueTripCostPreview";
+import { TripWorkspacePreview } from "@/components/home-v2/TripWorkspacePreview";
+import { FlightHandoff } from "@/components/home-v2/FlightHandoff";
 import { SectionContainer } from "@/components/home-v2/SectionContainer";
 import { SectionHeading } from "@/components/home-v2/SectionHeading";
 import PopularRoutes from "@/components/sections/PopularRoutes";
@@ -62,8 +64,17 @@ const Index = () => {
           {/* 3. Readiness Preview */}
           <ReadinessPreview />
 
-          {/* 4. Destination Discovery — keep legacy PopularRoutes for now, updated */}
-          <SectionContainer className="bg-background">
+          {/* 4. True Trip Cost Preview */}
+          <TrueTripCostPreview />
+
+          {/* 5. Trip Workspace Preview */}
+          <TripWorkspacePreview />
+
+          {/* 6. Flight Search Handoff */}
+          <FlightHandoff />
+
+          {/* 7. Destination Discovery — keep legacy PopularRoutes */}
+          <SectionContainer className="bg-muted/50">
             <SectionHeading
               headline="Not sure where to go?"
               supporting="Browse popular routes and see indicative flight prices from your nearest airport."
@@ -71,26 +82,7 @@ const Index = () => {
             <PopularRoutes />
           </SectionContainer>
 
-          {/* 5. Flight Search handoff — compact section */}
-          <SectionContainer className="bg-muted/50">
-            <SectionHeading
-              headline="Search flights with our travel partners"
-              supporting="Compare prices across airlines. We'll connect you to our booking partner to complete your booking."
-            />
-            <div className="max-w-xl mx-auto text-center">
-              <Link
-                to="/flights"
-                className="inline-flex items-center gap-2 px-8 py-3.5 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:bg-primary-hover transition-colors"
-              >
-                Search flights
-              </Link>
-              <p className="mt-3 text-sm text-muted-foreground">
-                We earn a commission from our travel partners at no extra cost to you.
-              </p>
-            </div>
-          </SectionContainer>
-
-          {/* 6. Trust and transparency */}
+          {/* 8. Trust and transparency */}
           <SectionContainer className="bg-background">
             <SectionHeading
               headline="How we work"

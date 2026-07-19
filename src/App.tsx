@@ -80,7 +80,7 @@ const AnimatedRoutes = () => {
           <Route path="/discover" element={<PlaceholderPage title="Discover Destinations" description="Browse destinations and find your next trip — coming soon." />} />
           <Route path="/tools" element={<PlaceholderPage title="Travel Tools" description="Visa checker, passport validity, packing lists and more — coming soon." />} />
           <Route path="/tools/visa" element={<PlaceholderPage title="Visa Checker" description="Check visa requirements for your destination — coming soon." />} />
-          <Route path="/trip-cost" element={<PlaceholderPage title="True Trip Cost" description="See the real cost including bags, transfers, and insurance — coming soon." />} />
+          <Route path="/trip-cost" element={<PlaceholderPage title="Trip Cost Planner" description="Estimate the full cost of your journey — coming soon." />} />
           <Route path="/trips" element={<PlaceholderPage title="My Trips" description="Sign in to manage your upcoming trips — coming soon." />} />
           <Route path="/optimizer" element={<TripOptimizer />} />
           <Route path="/pricing" element={<Pricing />} />
