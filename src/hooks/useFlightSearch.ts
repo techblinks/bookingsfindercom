@@ -52,7 +52,7 @@ function getHourFromISO(isoString: string): number {
   }
 }
 
-// Calculate deal score based on price, duration, and stops relative to other flights
+// REMOVED: calculateDealScore - was batch-relative, not market-based
 function calculateDealScore(flight: Flight, allFlights: Flight[]): number {
   if (allFlights.length === 0) return 50;
 
@@ -80,7 +80,7 @@ function calculateDealScore(flight: Flight, allFlights: Flight[]): number {
   return Math.round((1 - weightedScore) * 100);
 }
 
-// Determine price confidence based on simulated historical comparison
+// Calculate price confidence based on comparison with other results in current search
 function calculatePriceConfidence(flight: Flight, allFlights: Flight[]): { 
   confidence: PriceConfidence; 
   trend: 'rising' | 'stable' | 'falling';
@@ -454,11 +454,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       const uniqueFlights = Array.from(
         new Map(convertedFlights.map((f: Flight) => [f.id, f])).values()
       ) as Flight[];
-      
-      // Enhance flights with deal scores and price confidence
-      const enhancedFlights = enhanceFlights(uniqueFlights);
-      
-      setFlights(enhancedFlights);
+      setFlights(uniqueFlights);
       setMeta({
         total_found: data.meta?.total_found || enhancedFlights.length,
         is_complete: data.meta?.is_complete ?? true,

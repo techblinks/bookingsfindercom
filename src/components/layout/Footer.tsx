@@ -62,7 +62,7 @@ const Footer = () => {
               <img src={logo} alt="BookingsFinder" className="h-10 w-auto" />
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
-              Compare prices across hundreds of travel sites to find the best deals.
+              Compare prices from our travel partners to find the best deals.
             </p>
             <div className="text-sm text-muted-foreground">
               <p className="font-medium text-foreground mb-1">Headquarters</p>

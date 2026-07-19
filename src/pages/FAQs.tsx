@@ -10,7 +10,7 @@ const FAQs = () => {
       questions: [
         {
           q: "What is BookingsFinder?",
-          a: "BookingsFinder is a travel comparison platform that helps you find the best deals on flights and hotels by searching across hundreds of travel sites simultaneously. We don't sell tickets or make bookings directly – we help you compare prices and then redirect you to the booking site of your choice.",
+          a: "BookingsFinder is a travel comparison platform that helps you find available deals on flights and hotels by searching across our travel partners. We don't sell tickets or make bookings directly – we help you compare prices and then redirect you to the booking site of your choice.",
         },
         {
           q: "Is BookingsFinder free to use?",

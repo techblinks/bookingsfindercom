@@ -99,7 +99,7 @@ const HowItWorks = () => {
     },
     {
       icon: Users,
-      title: "2M+ Happy Travelers",
+      title: "Join travelers who save",
       description: "Join millions of travelers who've saved money with our platform."
     },
     {
@@ -321,7 +321,7 @@ const HowItWorks = () => {
                   Ready to Find Your Next Adventure?
                 </h2>
                 <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-                  Join over 2 million travelers who've saved money with BookingsFinder. 
+                  Join travelers who've saved money with BookingsFinder.
                   Start searching now – it's completely free!
                 </p>
                 <Button size="lg" variant="secondary" asChild>

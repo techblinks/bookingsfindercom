@@ -31,7 +31,7 @@ const HeroSection = ({ showFlights = true, showHotels = true, defaultTab }: Hero
             {isMobile ? "Find cheap flights" : "Compare flights & hotels"}
           </h1>
           <p className="text-sm md:text-lg text-primary-foreground/75 max-w-xl mx-auto font-normal hidden md:block">
-            Search hundreds of travel sites at once
+            Compare prices from our travel partners at once
           </p>
         </div>
 

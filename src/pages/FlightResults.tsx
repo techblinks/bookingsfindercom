@@ -12,7 +12,7 @@ import EmptyFlightState from "@/components/flights/EmptyFlightState";
 import EnhancedEmptyFlightResults from "@/components/states/EnhancedEmptyFlightResults";
 import SearchingIndicator from "@/components/flights/SearchingIndicator";
 import SortDropdown from "@/components/flights/SortDropdown";
-import FlexibleDatesMatrix from "@/components/flights/FlexibleDatesMatrix";
+
 import PriceCalendar from "@/components/flights/PriceCalendar";
 import WeeklyPriceHeatmap from "@/components/flights/WeeklyPriceHeatmap";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
@@ -33,28 +33,8 @@ import { useGeoLocation } from "@/hooks/useGeoLocation";
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
-// Generate mock flexible dates data (would come from backend in production)
-const generateFlexibleDates = (baseDate: string, cheapestPrice: number) => {
-  const dates = [];
-  const base = new Date(baseDate);
-  
-  for (let i = -3; i <= 10; i++) {
-    const date = new Date(base);
-    date.setDate(date.getDate() + i);
-    
-    // Simulate varying prices
-    const variance = (Math.random() - 0.3) * 0.4; // -30% to +10%
-    const price = i === 0 ? cheapestPrice : Math.round(cheapestPrice * (1 + variance));
-    
-    dates.push({
-      date: date.toISOString().split('T')[0],
-      price: price > 0 ? price : null,
-      isCheapest: i === 0,
-    });
-  }
-  
-  return dates;
-};
+// REMOVED: generateFlexibleDates mock function (was Math.random())
+// Flexible dates available via PriceCalendar (real Travelpayouts data)
 
 const FlightResults = () => {
   const [searchParams] = useSearchParams();
@@ -108,12 +88,6 @@ const FlightResults = () => {
 
   // Fetch ads (lazy loaded, non-blocking)
   const { ads, trackImpression, trackClick } = useAds('flights');
-
-  // Generate flexible dates
-  const flexibleDates = useMemo(() => {
-    if (!departureDate || cheapestPrice <= 0) return [];
-    return generateFlexibleDates(departureDate, cheapestPrice);
-  }, [departureDate, cheapestPrice]);
 
   // Reset display count when filters change
   useEffect(() => {
@@ -458,17 +432,7 @@ const FlightResults = () => {
               </div>
             )}
 
-            {/* Flexible Dates Matrix */}
-            {!isLoading && flexibleDates.length > 0 && (
-              <div className="mb-4">
-                <FlexibleDatesMatrix
-                  dates={flexibleDates}
-                  selectedDate={departureDate}
-                  currency={currencySymbol}
-                  onDateSelect={handleDateSelect}
-                />
-              </div>
-            )}
+            {/* REMOVED: FlexibleDatesMatrix - was Math.random() simulated prices */}
 
             {/* Price Tools - Collapsible on mobile */}
             {origin && destination && (
