@@ -1,41 +1,21 @@
-import { Menu, X, Plane, Building2, Bell, Sparkles, ChevronDown, ChevronRight, HelpCircle, MessageCircle, FileQuestion, Map } from "lucide-react";
+import { Menu, X, Compass, Map, Wrench, Briefcase, HelpCircle, MessageCircle, FileQuestion, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import logo from "@/assets/logo.webp";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const prefersReducedMotion = useReducedMotion();
 
   const navItems = [
-    { label: "Flights", href: "/top-flight-destinations", icon: Plane },
-    { label: "Hotels", href: "/top-hotel-destinations", icon: Building2 },
-    { label: "Trip Optimizer", href: "/optimizer", icon: Sparkles },
-    { label: "My Alerts", href: "/my-alerts", icon: Bell },
-  ];
-
-  const exploreItems = [
-    { label: "Top Flight Destinations", href: "/top-flight-destinations", icon: Plane },
-    { label: "Top Hotel Destinations", href: "/top-hotel-destinations", icon: Building2 },
-    { label: "Flight Deals Guide", href: "/flight-deals-guide", icon: Map },
-    { label: "Hotel Booking Guide", href: "/hotel-booking-guide", icon: Map },
-    { label: "How It Works", href: "/how-it-works", icon: HelpCircle },
-  ];
-
-  const supportItems = [
-    { label: "Help Center", href: "/help", icon: HelpCircle },
-    { label: "FAQs", href: "/faqs", icon: FileQuestion },
-    { label: "Contact Us", href: "/contact", icon: MessageCircle },
+    { label: "Discover", href: "/discover", icon: Compass },
+    { label: "Plan", href: "/plan", icon: Map },
+    { label: "Tools", href: "/tools", icon: Wrench },
+    { label: "Trips", href: "/trips", icon: Briefcase },
   ];
 
   const isActive = (href: string) => location.pathname === href;
@@ -67,7 +47,7 @@ const Header = () => {
                   "flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold rounded-full transition-all duration-150",
                   isActive(item.href)
                     ? "text-primary bg-primary/10"
-                    : "text-foreground/70 hover:text-foreground hover:bg-accent/60"
+                    : "text-foreground/70 hover:text-foreground hover:bg-muted"
                 )}
               >
                 <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -75,45 +55,14 @@ const Header = () => {
               </Link>
             ))}
 
-            {/* Explore Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-3.5 py-2 text-[13px] font-semibold text-foreground/70 hover:text-foreground rounded-full transition-all duration-150 hover:bg-accent/60 outline-none" aria-label="Explore travel options">
-                  Explore
-                  <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-52">
-                {exploreItems.map((item) => (
-                  <DropdownMenuItem key={item.label} asChild>
-                    <Link to={item.href} className="flex items-center gap-2 cursor-pointer">
-                      <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                      {item.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Support Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-3.5 py-2 text-[13px] font-semibold text-foreground/70 hover:text-foreground rounded-full transition-all duration-150 hover:bg-accent/60 outline-none" aria-label="Help and support">
-                  Help
-                  <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-44">
-                {supportItems.map((item) => (
-                  <DropdownMenuItem key={item.label} asChild>
-                    <Link to={item.href} className="flex items-center gap-2 cursor-pointer">
-                      <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                      {item.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Help Link */}
+            <Link
+              to="/help"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold text-foreground/70 hover:text-foreground rounded-full transition-all duration-150 hover:bg-muted"
+            >
+              <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              Help
+            </Link>
           </nav>
 
           {/* Desktop Actions */}
@@ -121,8 +70,12 @@ const Header = () => {
             <Button variant="ghost" size="sm" className="rounded-full text-[13px] h-9" asChild>
               <Link to="/account">Sign In</Link>
             </Button>
-            <Button size="sm" className="rounded-full text-[13px] h-9 px-5" asChild>
-              <Link to="/account">Get Started</Link>
+            <Button
+              size="sm"
+              className="rounded-full text-[13px] h-9 px-5 bg-accent hover:bg-accent/90 text-accent-foreground"
+              asChild
+            >
+              <Link to="/plan">Plan a Trip</Link>
             </Button>
           </div>
 
@@ -147,16 +100,16 @@ const Header = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
               className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm lg:hidden"
               onClick={close}
             />
 
             <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              initial={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
+              transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", damping: 30, stiffness: 300 }}
               className="fixed top-0 right-0 bottom-0 z-[70] w-[85%] max-w-sm bg-background shadow-2xl lg:hidden safe-area-top safe-area-bottom flex flex-col"
             >
               {/* Panel Header */}
@@ -171,22 +124,19 @@ const Header = () => {
 
               {/* Scrollable Content */}
               <div className="flex-1 overflow-y-auto scroll-native py-3">
-                {/* Main Navigation */}
                 <div className="px-3">
                   {navItems.map((item, i) => (
                     <motion.div
                       key={item.label}
-                      initial={{ opacity: 0, x: 16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04, duration: 0.2 }}
+                      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: 16 }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                      transition={prefersReducedMotion ? { duration: 0 } : { delay: i * 0.04, duration: 0.2 }}
                     >
                       <Link
                         to={item.href}
                         className={cn(
                           "flex items-center gap-3 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors",
-                          isActive(item.href)
-                            ? "text-primary bg-primary/8"
-                            : "text-foreground"
+                          isActive(item.href) ? "text-primary bg-primary/8" : "text-foreground"
                         )}
                         onClick={close}
                       >
@@ -205,46 +155,19 @@ const Header = () => {
 
                 <div className="mx-5 my-3 h-px bg-border/60" />
 
-                {/* Explore Section */}
+                {/* Help + Support */}
                 <div className="px-3">
-                  <p className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
-                    Explore
-                  </p>
-                  {exploreItems.map((item, i) => (
+                  <p className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Help</p>
+                  {[
+                    { label: "Help Center", href: "/help", icon: HelpCircle },
+                    { label: "FAQs", href: "/faqs", icon: FileQuestion },
+                    { label: "Contact Us", href: "/contact", icon: MessageCircle },
+                  ].map((item, i) => (
                     <motion.div
                       key={item.label}
-                      initial={{ opacity: 0, x: 16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: (navItems.length + i) * 0.03, duration: 0.2 }}
-                    >
-                      <Link
-                        to={item.href}
-                        className="flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-foreground rounded-xl"
-                        onClick={close}
-                      >
-                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-muted">
-                          <item.icon className="h-[18px] w-[18px] text-muted-foreground" />
-                        </div>
-                        <span className="flex-1">{item.label}</span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-
-                <div className="mx-5 my-3 h-px bg-border/60" />
-
-                {/* Support Section */}
-                <div className="px-3">
-                  <p className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
-                    Support
-                  </p>
-                  {supportItems.map((item, i) => (
-                    <motion.div
-                      key={item.label}
-                      initial={{ opacity: 0, x: 16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: (navItems.length + exploreItems.length + i) * 0.03, duration: 0.2 }}
+                      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: 16 }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                      transition={prefersReducedMotion ? { duration: 0 } : { delay: (navItems.length + i) * 0.03, duration: 0.2 }}
                     >
                       <Link
                         to={item.href}
@@ -267,8 +190,8 @@ const Header = () => {
                 <Button variant="outline" className="w-full h-12 rounded-xl text-[15px] font-semibold" asChild>
                   <Link to="/account" onClick={close}>Sign In</Link>
                 </Button>
-                <Button className="w-full h-12 rounded-xl text-[15px] font-semibold" asChild>
-                  <Link to="/account" onClick={close}>Get Started</Link>
+                <Button className="w-full h-12 rounded-xl text-[15px] font-semibold bg-accent hover:bg-accent/90 text-accent-foreground" asChild>
+                  <Link to="/plan" onClick={close}>Plan a Trip</Link>
                 </Button>
               </div>
             </motion.div>

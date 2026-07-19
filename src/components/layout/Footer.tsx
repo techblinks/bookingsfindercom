@@ -3,53 +3,38 @@ import logo from "@/assets/logo.webp";
 
 const Footer = () => {
   const footerLinks = {
-    explore: [
-      { label: "Flights", href: "/flights" },
-      { label: "Hotels", href: "/hotels" },
-      { label: "Top Flight Destinations", href: "/top-flight-destinations" },
-      { label: "Top Hotel Destinations", href: "/top-hotel-destinations" },
-      { label: "Flight Deals Guide", href: "/flight-deals-guide" },
-      { label: "Hotel Booking Guide", href: "/hotel-booking-guide" },
+    plan: [
+      { label: "Trip Workspace", href: "/trips" },
+      { label: "True Trip Cost", href: "/trip-cost" },
+      { label: "Travel Readiness", href: "/trips" },
+      { label: "Destination Finder", href: "/discover" },
+    ],
+    tools: [
+      { label: "Visa Checker", href: "/tools/visa" },
+      { label: "Passport Validity", href: "/tools" },
+      { label: "Packing List", href: "/tools" },
+      { label: "Insurance Comparison", href: "/tools" },
+      { label: "eSIM Finder", href: "/tools" },
+    ],
+    book: [
+      { label: "Search Flights", href: "/flights" },
+      { label: "Flight Deals", href: "/flight-deals-guide" },
+      { label: "Price Alerts", href: "/my-alerts" },
     ],
     company: [
       { label: "About Us", href: "/about" },
-      { label: "Careers", href: "/careers" },
-      { label: "Press", href: "/press" },
+      { label: "How It Works", href: "/how-it-works" },
       { label: "Blog", href: "/blog" },
-    ],
-    support: [
-      { label: "Help Center", href: "/help" },
-      { label: "Contact Us", href: "/contact" },
-      { label: "FAQs", href: "/faqs" },
-      { label: "Why We Don't Sell Tickets", href: "/why-we-dont-sell-tickets" },
+      { label: "Press", href: "/press" },
+      { label: "Contact", href: "/contact" },
     ],
     legal: [
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
       { label: "Cookie Policy", href: "/cookies" },
       { label: "Affiliate Disclosure", href: "/affiliate-disclosure" },
+      { label: "Why We Don't Sell", href: "/why-we-dont-sell-tickets" },
     ],
-  };
-
-  const renderLink = (link: { label: string; href: string }) => {
-    if (link.href.startsWith("/")) {
-      return (
-        <Link
-          to={link.href}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {link.label}
-        </Link>
-      );
-    }
-    return (
-      <a
-        href={link.href}
-        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {link.label}
-      </a>
-    );
   };
 
   return (
@@ -62,7 +47,7 @@ const Footer = () => {
               <img src={logo} alt="BookingsFinder" className="h-10 w-auto" />
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
-              Compare prices from our travel partners to find the best deals.
+              Plan your trip, understand the real cost, and keep every booking organised. BookingsFinder helps you travel ready.
             </p>
             <div className="text-sm text-muted-foreground">
               <p className="font-medium text-foreground mb-1">Headquarters</p>
@@ -72,42 +57,68 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Explore */}
+          {/* Plan */}
           <div>
-            <h4 className="font-semibold text-foreground mb-4">Explore</h4>
+            <h4 className="font-semibold text-foreground mb-4">Plan</h4>
             <ul className="space-y-2">
-              {footerLinks.explore.map((link) => (
-                <li key={link.label}>{renderLink(link)}</li>
+              {footerLinks.plan.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
 
-          {/* Company */}
+          {/* Tools */}
+          <div>
+            <h4 className="font-semibold text-foreground mb-4">Tools</h4>
+            <ul className="space-y-2">
+              {footerLinks.tools.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Book */}
+          <div>
+            <h4 className="font-semibold text-foreground mb-4">Book</h4>
+            <ul className="space-y-2">
+              {footerLinks.book.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company + Legal */}
           <div>
             <h4 className="font-semibold text-foreground mb-4">Company</h4>
-            <ul className="space-y-2">
+            <ul className="space-y-2 mb-6">
               {footerLinks.company.map((link) => (
-                <li key={link.label}>{renderLink(link)}</li>
+                <li key={link.label}>
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
               ))}
             </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h4 className="font-semibold text-foreground mb-4">Support</h4>
-            <ul className="space-y-2">
-              {footerLinks.support.map((link) => (
-                <li key={link.label}>{renderLink(link)}</li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
             <h4 className="font-semibold text-foreground mb-4">Legal</h4>
             <ul className="space-y-2">
               {footerLinks.legal.map((link) => (
-                <li key={link.label}>{renderLink(link)}</li>
+                <li key={link.label}>
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
@@ -117,7 +128,7 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-border">
           <div className="bg-muted/50 rounded-lg p-4 mb-6">
             <p className="text-xs text-muted-foreground text-center max-w-3xl mx-auto">
-              <strong className="text-foreground">Important:</strong> BookingsFinder is a travel meta-search platform. We do not sell flights, hotels, or any travel products. We compare prices from third-party travel sites and redirect you to complete your booking directly with our partners. When you book through our links, we may earn an affiliate commission at no extra cost to you.
+              <strong className="text-foreground">Important:</strong> BookingsFinder is a travel planning and comparison platform. We do not sell flights, hotels, or any travel products. We compare offers from third-party travel sites and connect you to our booking partners. When you book through our links, we may earn an affiliate commission at no extra cost to you.
             </p>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">

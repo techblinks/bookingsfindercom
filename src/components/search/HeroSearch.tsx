@@ -35,10 +35,8 @@ interface FlightLeg {
   to: string;
   toDisplay: string;
   date: string;
-// REMOVED: getFlexibleDatePrice - was Math.random() mock prices
+// REMOVED: getFlexibleDatePrice - was Math.random() mock prices (orphaned return cleaned 2026-07-20)
 }
-  return Math.round(basePrice * (1 + variance));
-};
 
 const HeroSearch = () => {
   const navigate = useNavigate();
@@ -177,8 +175,6 @@ const HeroSearch = () => {
       params.append("returnDate", format(returnDate, "yyyy-MM-dd"));
     }
 
-    }
-
     if (nearbyAirports) {
       params.append("nearbyAirports", "true");
     }
@@ -205,5 +201,8 @@ const HeroSearch = () => {
     navigate(`/hotels?${params.toString()}`);
   };
 
+  // HeroSearch component retained for potential reuse — no JSX in current V2 architecture
+  return null;
+};
 
 export default HeroSearch;

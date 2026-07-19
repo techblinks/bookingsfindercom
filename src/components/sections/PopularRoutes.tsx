@@ -217,7 +217,7 @@ const PopularRoutes = () => {
               </h2>
             </div>
             <p className="text-sm text-muted-foreground">
-              {isLiveData ? "Trending" : "Popular"} flights from {geoData?.city || geoData?.country || "your region"} • {isLiveData ? "Real-time data" : "Live prices"}
+              {isLiveData ? "Trending" : "Popular"} flights from {geoData?.city || geoData?.country || "your region"} • Indicative prices from travel partners
             </p>
           </div>
 
@@ -407,7 +407,7 @@ const PopularRoutes = () => {
                 Explore All Routes
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Discover flights to 500+ destinations worldwide
+                Discover flights to destinations worldwide
               </p>
               <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-3 transition-all">
                 <span>See all routes</span>
@@ -434,7 +434,7 @@ const PopularRoutes = () => {
 
       {/* Footer note */}
       <p className="text-xs text-muted-foreground text-center mt-4 px-4">
-        Swipe to explore more routes • Prices updated in real-time
+        Swipe to explore more routes • Prices shown are indicative and based on recent searches
       </p>
     </section>
   );

@@ -2,155 +2,155 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Travel Website Design System - Clean, Modern, Trustworthy */
- 
- /* Safe Area CSS Variables */
- :root {
-   --sat: env(safe-area-inset-top, 0px);
-   --sar: env(safe-area-inset-right, 0px);
-   --sab: env(safe-area-inset-bottom, 0px);
-   --sal: env(safe-area-inset-left, 0px);
- }
+/* BookingsFinder V2 Design System — Trustworthy, Warm, Travel-Ready */
+
+/* Safe Area CSS Variables */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
 
 @layer base {
   :root {
-    /* Primary Blue - Brand color #003680 */
-    --primary: 214 100% 25%;
+    /* Primary — Deep Teal #0D4F5C */
+    --primary: 187 75% 21%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 214 85% 45%;
-    
-    /* Background tones */
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
-    
-    /* Card surfaces */
+    --primary-hover: 187 55% 28%;
+
+    /* Background — White Sand #FAF8F5 */
+    --background: 36 33% 97%;
+    --foreground: 24 6% 17%;
+
+    /* Card surfaces — Warm Grey #F0EDE8 */
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
-    --card-hover: 210 20% 97%;
-    
+    --card-foreground: 24 6% 17%;
+    --card-hover: 38 21% 97%;
+
     /* Muted surfaces */
-    --muted: 210 15% 95%;
-    --muted-foreground: 220 10% 45%;
-    
-    /* Secondary - light gray */
-    --secondary: 210 15% 96%;
-    --secondary-foreground: 220 15% 25%;
-    
-    /* Accent for highlights */
-    --accent: 214 85% 51%;
+    --muted: 38 21% 93%;
+    --muted-foreground: 27 5% 40%;
+
+    /* Secondary */
+    --secondary: 38 21% 93%;
+    --secondary-foreground: 24 6% 17%;
+
+    /* Accent — Coral Sun #CC4D28 (darkened from #E8734A for 4.51:1 on white) */
+    --accent: 15 67% 48%;
     --accent-foreground: 0 0% 100%;
-    
-    /* Success - for deals/savings */
-    --success: 142 70% 40%;
+
+    /* Success — Muted Emerald #2E6B4A (darkened from #3B825D for 5.42:1 on warm grey) */
+    --success: 150 40% 30%;
     --success-foreground: 0 0% 100%;
-    
-    /* Warning - for alerts */
-    --warning: 38 92% 50%;
+
+    /* Warning — Warm Amber #A86228 (darkened from #C4823E for 4.73:1 on white) */
+    --warning: 33 58% 41%;
     --warning-foreground: 0 0% 100%;
-    
-    /* Destructive */
-    --destructive: 0 84% 60%;
+
+    /* Destructive — Accessible Red #C23B3B */
+    --destructive: 0 53% 50%;
     --destructive-foreground: 0 0% 100%;
-    
+
     /* Popover */
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
-    
-    /* Border and input */
-    --border: 210 15% 90%;
-    --input: 210 15% 90%;
-    --ring: 214 85% 51%;
-    
-    /* Radius - rounded but not too much */
+    --popover-foreground: 24 6% 17%;
+
+    /* Border — Stone #C4BFB6 */
+    --border: 39 11% 82%;
+    --input: 39 11% 82%;
+    --ring: 187 75% 21%;
+
+    /* Radius */
     --radius: 0.75rem;
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-    --shadow-elevated: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-modal: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    
+
+    /* Shadows — softer warm shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(45 42 40 / 0.05);
+    --shadow-card: 0 1px 3px 0 rgb(45 42 40 / 0.08), 0 1px 2px -1px rgb(45 42 40 / 0.06);
+    --shadow-elevated: 0 4px 6px -1px rgb(45 42 40 / 0.08), 0 2px 4px -2px rgb(45 42 40 / 0.06);
+    --shadow-modal: 0 10px 15px -3px rgb(45 42 40 / 0.08), 0 4px 6px -4px rgb(45 42 40 / 0.06);
+
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 20% 10%;
-    --sidebar-primary: 214 85% 51%;
+    --sidebar-foreground: 24 6% 17%;
+    --sidebar-primary: 187 75% 21%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 15% 96%;
-    --sidebar-accent-foreground: 220 15% 25%;
-    --sidebar-border: 210 15% 90%;
-    --sidebar-ring: 214 85% 51%;
+    --sidebar-accent: 38 21% 93%;
+    --sidebar-accent-foreground: 24 6% 17%;
+    --sidebar-border: 39 11% 82%;
+    --sidebar-ring: 187 75% 21%;
   }
 
   .dark {
-    --primary: 214 85% 60%;
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 214 85% 55%;
-    
-    --background: 220 20% 8%;
-    --foreground: 210 20% 95%;
-    
-    --card: 220 18% 12%;
-    --card-foreground: 210 20% 95%;
-    --card-hover: 220 18% 15%;
-    
-    --muted: 220 15% 18%;
-    --muted-foreground: 210 15% 60%;
-    
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 210 20% 90%;
-    
-    --accent: 214 85% 60%;
+    --primary: 187 45% 55%;
+    --primary-foreground: 24 6% 8%;
+    --primary-hover: 187 45% 50%;
+
+    --background: 24 6% 8%;
+    --foreground: 36 33% 93%;
+
+    --card: 24 6% 12%;
+    --card-foreground: 36 33% 93%;
+    --card-hover: 24 6% 15%;
+
+    --muted: 24 6% 18%;
+    --muted-foreground: 38 15% 60%;
+
+    --secondary: 24 6% 15%;
+    --secondary-foreground: 36 33% 90%;
+
+    --accent: 15 60% 50%;
     --accent-foreground: 0 0% 100%;
-    
-    --success: 142 70% 45%;
+
+    --success: 150 35% 40%;
     --success-foreground: 0 0% 100%;
-    
-    --popover: 220 18% 12%;
-    --popover-foreground: 210 20% 95%;
-    
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 214 85% 60%;
-    
-    --sidebar-background: 220 18% 10%;
-    --sidebar-foreground: 210 20% 95%;
-    --sidebar-primary: 214 85% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 214 85% 60%;
-   }
- }
- 
- @layer base {
-   * {
-     @apply border-border;
-   }
- 
-   body {
-     @apply bg-background text-foreground antialiased;
-     font-feature-settings: "rlig" 1, "calt" 1;
-   }
-   
-   h1, h2, h3, h4, h5, h6 {
-     @apply font-semibold tracking-tight text-foreground;
-   }
- 
-   /* iOS/Android safe area support */
-   .safe-area-inset {
-     padding-top: var(--sat);
-     padding-right: var(--sar);
-     padding-bottom: var(--sab);
-     padding-left: var(--sal);
-   }
- 
-   .safe-area-top {
-     padding-top: var(--sat);
-   }
- 
-   .safe-area-bottom {
-     padding-bottom: var(--sab);
+
+    --popover: 24 6% 12%;
+    --popover-foreground: 36 33% 93%;
+
+    --border: 24 6% 22%;
+    --input: 24 6% 22%;
+    --ring: 187 45% 55%;
+
+    --sidebar-background: 24 6% 10%;
+    --sidebar-foreground: 36 33% 93%;
+    --sidebar-primary: 187 45% 55%;
+    --sidebar-primary-foreground: 24 6% 8%;
+    --sidebar-accent: 24 6% 18%;
+    --sidebar-accent-foreground: 36 33% 90%;
+    --sidebar-border: 24 6% 22%;
+    --sidebar-ring: 187 45% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight text-foreground;
+  }
+
+  /* iOS/Android safe area support */
+  .safe-area-inset {
+    padding-top: var(--sat);
+    padding-right: var(--sar);
+    padding-bottom: var(--sab);
+    padding-left: var(--sal);
+  }
+
+  .safe-area-top {
+    padding-top: var(--sat);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: var(--sab);
   }
 }
 
@@ -160,63 +160,60 @@
     @apply bg-card rounded-xl border border-border transition-all duration-200;
     box-shadow: var(--shadow-card);
   }
-  
+
   .travel-card:hover {
     box-shadow: var(--shadow-elevated);
     @apply border-primary/20;
   }
-  
+
   /* Search container */
   .search-container {
     @apply bg-card rounded-2xl p-6;
     box-shadow: var(--shadow-modal);
   }
-  
+
   /* Price tag styling */
   .price-tag {
     @apply text-2xl font-bold text-foreground;
   }
-  
-   /* Native-like touch feedback */
-   .native-touch {
-     @apply active:opacity-70 active:scale-[0.98] transition-all duration-150;
-     -webkit-tap-highlight-color: transparent;
-   }
- 
-   /* Native-like pressed state - sustained feedback */
-   .native-press {
-     @apply transition-all duration-150;
-     -webkit-tap-highlight-color: transparent;
-   }
- 
-   .native-press:active {
-     @apply bg-muted scale-[0.98];
-   }
- 
-   /* Native button */
-   .native-button {
-     @apply min-h-[56px] rounded-xl font-semibold text-base transition-all duration-150;
-     -webkit-tap-highlight-color: transparent;
-   }
- 
-   .native-button:active {
-     @apply scale-[0.98] opacity-90;
-   }
- 
-   /* Native input field */
-   .native-field {
-     @apply min-h-[56px] rounded-xl bg-card border border-border px-4 flex items-center gap-3 transition-all duration-150;
-     -webkit-tap-highlight-color: transparent;
-   }
- 
-   .native-field:active {
-     @apply bg-muted;
-   }
- 
+
+  /* Native-like touch feedback */
+  .native-touch {
+    @apply active:opacity-70 active:scale-[0.98] transition-all duration-150;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .native-press {
+    @apply transition-all duration-150;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .native-press:active {
+    @apply bg-muted scale-[0.98];
+  }
+
+  .native-button {
+    @apply min-h-[56px] rounded-xl font-semibold text-base transition-all duration-150;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .native-button:active {
+    @apply scale-[0.98] opacity-90;
+  }
+
+  .native-field {
+    @apply min-h-[56px] rounded-xl bg-card border border-border px-4 flex items-center gap-3 transition-all duration-150;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .native-field:active {
+    @apply bg-muted;
+  }
+
   .price-currency {
     @apply text-base font-medium text-muted-foreground;
   }
-  
+
   /* Deal badge */
   .deal-badge {
     @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success text-success-foreground;
@@ -224,27 +221,23 @@
 }
 
 @layer utilities {
-  /* Smooth transitions */
   .transition-base {
     @apply transition-all duration-200 ease-in-out;
   }
-  
-  /* Focus ring */
+
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
   }
 
-  /* Hide scrollbar */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 
-  /* Fade in animation */
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
     opacity: 0;
@@ -254,11 +247,31 @@
     to {
       opacity: 1;
     }
-   }
- 
-   /* Momentum scrolling for iOS */
-   .scroll-native {
-     -webkit-overflow-scrolling: touch;
-     overscroll-behavior: contain;
+  }
+
+  .scroll-native {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* V2-specific utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .bg-primary-gradient {
+    background: linear-gradient(135deg, hsl(187 75% 21%), hsl(187 55% 28%));
+  }
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
