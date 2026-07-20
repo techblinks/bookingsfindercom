@@ -52,6 +52,7 @@ export {
   calculateContingencyAmount,
   calculateSummary,
   isReturnAfterDeparture,
+  isDateRangeReversed,
   isDepartureNotBeforeToday,
   deriveNights,
   normalizeDateDerivedFields,

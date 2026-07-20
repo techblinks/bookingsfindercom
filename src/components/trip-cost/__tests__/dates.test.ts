@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateNights, calculateDays, isDepartureNotBeforeToday, deriveNights } from "../tripCostCalculations";
+import { calculateNights, calculateDays, isDepartureNotBeforeToday, isDateRangeReversed, deriveNights } from "../tripCostCalculations";
 
 describe("calculateNights", () => {
   it("returns 0 for same departure and return date", () => {
@@ -100,5 +100,44 @@ describe("calculateDays", () => {
 
   it("returns undefined when dates are missing", () => {
     expect(calculateDays("", "2026-08-22")).toBeUndefined();
+  });
+
+  it("returns 0 for reverse date range", () => {
+    expect(calculateDays("2026-08-22", "2026-08-15")).toBe(0);
+  });
+
+  it("returns 1 for same-day trip", () => {
+    expect(calculateDays("2026-08-15", "2026-08-15")).toBe(1);
+  });
+
+  it("returns 2 for next-day trip", () => {
+    expect(calculateDays("2026-08-15", "2026-08-16")).toBe(2);
+  });
+
+  it("5-day audit scenario remains 5 days", () => {
+    // Aug 15 → Aug 19 = 4 nights + 1 = 5 days
+    expect(calculateDays("2026-08-15", "2026-08-19")).toBe(5);
+  });
+});
+
+describe("isDateRangeReversed", () => {
+  it("returns true when return is before departure", () => {
+    expect(isDateRangeReversed("2026-08-22", "2026-08-15")).toBe(true);
+  });
+
+  it("returns false for same-day trip", () => {
+    expect(isDateRangeReversed("2026-08-15", "2026-08-15")).toBe(false);
+  });
+
+  it("returns false for valid forward range", () => {
+    expect(isDateRangeReversed("2026-08-15", "2026-08-22")).toBe(false);
+  });
+
+  it("returns false when departure is missing", () => {
+    expect(isDateRangeReversed("", "2026-08-22")).toBe(false);
+  });
+
+  it("returns false when return is missing", () => {
+    expect(isDateRangeReversed("2026-08-15", "")).toBe(false);
   });
 });

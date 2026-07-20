@@ -70,11 +70,10 @@ describe("normalizeDateDerivedFields", () => {
 
   it("return before departure sets days to 0", () => {
     const tripDays = calculateDays("2026-08-22", "2026-08-15");
-    // calculateNights clamps to 0, days = 1
-    expect(tripDays).toBe(1);
-    // So the normalizer gets tripDays=1, which activates daily spending
-    // But validation catches the reversed dates
-    // The normalizer just uses whatever calculateDays returns
+    // Reversed dates: calculateDays now returns 0, not 1
+    expect(tripDays).toBe(0);
+    const result = normalizeDateDerivedFields(state, tripDays, calculateNights("2026-08-22", "2026-08-15"));
+    expect(result.dailySpending.foodDrinks.days).toBe(0);
   });
 
   it("accommodation manual override is preserved during normalisation", () => {
@@ -150,6 +149,44 @@ describe("normalizeDateDerivedFields", () => {
     expect(result.dailySpending.foodDrinks.dailyAmount).toBe(100);
     expect(result.dailySpending.shopping.dailyAmount).toBe(50);
     expect(result.dailySpending.foodDrinks.days).toBe(0);
+  });
+
+  it("reverse range normalises every daily category to 0 days", () => {
+    const s = createDefaultState();
+    s.dailySpending.foodDrinks = { dailyAmount: 100, days: 5, daysManuallyOverridden: false };
+    s.dailySpending.shopping = { dailyAmount: 50, days: 5, daysManuallyOverridden: false };
+
+    const result = normalizeDateDerivedFields(s, 0, 0);
+    expect(result.dailySpending.foodDrinks.days).toBe(0);
+    expect(result.dailySpending.shopping.days).toBe(0);
+    // Amounts preserved
+    expect(result.dailySpending.foodDrinks.dailyAmount).toBe(100);
+    expect(result.dailySpending.shopping.dailyAmount).toBe(50);
+  });
+
+  it("reverse range daily subtotal is 0", () => {
+    const s = createDefaultState();
+    s.dailySpending.foodDrinks = { dailyAmount: 100, days: 0, daysManuallyOverridden: false };
+    const summary = calculateSummary(s);
+    expect(summary.dailySpendingSubtotal).toBe(0);
+  });
+
+  it("reverse range preserves entered daily amounts", () => {
+    const s = createDefaultState();
+    s.dailySpending.foodDrinks = { dailyAmount: 100, days: 0, daysManuallyOverridden: false };
+    s.dailySpending.shopping = { dailyAmount: 50, days: 0, daysManuallyOverridden: false };
+    expect(s.dailySpending.foodDrinks.dailyAmount).toBe(100);
+    expect(s.dailySpending.shopping.dailyAmount).toBe(50);
+  });
+
+  it("correcting reverse range to valid dates reactivates the subtotal", () => {
+    const s = createDefaultState();
+    s.dailySpending.foodDrinks = { dailyAmount: 100, days: 0, daysManuallyOverridden: false };
+    // Reverse → subtotal 0
+    expect(calculateSummary(s).dailySpendingSubtotal).toBe(0);
+    // Fix dates → subtotal reactivates
+    const result = normalizeDateDerivedFields(s, 5, 4);
+    expect(calculateSummary(result).dailySpendingSubtotal).toBe(500);
   });
 
   it("preserves unrelated state", () => {

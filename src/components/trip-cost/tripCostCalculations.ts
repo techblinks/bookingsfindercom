@@ -39,6 +39,20 @@ export function isReturnAfterDeparture(departureDate: string, returnDate: string
 }
 
 /**
+ * Check whether the return date is strictly before the departure date.
+ * Returns false if either date is missing or if the range is valid.
+ */
+export function isDateRangeReversed(departureDate: string, returnDate: string): boolean {
+  const dep = parseDateParts(departureDate);
+  const ret = parseDateParts(returnDate);
+  if (!dep || !ret) return false;
+  return differenceInCalendarDays(
+    toLocalDate(ret.year, ret.month, ret.day),
+    toLocalDate(dep.year, dep.month, dep.day)
+  ) < 0;
+}
+
+/**
  * Check whether the departure date is today or in the future.
  * Uses date-only comparison (no time component).
  * Returns true if the date is missing (optional field — caller validates if required).
@@ -94,11 +108,19 @@ export function calculateNights(departureDate: string, returnDate: string): numb
 
 /**
  * Calculate calendar days including both departure and return.
- * days = nights + 1.
+ *
+ * Returns:
+ *   - undefined if either date is missing or malformed
+ *   - 0 if the return date is before the departure date (reversed, invalid)
+ *   - 1 if departure and return are the same calendar date
+ *   - (nights + 1) for a valid multi-day range
  */
 export function calculateDays(departureDate: string, returnDate: string): number | undefined {
   const nights = calculateNights(departureDate, returnDate);
-  return nights !== undefined ? nights + 1 : undefined;
+  if (nights === undefined) return undefined;
+  // Explicit reverse check: return before departure → 0 days, not 1
+  if (isDateRangeReversed(departureDate, returnDate)) return 0;
+  return nights + 1;
 }
 
 // ── Travellers ──
@@ -270,7 +292,7 @@ export function calculateSummary(state: State): TripCostSummary {
 
   const totalTravellers = getTotalTravellers(state.travellers);
   const tripNights = calculateNights(state.tripDetails.departureDate, state.tripDetails.returnDate);
-  const tripDays = tripNights !== undefined ? tripNights + 1 : undefined;
+  const tripDays = calculateDays(state.tripDetails.departureDate, state.tripDetails.returnDate);
 
   return {
     flightsSubtotal,
