@@ -76,3 +76,12 @@ export {
 
 // ── Storage ──
 export { saveDraft, loadDraft, clearDraft, isStoredDraft, isValidTripCostState } from "./tripCostStorage";
+
+// ── React components & hooks ──
+export { TripCostPlanner } from "./TripCostPlanner";
+export { TripDetailsSection } from "./TripDetailsSection";
+export { TravellersSection } from "./TravellersSection";
+export { TripCostSummaryPanel } from "./TripCostSummary";
+export { TripCostSectionCard } from "./TripCostSectionCard";
+export { useTripCostPlanner } from "./useTripCostPlanner";
+export type { TripCostPlannerAPI } from "./useTripCostPlanner";

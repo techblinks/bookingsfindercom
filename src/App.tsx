@@ -45,6 +45,7 @@ import TopHotelDestinations from "./pages/TopHotelDestinations";
 import FlightDealsGuide from "./pages/FlightDealsGuide";
 import HotelBookingGuide from "./pages/HotelBookingGuide";
 import TripOptimizer from "./pages/TripOptimizer";
+import TripCostPlannerPage from "./pages/TripCostPlannerPage";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
 import RoutePage from "./pages/RoutePage";
@@ -80,7 +81,7 @@ const AnimatedRoutes = () => {
           <Route path="/discover" element={<PlaceholderPage title="Discover Destinations" description="Browse destinations and find your next trip — coming soon." />} />
           <Route path="/tools" element={<PlaceholderPage title="Travel Tools" description="Visa checker, passport validity, packing lists and more — coming soon." />} />
           <Route path="/tools/visa" element={<PlaceholderPage title="Visa Checker" description="Check visa requirements for your destination — coming soon." />} />
-          <Route path="/trip-cost" element={<PlaceholderPage title="Trip Cost Planner" description="Estimate the full cost of your journey — coming soon." />} />
+          <Route path="/trip-cost" element={<TripCostPlannerPage />} />
           <Route path="/passport-validity" element={<PlaceholderPage title="Passport Validity Guide" description="Tools to help you review passport validity requirements are coming soon." />} />
           <Route path="/visa-requirements" element={<PlaceholderPage title="Visa Requirements Guide" description="Official-source travel requirement guidance is coming soon." />} />
           <Route path="/packing-checklist" element={<PlaceholderPage title="Packing Checklist" description="Create and organise your travel packing list — coming soon." />} />
