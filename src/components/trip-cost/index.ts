@@ -81,7 +81,11 @@ export { saveDraft, loadDraft, clearDraft, isStoredDraft, isValidTripCostState }
 export { TripCostPlanner } from "./TripCostPlanner";
 export { TripDetailsSection } from "./TripDetailsSection";
 export { TravellersSection } from "./TravellersSection";
+export { FlightCostsSection } from "./FlightCostsSection";
+export { AccommodationSection } from "./AccommodationSection";
+export { ContingencySection } from "./ContingencySection";
 export { TripCostSummaryPanel } from "./TripCostSummary";
 export { TripCostSectionCard } from "./TripCostSectionCard";
+export { MoneyInput } from "./MoneyInput";
 export { useTripCostPlanner } from "./useTripCostPlanner";
 export type { TripCostPlannerAPI } from "./useTripCostPlanner";

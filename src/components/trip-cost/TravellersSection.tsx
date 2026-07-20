@@ -54,7 +54,11 @@ export function TravellersSection({ travellers, onUpdate, errors, touched, onTou
                   if (raw === "") { onUpdate({ [key]: 0 }); }
                   else {
                     const n = Number(raw);
-                    if (!isNaN(n)) onUpdate({ [key]: Math.floor(n) });
+                    // Only commit valid whole numbers — fractional values stay
+                    // as transient display until the user corrects them
+                    if (!isNaN(n) && isFinite(n) && Number.isInteger(n)) {
+                      onUpdate({ [key]: n });
+                    }
                   }
                   onTouch(`travellers.${key}`);
                   onTouch("travellers");
