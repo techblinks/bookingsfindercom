@@ -17,9 +17,9 @@ export function SectionContainer({
   return (
     <Tag
       id={id}
-      className={cn("py-12 md:py-20", className)}
+      className={cn("py-14 md:py-20", className)}
     >
-      <div className="container max-w-6xl mx-auto px-4">
+      <div className="container max-w-7xl mx-auto px-4">
         {children}
       </div>
     </Tag>

@@ -337,21 +337,7 @@ const PopularRoutes = ({ showHeading = true }: { showHeading?: boolean }) => {
                 <div className="flex items-end justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-xs text-muted-foreground">{route.live ? "From" : "Round trip from"}</p>
-                      {!route.loading && route.price && (
-                        <span
-                          className={cn(
-                            "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                            route.live
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : route.cached
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          )}
-                        >
-                          {route.live ? "Trending" : route.cached ? "Cached" : "Live"}
-                        </span>
-                      )}
+                      <p className="text-xs text-muted-foreground">Indicative fare from</p>
                     </div>
                     {route.loading ? (
                       <div className="flex items-center gap-2 h-9">
@@ -434,9 +420,9 @@ const PopularRoutes = ({ showHeading = true }: { showHeading?: boolean }) => {
         />
       </div>
 
-      {/* Footer note */}
-      <p className="text-xs text-muted-foreground text-center mt-4 px-4">
-        Swipe to explore more routes • Prices shown are indicative and based on recent searches
+      {/* Footer note — pricing disclaimer */}
+      <p className="text-xs text-muted-foreground text-center mt-4 px-4 max-w-2xl mx-auto leading-relaxed">
+        Swipe to explore more routes. Indicative fares may change and are confirmed by the selected provider when you continue to book.
       </p>
     </section>
   );
