@@ -3,7 +3,7 @@ import { Flight, FlightSearchMeta, FilterState, SortOption, DEPARTURE_TIME_SLOTS
 import { supabase } from "@/integrations/supabase/client";
 import { trackAffiliateEvent } from "@/services/travelApi";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 interface UseFlightSearchParams {
   origin: string;
@@ -413,7 +413,9 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       const session = (await supabase.auth.getSession()).data.session;
       const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/search-flights`, {
+      const url = getFunctionUrl("search-flights");
+      if (!url) throw new Error("Supabase not configured — cannot search flights");
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -516,3 +518,4 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     fastestDuration,
   };
 }
+

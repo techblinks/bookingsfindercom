@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 interface RouteData {
   origin: string;
@@ -50,7 +50,12 @@ const PopularRoutes = ({ showHeading = true }: { showHeading?: boolean }) => {
 
     const fetchPopularDirections = async () => {
       try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-popular-directions`, {
+        const url = getFunctionUrl("get-popular-directions");
+        if (!url) {
+          console.warn("Supabase not configured — skipping popular directions fetch");
+          return;
+        }
+        const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ origin, currency: currency.code, limit: 10 }),
