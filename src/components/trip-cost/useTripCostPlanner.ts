@@ -3,9 +3,10 @@ import { toast } from "sonner";
 import type {
   TripCostPlannerState, SupportedCurrency, Travellers, TripDetails,
   FlightCosts, AccommodationCosts, ContingencyConfig,
+  DailySpending, PreparationCosts,
 } from "./types";
 import { DEFAULT_STATE } from "./tripCostDefaults";
-import { calculateSummary, calculateNights } from "./tripCostCalculations";
+import { calculateSummary, calculateNights, calculateDays, normalizeDateDerivedFields } from "./tripCostCalculations";
 import { validatePlannerState } from "./tripCostValidation";
 import { saveDraft, loadDraft, clearDraft } from "./tripCostStorage";
 
@@ -20,6 +21,8 @@ export interface TripCostPlannerAPI {
   updateAccommodation: (patch: Partial<AccommodationCosts>) => void;
   setAccommodationNights: (nights: number) => void;
   useTripDatesForNights: () => void;
+  updateDailySpending: (catKey: string, dailyAmount: number) => void;
+  updatePreparationCosts: (patch: Partial<PreparationCosts>) => void;
   updateContingency: (patch: Partial<ContingencyConfig>) => void;
   hasRestoredDraft: boolean;
   isSaving: boolean;
@@ -42,18 +45,27 @@ export function useTripCostPlanner(): TripCostPlannerAPI {
   const didRestore = useRef(false);
   const hasMounted = useRef(false);
 
+  // Restore draft on mount — normalise hidden overrides
   useEffect(() => {
     if (didRestore.current) return;
     didRestore.current = true;
+
     const draft = loadDraft();
     if (draft) {
-      setState(draft);
+      // Normalise date-derived fields to fix any hidden category-override state
+      const tripDays = calculateDays(draft.tripDetails.departureDate, draft.tripDetails.returnDate);
+      const tripNights = calculateNights(draft.tripDetails.departureDate, draft.tripDetails.returnDate);
+      const normalized = normalizeDateDerivedFields(draft, tripDays, tripNights);
+
+      setState(normalized);
       setHasRestoredDraft(true);
       toast.success("Your saved trip plan has been restored.", { id: "draft-restored" });
     }
+
     hasMounted.current = true;
   }, []);
 
+  // Autosave with debounce
   useEffect(() => {
     if (!hasMounted.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -71,14 +83,13 @@ export function useTripCostPlanner(): TripCostPlannerAPI {
 
   const updateTripDetails = useCallback((patch: Partial<TripDetails>) => {
     setState(prev => {
-      const next = { ...prev, tripDetails: { ...prev.tripDetails, ...patch } };
-      if (("departureDate" in patch || "returnDate" in patch) && !prev.accommodationCosts.nightsManuallyOverridden) {
-        const derivedNights = calculateNights(next.tripDetails.departureDate, next.tripDetails.returnDate);
-        if (derivedNights !== undefined) {
-          next.accommodationCosts = { ...next.accommodationCosts, nights: derivedNights };
-        }
+      const nextDates = { ...prev.tripDetails, ...patch };
+      if ("departureDate" in patch || "returnDate" in patch) {
+        const tripDays = calculateDays(nextDates.departureDate, nextDates.returnDate);
+        const tripNights = calculateNights(nextDates.departureDate, nextDates.returnDate);
+        return normalizeDateDerivedFields(prev, tripDays, tripNights);
       }
-      return next;
+      return { ...prev, tripDetails: nextDates };
     });
   }, []);
 
@@ -116,6 +127,19 @@ export function useTripCostPlanner(): TripCostPlannerAPI {
     });
   }, []);
 
+  const updateDailySpending = useCallback((catKey: string, dailyAmount: number) => {
+    setState(prev => {
+      const ds = { ...prev.dailySpending };
+      const key = catKey as keyof DailySpending;
+      ds[key] = { ...ds[key], dailyAmount: dailyAmount };
+      return { ...prev, dailySpending: ds };
+    });
+  }, []);
+
+  const updatePreparationCosts = useCallback((patch: Partial<PreparationCosts>) => {
+    setState(prev => ({ ...prev, preparationCosts: { ...prev.preparationCosts, ...patch } }));
+  }, []);
+
   const updateContingency = useCallback((patch: Partial<ContingencyConfig>) => {
     setState(prev => ({ ...prev, contingency: { ...prev.contingency, ...patch } }));
   }, []);
@@ -133,6 +157,7 @@ export function useTripCostPlanner(): TripCostPlannerAPI {
     updateTripDetails, updateTravellers, setCurrency,
     updateFlightCosts, updateAccommodation,
     setAccommodationNights, useTripDatesForNights,
+    updateDailySpending, updatePreparationCosts,
     updateContingency,
     hasRestoredDraft, isSaving, lastSavedAt, resetPlanner,
   };

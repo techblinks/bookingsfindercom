@@ -54,6 +54,7 @@ export {
   isReturnAfterDeparture,
   isDepartureNotBeforeToday,
   deriveNights,
+  normalizeDateDerivedFields,
 } from "./tripCostCalculations";
 
 // ── Formatting ──
@@ -84,6 +85,8 @@ export { TravellersSection } from "./TravellersSection";
 export { FlightCostsSection } from "./FlightCostsSection";
 export { AccommodationSection } from "./AccommodationSection";
 export { ContingencySection } from "./ContingencySection";
+export { DailySpendingSection } from "./DailySpendingSection";
+export { PreparationCostsSection } from "./PreparationCostsSection";
 export { TripCostSummaryPanel } from "./TripCostSummary";
 export { TripCostSectionCard } from "./TripCostSectionCard";
 export { MoneyInput } from "./MoneyInput";

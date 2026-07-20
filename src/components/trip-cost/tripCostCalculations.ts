@@ -207,6 +207,49 @@ function safePerDivisor(total: number, divisor: number): number | undefined {
   return total / divisor;
 }
 
+// ── State normalisation ──
+
+/**
+ * Normalise all date-derived fields in the state.
+ *
+ * - Accommodation nights: derived from trip dates unless manually overridden
+ * - Daily spending days: ALL categories are set to tripDays UNCONDITIONALLY
+ *   with daysManuallyOverridden=false (per-category day overrides are not
+ *   exposed in the MVP UI and must not persist)
+ * - Monetary amounts are never modified
+ * - Unrelated state is never modified
+ *
+ * Safe to call on restored drafts, date changes, and initial defaults.
+ */
+export function normalizeDateDerivedFields(
+  state: TripCostPlannerState,
+  tripDays: number | undefined,
+  tripNights: number | undefined
+): TripCostPlannerState {
+  const result = { ...state };
+
+  // Accommodation nights — derive if not manually overridden
+  if (!state.accommodationCosts.nightsManuallyOverridden && tripNights !== undefined) {
+    result.accommodationCosts = {
+      ...state.accommodationCosts,
+      nights: tripNights,
+    };
+  }
+
+  // Daily spending days — always sync all categories unconditionally
+  const days = tripDays ?? 0;
+  const categoryTemplate = { dailyAmount: 0, days, daysManuallyOverridden: false };
+  result.dailySpending = {
+    foodDrinks:       { ...categoryTemplate, dailyAmount: state.dailySpending.foodDrinks.dailyAmount },
+    localTransport:   { ...categoryTemplate, dailyAmount: state.dailySpending.localTransport.dailyAmount },
+    shopping:         { ...categoryTemplate, dailyAmount: state.dailySpending.shopping.dailyAmount },
+    entertainment:    { ...categoryTemplate, dailyAmount: state.dailySpending.entertainment.dailyAmount },
+    miscellaneous:    { ...categoryTemplate, dailyAmount: state.dailySpending.miscellaneous.dailyAmount },
+  };
+
+  return result;
+}
+
 // ── Full summary ──
 
 type State = TripCostPlannerState;
