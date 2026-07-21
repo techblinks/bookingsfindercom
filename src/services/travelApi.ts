@@ -80,9 +80,12 @@ export async function trackAffiliateEvent(data: {
   price?: number;
   currency?: string;
   redirectUrl?: string;
+  sourcePage?: string;
+  placement?: string;
+  outboundHost?: string;
 }): Promise<void> {
   try {
-    await supabase.from('affiliate_clicks').insert({
+    const payload: Record<string, unknown> = {
       type: data.type,
       action: data.action,
       origin: data.origin,
@@ -96,7 +99,14 @@ export async function trackAffiliateEvent(data: {
       currency: data.currency || 'USD',
       redirect_url: data.redirectUrl,
       user_agent: navigator.userAgent,
-    });
+    };
+
+    // Phase 3C: context fields (nullable, only when provided)
+    if (data.sourcePage) payload.source_page = data.sourcePage;
+    if (data.placement) payload.placement = data.placement;
+    if (data.outboundHost) payload.outbound_host = data.outboundHost;
+
+    await supabase.from('affiliate_clicks').insert(payload);
   } catch (error) {
     console.error('Failed to track affiliate event:', error);
   }
@@ -144,7 +154,7 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
       throw new Error(data.error || 'Failed to search flights');
     }
 
-    // Track the search
+    // Track the search with source context
     trackAffiliateEvent({
       type: 'flight',
       action: 'search',
@@ -152,6 +162,7 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
       destination: params.destination,
       departureDate: params.departureDate,
       returnDate: params.returnDate,
+      sourcePage: 'flight_results',
     });
 
     // Handle new API format: { flights: [], meta: { total_found, is_complete } }
@@ -201,13 +212,14 @@ export async function searchHotels(params: HotelSearchParams): Promise<{
       throw new Error(data.error || 'Failed to search hotels');
     }
 
-    // Track the search
+    // Track the search with source context
     trackAffiliateEvent({
       type: 'hotel',
       action: 'search',
       destination: params.destination,
       departureDate: params.checkIn,
       returnDate: params.checkOut,
+      sourcePage: 'hotel_results',
     });
 
     return {
@@ -300,4 +312,3 @@ export async function redirectToBooking(redirectId: string): Promise<void> {
     console.error('No redirect URL found for:', redirectId);
   }
 }
-
