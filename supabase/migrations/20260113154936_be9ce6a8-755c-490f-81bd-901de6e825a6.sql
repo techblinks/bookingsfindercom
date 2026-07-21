@@ -1,10 +1,12 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 -- Create subscribers table for email marketing
 CREATE TABLE public.subscribers (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   is_subscribed BOOLEAN NOT NULL DEFAULT true,
   subscription_source TEXT NOT NULL DEFAULT 'manual',
-  unsubscribe_token TEXT NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex') UNIQUE,
+  unsubscribe_token TEXT NOT NULL DEFAULT encode(extensions.gen_random_bytes(32), 'hex') UNIQUE,
   subscribed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   unsubscribed_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -55,3 +57,4 @@ EXECUTE FUNCTION public.update_updated_at_column();
 CREATE INDEX idx_subscribers_email ON public.subscribers(email);
 CREATE INDEX idx_subscribers_is_subscribed ON public.subscribers(is_subscribed);
 CREATE INDEX idx_subscribers_unsubscribe_token ON public.subscribers(unsubscribe_token);
+

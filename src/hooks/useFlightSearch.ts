@@ -3,7 +3,7 @@ import { Flight, FlightSearchMeta, FilterState, SortOption, DEPARTURE_TIME_SLOTS
 import { supabase } from "@/integrations/supabase/client";
 import { trackAffiliateEvent } from "@/services/travelApi";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 interface UseFlightSearchParams {
   origin: string;
@@ -52,7 +52,7 @@ function getHourFromISO(isoString: string): number {
   }
 }
 
-// Calculate deal score based on price, duration, and stops relative to other flights
+// REMOVED: calculateDealScore - was batch-relative, not market-based
 function calculateDealScore(flight: Flight, allFlights: Flight[]): number {
   if (allFlights.length === 0) return 50;
 
@@ -80,7 +80,7 @@ function calculateDealScore(flight: Flight, allFlights: Flight[]): number {
   return Math.round((1 - weightedScore) * 100);
 }
 
-// Determine price confidence based on simulated historical comparison
+// Calculate price confidence based on comparison with other results in current search
 function calculatePriceConfidence(flight: Flight, allFlights: Flight[]): { 
   confidence: PriceConfidence; 
   trend: 'rising' | 'stable' | 'falling';
@@ -413,7 +413,9 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       const session = (await supabase.auth.getSession()).data.session;
       const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/search-flights`, {
+      const url = getFunctionUrl("search-flights");
+      if (!url) throw new Error("Supabase not configured — cannot search flights");
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -454,11 +456,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       const uniqueFlights = Array.from(
         new Map(convertedFlights.map((f: Flight) => [f.id, f])).values()
       ) as Flight[];
-      
-      // Enhance flights with deal scores and price confidence
-      const enhancedFlights = enhanceFlights(uniqueFlights);
-      
-      setFlights(enhancedFlights);
+      setFlights(uniqueFlights);
       setMeta({
         total_found: data.meta?.total_found || enhancedFlights.length,
         is_complete: data.meta?.is_complete ?? true,
@@ -520,3 +518,4 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     fastestDuration,
   };
 }
+

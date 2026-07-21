@@ -83,7 +83,7 @@ const PriceConfidenceIndicator = ({
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs">
               <p className="text-xs">
-                Price confidence is based on historical data and current market trends.
+                Price confidence compares this flight to other results in the current search.
               </p>
             </TooltipContent>
           </Tooltip>

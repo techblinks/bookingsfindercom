@@ -27,7 +27,7 @@ const COUNTDOWN_START = 3;
 const VALUE_PROPS = [
   { icon: TrendingUp, text: "Price comparison complete" },
   { icon: Shield, text: "Verified booking partner" },
-  { icon: Clock, text: "Real-time availability confirmed" },
+  { icon: Clock, text: "Prices compared for you" },
 ];
 
 const BookingRedirect = () => {

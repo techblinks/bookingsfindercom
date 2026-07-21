@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 export interface CalendarPrice {
   date: string;
@@ -33,7 +33,9 @@ export function usePriceCalendar({ origin, destination, month, currency = "USD",
       setError(null);
 
       try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-price-calendar`, {
+        const url = getFunctionUrl("get-price-calendar");
+        if (!url) return;
+        const response = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -59,3 +61,4 @@ export function usePriceCalendar({ origin, destination, month, currency = "USD",
 
   return { prices, isLoading, error };
 }
+

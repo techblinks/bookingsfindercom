@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 interface RouteData {
   origin: string;
@@ -23,7 +23,7 @@ interface RouteData {
   live?: boolean;
 }
 
-const PopularRoutes = () => {
+const PopularRoutes = ({ showHeading = true }: { showHeading?: boolean }) => {
   const { geoData, regionConfig, loading: geoLoading } = useGeoLocation();
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [pricesLoading, setPricesLoading] = useState(false);
@@ -50,7 +50,12 @@ const PopularRoutes = () => {
 
     const fetchPopularDirections = async () => {
       try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-popular-directions`, {
+        const url = getFunctionUrl("get-popular-directions");
+        if (!url) {
+          console.warn("Supabase not configured — skipping popular directions fetch");
+          return;
+        }
+        const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ origin, currency: currency.code, limit: 10 }),
@@ -206,44 +211,46 @@ const PopularRoutes = () => {
 
   return (
     <section className="py-10 md:py-14 overflow-hidden">
-      {/* Header */}
-      <div className="container mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <h2 className="text-xl md:text-2xl font-bold text-foreground">
-                Top Searched Routes
-              </h2>
+      {/* Header — hidden when parent provides its own heading via showHeading={false} */}
+      {showHeading && (
+        <div className="container mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <h2 className="text-xl md:text-2xl font-bold text-foreground">
+                  Top Searched Routes
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {isLiveData ? "Trending" : "Popular"} flights from {geoData?.city || geoData?.country || "your region"} • Indicative prices from travel partners
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {isLiveData ? "Trending" : "Popular"} flights from {geoData?.city || geoData?.country || "your region"} • {isLiveData ? "Real-time data" : "Live prices"}
-            </p>
-          </div>
 
-          {/* Navigation arrows - desktop only */}
-          <div className="hidden md:flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={() => scroll("left")}
-              disabled={!canScrollLeft}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={() => scroll("right")}
-              disabled={!canScrollRight}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            {/* Navigation arrows - desktop only */}
+            <div className="hidden md:flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => scroll("left")}
+                disabled={!canScrollLeft}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => scroll("right")}
+                disabled={!canScrollRight}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Carousel */}
       <div className="relative">
@@ -335,21 +342,7 @@ const PopularRoutes = () => {
                 <div className="flex items-end justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-xs text-muted-foreground">{route.live ? "From" : "Round trip from"}</p>
-                      {!route.loading && route.price && (
-                        <span
-                          className={cn(
-                            "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                            route.live
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : route.cached
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          )}
-                        >
-                          {route.live ? "Trending" : route.cached ? "Cached" : "Live"}
-                        </span>
-                      )}
+                      <p className="text-xs text-muted-foreground">Indicative fare from</p>
                     </div>
                     {route.loading ? (
                       <div className="flex items-center gap-2 h-9">
@@ -407,7 +400,7 @@ const PopularRoutes = () => {
                 Explore All Routes
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Discover flights to 500+ destinations worldwide
+                Discover flights to destinations worldwide
               </p>
               <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-3 transition-all">
                 <span>See all routes</span>
@@ -432,9 +425,9 @@ const PopularRoutes = () => {
         />
       </div>
 
-      {/* Footer note */}
-      <p className="text-xs text-muted-foreground text-center mt-4 px-4">
-        Swipe to explore more routes • Prices updated in real-time
+      {/* Footer note — pricing disclaimer */}
+      <p className="text-xs text-muted-foreground text-center mt-4 px-4 max-w-2xl mx-auto leading-relaxed">
+        Swipe to explore more routes. Indicative fares may change and are confirmed by the selected provider when you continue to book.
       </p>
     </section>
   );

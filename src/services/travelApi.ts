@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 // Use environment variable for the Supabase URL
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nrxupicbzblbxolyxksg.supabase.co";
+import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 export interface FlightSearchParams {
   origin: string;
@@ -120,7 +120,9 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/search-flights`, {
+    const url = getFunctionUrl("search-flights");
+    if (!url) throw new Error("Supabase not configured — cannot search flights");
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -182,7 +184,9 @@ export async function searchHotels(params: HotelSearchParams): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/search-hotels`, {
+    const url = getFunctionUrl("search-hotels");
+    if (!url) throw new Error("Supabase not configured — cannot search hotels");
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -258,7 +262,9 @@ export async function getRedirectUrl(params: RedirectParams): Promise<{
     if (params.guests) searchParams.append('guests', params.guests.toString());
     if (params.link) searchParams.append('link', encodeURIComponent(params.link));
 
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/get-redirect?${searchParams.toString()}`, {
+    const url = getFunctionUrl("get-redirect");
+    if (!url) throw new Error("Supabase not configured — cannot redirect");
+    const response = await fetch(`${url}?${searchParams.toString()}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -294,3 +300,4 @@ export async function redirectToBooking(redirectId: string): Promise<void> {
     console.error('No redirect URL found for:', redirectId);
   }
 }
+

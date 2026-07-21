@@ -8,13 +8,7 @@ interface UrgencyBadgesProps {
   departureDate?: string;
 }
 
-// Deterministic pseudo-random based on price + flight context
-const getSeatsLeft = (price: number): number | null => {
-  const hash = Math.abs(Math.sin(price * 9301 + 4927)) * 10;
-  if (hash < 3) return Math.floor(hash) + 2; // 2-4 seats
-  if (hash < 5) return Math.floor(hash) + 3; // 5-7 seats
-  return null; // No scarcity shown
-};
+// REMOVED: getSeatsLeft function - was Math.sin(price) simulated scarcity
 
 const getDaysUntilDeparture = (departureDate?: string): number | null => {
   if (!departureDate) return null;
@@ -29,26 +23,10 @@ const getDaysUntilDeparture = (departureDate?: string): number | null => {
 
 const UrgencyBadges = ({ price, averagePrice, dealScore, departureDate }: UrgencyBadgesProps) => {
   const badges: JSX.Element[] = [];
-  const seatsLeft = getSeatsLeft(price);
+  // REMOVED: seatsLeft simulation - was fake scarcity
   const daysUntil = getDaysUntilDeparture(departureDate);
 
-  // Seats left badge
-  if (seatsLeft !== null && seatsLeft <= 5) {
-    badges.push(
-      <span
-        key="seats"
-        className={cn(
-          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold",
-          seatsLeft <= 3
-            ? "bg-destructive/10 text-destructive"
-            : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-        )}
-      >
-        <Users className="h-3 w-3" />
-        {seatsLeft} seat{seatsLeft > 1 ? "s" : ""} left
-      </span>
-    );
-  }
+  // REMOVED: seats-left badge - was simulated with Math.sin(price)
 
   // Price trend badge
   if (averagePrice && price < averagePrice * 0.85) {

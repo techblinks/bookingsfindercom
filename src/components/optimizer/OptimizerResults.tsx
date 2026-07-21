@@ -282,7 +282,7 @@ const OptimizerResults = ({ result, request, onReset }: OptimizerResultsProps) =
           Ready to compare live prices?
         </h3>
         <p className="text-sm text-muted-foreground text-center mb-4">
-          See real-time availability and pricing from our booking partners.
+          See availability and pricing from our booking partners.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">

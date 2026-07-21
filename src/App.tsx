@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { HelmetProvider } from "react-helmet-async";
 import CookieConsent from "@/components/CookieConsent";
 import BottomNav from "@/components/layout/BottomNav";
@@ -45,10 +45,12 @@ import TopHotelDestinations from "./pages/TopHotelDestinations";
 import FlightDealsGuide from "./pages/FlightDealsGuide";
 import HotelBookingGuide from "./pages/HotelBookingGuide";
 import TripOptimizer from "./pages/TripOptimizer";
+import TripCostPlannerPage from "./pages/TripCostPlannerPage";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
 import RoutePage from "./pages/RoutePage";
 import ExitIntentPopup from "./components/ExitIntentPopup";
+import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,19 +63,31 @@ const pageVariants = {
 
 const AnimatedRoutes = () => {
   const location = useLocation();
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
-        initial="initial"
+        initial={prefersReducedMotion ? false : "initial"}
         animate="animate"
-        exit="exit"
-        variants={pageVariants}
-        transition={{ type: "tween" as const, ease: "easeInOut" as const, duration: 0.2 }}
+        exit={prefersReducedMotion ? false : "exit"}
+        variants={prefersReducedMotion ? undefined : pageVariants}
+        transition={prefersReducedMotion ? { duration: 0 } : { type: "tween" as const, ease: "easeInOut" as const, duration: 0.2 }}
       >
         <Routes location={location}>
           <Route path="/" element={<Index />} />
+          <Route path="/plan" element={<PlaceholderPage title="Trip Planner" description="Create and manage your trips — coming soon." />} />
+          <Route path="/discover" element={<PlaceholderPage title="Discover Destinations" description="Browse destinations and find your next trip — coming soon." />} />
+          <Route path="/tools" element={<PlaceholderPage title="Travel Tools" description="Visa checker, passport validity, packing lists and more — coming soon." />} />
+          <Route path="/tools/visa" element={<PlaceholderPage title="Visa Checker" description="Check visa requirements for your destination — coming soon." />} />
+          <Route path="/trip-cost" element={<TripCostPlannerPage />} />
+          <Route path="/passport-validity" element={<PlaceholderPage title="Passport Validity Guide" description="Tools to help you review passport validity requirements are coming soon." />} />
+          <Route path="/visa-requirements" element={<PlaceholderPage title="Visa Requirements Guide" description="Official-source travel requirement guidance is coming soon." />} />
+          <Route path="/packing-checklist" element={<PlaceholderPage title="Packing Checklist" description="Create and organise your travel packing list — coming soon." />} />
+          <Route path="/currency-converter" element={<PlaceholderPage title="Currency Converter" description="Convert currencies for trip planning — coming soon." />} />
+          <Route path="/travel-insurance" element={<PlaceholderPage title="Travel Insurance Guide" description="Guidance for reviewing travel insurance options is coming soon." />} />
+          <Route path="/trips" element={<PlaceholderPage title="My Trips" description="Sign in to manage your upcoming trips — coming soon." />} />
           <Route path="/optimizer" element={<TripOptimizer />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/account" element={<Account />} />
