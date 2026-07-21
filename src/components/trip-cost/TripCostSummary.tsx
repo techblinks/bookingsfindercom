@@ -1,6 +1,7 @@
 import { formatCurrency } from "./tripCostFormatting";
 import { getTotalTravellers, calculateNights } from "./tripCostCalculations";
 import type { TripCostPlannerState, TripCostSummary, SupportedCurrency } from "./types";
+import { FlightHandoffButton } from "./FlightHandoffButton";
 
 interface TripCostSummaryPanelProps {
   state: TripCostPlannerState;
@@ -112,8 +113,11 @@ export function TripCostSummaryPanel({ state, summary }: TripCostSummaryPanelPro
         </div>
       </div>
 
+      {/* Flight search handoff */}
+      <FlightHandoffButton state={state} />
+
       {/* Disclaimer */}
-      <p className="mt-4 text-xs text-muted-foreground leading-relaxed border-t border-border pt-3">
+      <p className="mt-3 text-xs text-muted-foreground leading-relaxed border-t border-border pt-3">
         Your total is an estimate based on your entries. Confirm actual prices and fees with the relevant provider before booking.
       </p>
     </div>

@@ -91,5 +91,8 @@ export { PreparationCostsSection } from "./PreparationCostsSection";
 export { TripCostSummaryPanel } from "./TripCostSummary";
 export { TripCostSectionCard } from "./TripCostSectionCard";
 export { MoneyInput } from "./MoneyInput";
+export { FlightHandoffButton } from "./FlightHandoffButton";
+export { mapPlannerToFlightHandoff } from "./tripCostFlightHandoff";
+export type { FlightHandoffMode, FlightHandoffResult } from "./tripCostFlightHandoff";
 export { useTripCostPlanner } from "./useTripCostPlanner";
 export type { TripCostPlannerAPI } from "./useTripCostPlanner";
