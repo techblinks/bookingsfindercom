@@ -147,9 +147,11 @@ export type Database = {
           hotel_id: string | null
           id: string
           origin: string | null
+          placement: string | null
           price: number | null
           redirect_url: string | null
           return_date: string | null
+          source_page: string | null
           type: string
           user_agent: string | null
         }
@@ -164,9 +166,11 @@ export type Database = {
           hotel_id?: string | null
           id?: string
           origin?: string | null
+          placement?: string | null
           price?: number | null
           redirect_url?: string | null
           return_date?: string | null
+          source_page?: string | null
           type: string
           user_agent?: string | null
         }
@@ -181,9 +185,11 @@ export type Database = {
           hotel_id?: string | null
           id?: string
           origin?: string | null
+          placement?: string | null
           price?: number | null
           redirect_url?: string | null
           return_date?: string | null
+          source_page?: string | null
           type?: string
           user_agent?: string | null
         }

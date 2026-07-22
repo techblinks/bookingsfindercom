@@ -147,6 +147,7 @@ const FlightResults = () => {
       type: 'flight', action: 'click', origin, destination, departureDate,
       returnDate: returnDate || undefined, airlineCode: flight.airline_code,
       price: flight.price, currency: flight.currency,
+      sourcePage: 'flight_results', placement: 'flight_result_card',
     });
     try {
       const result = await getRedirectUrl({
@@ -375,3 +376,4 @@ const FlightResults = () => {
 };
 
 export default FlightResults;
+
