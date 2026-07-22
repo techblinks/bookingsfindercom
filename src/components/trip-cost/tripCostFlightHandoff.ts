@@ -1,5 +1,5 @@
 import type { TripCostPlannerState } from "./types";
-import { buildInternalFlightUrl, validateFlightParams } from "@/lib/travelConfig";
+import { buildInternalFlightUrl } from "@/lib/travelConfig";
 import type { ValidatedFlightParams } from "@/lib/travelConfig";
 
 /**

@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Plane, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AFFILIATE_DISCLOSURE } from "@/lib/travelConfig";
 import { mapPlannerToFlightHandoff } from "./tripCostFlightHandoff";
 import type { TripCostPlannerState } from "./types";
 
