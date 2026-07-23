@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, ChevronDown, Search, Calendar } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
 import { useAds } from "@/hooks/useAds";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
+import { buildWhiteLabelFlightUrl } from "@/lib/whiteLabelUrl";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
@@ -47,6 +48,19 @@ const FlightResults = () => {
   const returnDate = searchParams.get("returnDate") || "";
   const passengers = parseInt(searchParams.get("passengers") || "1", 10);
   const cabinClass = searchParams.get("cabinClass") || "economy";
+
+  // Phase 5A: Explicit passenger breakdown for White Label eligibility
+  const adultsRaw = searchParams.get("adults");
+  const childrenRaw = searchParams.get("children");
+  const infantsRaw = searchParams.get("infants");
+  const adults = adultsRaw !== null ? parseInt(adultsRaw, 10) : null;
+  const children = childrenRaw !== null ? parseInt(childrenRaw, 10) : null;
+  const infants = infantsRaw !== null ? parseInt(infantsRaw, 10) : null;
+  const hasExplicitPassengers =
+    adults !== null && !isNaN(adults) && Number.isInteger(adults) && adults >= 1 && adults <= 9 &&
+    children !== null && !isNaN(children) && Number.isInteger(children) && children >= 0 && children <= 9 &&
+    infants !== null && !isNaN(infants) && Number.isInteger(infants) && infants >= 0 && infants <= 9;
+
 
   const { geoData } = useGeoLocation();
   const currencyCode = geoData?.currency || "USD";
@@ -148,6 +162,29 @@ const FlightResults = () => {
       returnDate: returnDate || undefined, airlineCode: flight.airline_code,
       price: flight.price, currency: flight.currency,
       sourcePage: 'flight_results', placement: 'flight_result_card',
+
+    // Phase 5A: Try White Label routing when explicit passenger breakdown is available
+    if (hasExplicitPassengers) {
+      const wlResult = buildWhiteLabelFlightUrl({
+        origin, destination, outboundDate: departureDate,
+        returnDate: returnDate || undefined,
+        adults: adults!, children: children!, infants: infants!,
+        cabinClass,
+      });
+      if (wlResult.success && wlResult.url) {
+        const outboundHost = new URL(wlResult.url).hostname;
+        trackAffiliateEvent({
+          type: 'flight', action: 'click', origin, destination, departureDate,
+          returnDate: returnDate || undefined, airlineCode: flight.airline_code,
+          price: flight.price, currency: flight.currency,
+          sourcePage: 'flight_results', placement: 'flight_result_card',
+          outboundHost,
+        });
+        window.location.href = `/redirect?url=${encodeURIComponent(wlResult.url)}`;
+        return;
+      }
+    }
+
     });
     try {
       const result = await getRedirectUrl({
@@ -193,7 +230,7 @@ const FlightResults = () => {
 
       <Header />
 
-      {/* Pre-search state — no origin/destination */}
+      {/* Pre-search state â€” no origin/destination */}
       {!hasSearch ? (
         <main id="main-content" className="flex-1 flex items-center justify-center p-4">
           <div className="text-center max-w-md">
@@ -234,8 +271,8 @@ const FlightResults = () => {
                     <p className="text-xs text-muted-foreground truncate">
                       {formatDate(departureDate)}
                       {returnDate && ` - ${formatDate(returnDate)}`}
-                      {" · "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
-                      {" · "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
+                      {" Â· "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
+                      {" Â· "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
                     </p>
                   </div>
                 </div>

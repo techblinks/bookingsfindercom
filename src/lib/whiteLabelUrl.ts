@@ -1,30 +1,20 @@
 /**
  * Travelpayouts White Label deep-link URL builder.
  *
- * SEPARATE from buildFlightSearchUrl() — the White Label uses a completely
- * different URL format (?flightSearch=ORIGDDMMDESTDDMM) than standard
- * Aviasales (/search/ORIGDATEDESTRETDATE1).
- *
- * Only verified parameters are encoded. Unverified parameters are
- * reported but not included in the URL.
+ * Uses the verified `?flightSearch=` query-parameter protocol.
+ * SEPARATE from buildFlightSearchUrl() — the White Label format is
+ * entirely different from standard Aviasales /search/ paths.
  *
  * ## Rollout Modes
  *
- * Controlled by VITE_TRAVEL_WHITE_LABEL_MODE env var:
+ * Controlled by VITE_TRAVEL_WHITE_LABEL_MODE:
+ *   "disabled" (default) — returns failure; caller must fall back
+ *   "test" / "enabled"  — builds White Label URLs when host is configured
  *
- *   "disabled" (default) — builder returns failure; callers must fall back
- *                          to internal /flights or the Aviasales builder
- *   "test"               — builder succeeds only when VITE_TRAVEL_WHITE_LABEL_HOST
- *                          is also set. Produces real White Label URLs but
- *                          should only be used for non-production testing
- *   "enabled"            — builder succeeds for all verified parameters when
- *                          White Label host is configured. Production-ready
- *
- * When VITE_TRAVEL_WHITE_LABEL_HOST is unset, the builder always returns
- * failure regardless of mode.
+ * Production remains disabled until VITE_TRAVEL_WHITE_LABEL_MODE=enabled.
  */
 
-import { PARTNERS, type TravelPartnerId, type ValidatedFlightParams, type ValidationFieldError } from "./travelConfig";
+import { PARTNERS } from "./travelConfig";
 
 // ── Types ──
 
@@ -32,172 +22,157 @@ export type WhiteLabelRolloutMode = "disabled" | "test" | "enabled";
 
 export interface WhiteLabelUrlResult {
   success: boolean;
-  /** The generated URL, or null on failure. */
   url: string | null;
-  /** Human-readable failure reason. */
   reason?: string;
-  /** Parameters that were requested but cannot be encoded (unverified). */
-  unverifiedParams?: string[];
 }
 
-/** IATA code pattern (3 uppercase letters). */
-const IATA_RE = /^[A-Z]{3}$/;
+// ── Constants ──
 
-/** ISO date pattern (YYYY-MM-DD). */
+const IATA_RE = /^[A-Z]{3}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Supported cabin classes for White Label. */
+const SUPPORTED_CABIN_CLASSES = ["economy", "business"] as const;
 
 // ── Rollout Mode ──
 
-/**
- * Resolve the current White Label rollout mode from the build-time env var.
- * Cached at module load — VITE_ env vars are build-time constants.
- */
 let _rolloutModeCache: WhiteLabelRolloutMode | undefined;
 
 export function getWhiteLabelRolloutMode(): WhiteLabelRolloutMode {
   if (_rolloutModeCache !== undefined) return _rolloutModeCache;
   const raw = import.meta.env.VITE_TRAVEL_WHITE_LABEL_MODE;
-  if (raw === "test" || raw === "enabled") {
-    _rolloutModeCache = raw;
-    return raw;
-  }
+  if (raw === "test" || raw === "enabled") { _rolloutModeCache = raw; return raw; }
   _rolloutModeCache = "disabled";
   return "disabled";
 }
 
 // ── Helpers ──
 
-/**
- * Convert "YYYY-MM-DD" to "DDMM".
- * Example: "2026-08-20" → "2008"
- */
 function toDDMM(isoDate: string): string {
   return isoDate.slice(8, 10) + isoDate.slice(5, 7);
 }
 
-/**
- * Get the White Label base URL, or null if not configured.
- */
 function getWhiteLabelBase(): string | null {
   const host = PARTNERS.aviasales.whiteLabelHost;
   if (!host) return null;
   return `https://${host}`;
 }
 
+/**
+ * Build a verified passenger suffix.
+ *
+ * Live-verified encoding:
+ *   1 adult                                            → "1"
+ *   2 adults                                           → "2"
+ *   1 adult + 1 child                                  → "11"
+ *   2 adults + 1 child                                 → "21"
+ *   1 adult + 0 children + 1 infant                    → "101"
+ *   (zero-child position is preserved when infant > 0)
+ */
+function buildPassengerSuffix(adults: number, children: number, infants: number): string {
+  const a = String(adults);
+  if (infants === 0 && children === 0) return a;
+  if (infants === 0) return a + String(children);
+  // Preserve zero-child position: adults + "0" + infants
+  return a + String(children) + String(infants);
+}
+
 // ── Builder ──
 
 /**
- * Build a White Label flight search URL using the verified
- * `?flightSearch=` query-parameter protocol.
+ * Build a White Label flight search URL.
  *
- * ## Verified Parameters (always encoded)
- *   - origin (IATA)
- *   - destination (IATA)
- *   - outbound date (YYYY-MM-DD)
- *   - return date (YYYY-MM-DD, optional — one-way when absent)
+ * ## Eligibility
+ * All of the following MUST be explicitly provided and valid:
+ *   - origin (3-char IATA)
+ *   - destination (3-char IATA, not same as origin)
+ *   - outboundDate (YYYY-MM-DD, not in past)
+ *   - adults (integer, 1-9)
+ *   - children (integer, 0-9)
+ *   - infants (integer, 0-9)
+ *   - cabinClass ("economy" or "business")
+ *   - Rollout mode is "test" or "enabled"
+ *   - White Label host is configured
  *
- * ## Blocked Parameters (reported, never encoded — requires live verification)
- *   - adults > 1
- *   - children > 0
- *   - infants > 0
- *   - cabinClass != "economy"
- *   - currency (any)
- *
- * ## Failure Conditions
- *   - White Label host not configured → { success: false }
- *   - Rollout mode is "disabled" → { success: false }
- *   - IATA codes missing or invalid → { success: false }
- *   - Same origin and destination → { success: false }
- *   - Outbound date missing → { success: false }
- *   - Return before outbound → { success: false }
- *   - Any blocked parameter is requested with a non-default value
- *     → { success: false, reason: "..." } with unverifiedParams list
- *
- * Callers must fall back to internal flight search when this returns failure.
+ * If ANY condition fails → { success: false }. Caller MUST fall back.
  */
 export function buildWhiteLabelFlightUrl(params: {
   origin: string;
   destination: string;
-  outboundDate: string;     // "YYYY-MM-DD"
-  returnDate?: string;      // "YYYY-MM-DD"
-  adults?: number;          // BLOCKED (unverified)
-  children?: number;        // BLOCKED (unverified)
-  infants?: number;         // BLOCKED (unverified)
-  cabinClass?: string;      // BLOCKED (unverified)
-  currency?: string;        // BLOCKED (unverified)
+  outboundDate: string;
+  returnDate?: string;
+  adults: number;
+  children: number;
+  infants: number;
+  cabinClass: string;
 }): WhiteLabelUrlResult {
-  // Rollout check
-  const mode = getWhiteLabelRolloutMode();
-  if (mode === "disabled") {
-    return { success: false, url: null, reason: "White Label is not enabled (rollout mode: disabled)" };
+  // Rollout
+  if (getWhiteLabelRolloutMode() === "disabled") {
+    return { success: false, url: null, reason: "White Label is not enabled" };
   }
 
-  // Host check
+  // Host
   const base = getWhiteLabelBase();
   if (!base) {
     return { success: false, url: null, reason: "White Label host is not configured" };
   }
 
-  const errors: string[] = [];
-  const unverified: string[] = [];
-
-  // Track and BLOCK unverified params — they MUST be rejected until live-tested
-  if (params.adults !== undefined && params.adults !== 1) {
-    unverified.push("adults");
-    errors.push("Adults count > 1 is not yet supported on White Label");
-  }
-  if (params.children !== undefined && params.children > 0) {
-    unverified.push("children");
-    errors.push("Children count is not yet supported on White Label");
-  }
-  if (params.infants !== undefined && params.infants > 0) {
-    unverified.push("infants");
-    errors.push("Infants count is not yet supported on White Label");
-  }
-  if (params.cabinClass !== undefined && params.cabinClass !== "economy") {
-    unverified.push("cabinClass");
-    errors.push(`Cabin class "${params.cabinClass}" is not yet supported on White Label`);
-  }
-  if (params.currency !== undefined) {
-    unverified.push("currency");
-    errors.push("Currency override is not yet supported on White Label");
-  }
-
-  // Validate required fields
+  // IATA
   if (!params.origin || !IATA_RE.test(params.origin)) {
-    errors.push("Origin must be a 3-letter IATA code");
+    return { success: false, url: null, reason: "Origin must be a 3-letter IATA code" };
   }
   if (!params.destination || !IATA_RE.test(params.destination)) {
-    errors.push("Destination must be a 3-letter IATA code");
+    return { success: false, url: null, reason: "Destination must be a 3-letter IATA code" };
   }
-  if (params.origin && params.destination && IATA_RE.test(params.origin) && IATA_RE.test(params.destination) && params.origin === params.destination) {
-    errors.push("Destination cannot be the same as origin");
+  if (params.origin === params.destination) {
+    return { success: false, url: null, reason: "Origin and destination cannot be the same" };
   }
+
+  // Dates
   if (!params.outboundDate || !DATE_RE.test(params.outboundDate)) {
-    errors.push("Outbound date must be YYYY-MM-DD");
+    return { success: false, url: null, reason: "Outbound date must be YYYY-MM-DD" };
   }
   if (params.returnDate && !DATE_RE.test(params.returnDate)) {
-    errors.push("Return date must be YYYY-MM-DD");
+    return { success: false, url: null, reason: "Return date must be YYYY-MM-DD" };
   }
-  if (params.outboundDate && params.returnDate && DATE_RE.test(params.outboundDate) && DATE_RE.test(params.returnDate) && params.returnDate < params.outboundDate) {
-    errors.push("Return date must be on or after outbound date");
-  }
-
-  if (errors.length > 0) {
-    return {
-      success: false,
-      url: null,
-      reason: errors.join("; "),
-      unverifiedParams: unverified.length > 0 ? unverified : undefined,
-    };
+  if (params.returnDate && params.returnDate < params.outboundDate) {
+    return { success: false, url: null, reason: "Return date must be on or after outbound date" };
   }
 
-  // Build verified minimum: flightSearch=ORIGDDMMDEST[DDMM]
+  // Passengers — strict integer validation
+  for (const [name, val] of [["adults", params.adults], ["children", params.children], ["infants", params.infants]] as const) {
+    if (!Number.isInteger(val) || val < 0 || val > 9) {
+      return { success: false, url: null, reason: `${name} must be an integer 0–9` };
+    }
+  }
+  if (params.adults < 1) {
+    return { success: false, url: null, reason: "At least 1 adult is required" };
+  }
+
+  // Cabin class — must be explicitly "economy" or "business"
+  if (!(SUPPORTED_CABIN_CLASSES as readonly string[]).includes(params.cabinClass)) {
+    return { success: false, url: null, reason: `Cabin class must be one of: ${SUPPORTED_CABIN_CLASSES.join(", ")}` };
+  }
+
+  // ── Build flightSearch ──
+
+  // Core: ORIGIN + DDMM + DEST
   let flightSearch = params.origin + toDDMM(params.outboundDate) + params.destination;
+
+  // Return date (optional — omit for one-way)
   if (params.returnDate) {
     flightSearch += toDDMM(params.returnDate);
   }
 
+  // Cabin marker: "c" for business, nothing for economy
+  if (params.cabinClass === "business") {
+    flightSearch += "c";
+  }
+
+  // Passenger suffix
+  flightSearch += buildPassengerSuffix(params.adults, params.children, params.infants);
+
+  // ── Build URL ──
   const qs = new URLSearchParams();
   qs.set("flightSearch", flightSearch);
   qs.set("origin_airports", "1");
@@ -206,9 +181,5 @@ export function buildWhiteLabelFlightUrl(params: {
   const url = new URL("/", base);
   url.search = qs.toString();
 
-  return {
-    success: true,
-    url: url.toString(),
-    unverifiedParams: unverified.length > 0 ? unverified : undefined,
-  };
+  return { success: true, url: url.toString() };
 }

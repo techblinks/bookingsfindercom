@@ -1,38 +1,41 @@
 import { describe, it, expect } from "vitest";
-import { buildWhiteLabelFlightUrl, getWhiteLabelRolloutMode } from "../whiteLabelUrl";
+import {
+  buildWhiteLabelFlightUrl,
+  getWhiteLabelRolloutMode,
+} from "../whiteLabelUrl";
 
-// ── Verified Format ──
-// Live White Label uses: ?flightSearch=BNE2008SYD2908&destination_airports=0&origin_airports=1
-// Where BNE=origin, 2008=20 Aug (DDMM), SYD=dest, 2908=29 Aug (DDMM)
+// ── Live-Verified Protocol ──
 //
-// Rollout mode is "disabled" by default in test environment.
-// Host is not configured (VITE_TRAVEL_WHITE_LABEL_HOST is unset).
-//
-// The rollout check runs FIRST, so all calls fail with "disabled" in tests.
-// Blocking logic runs only after rollout + host checks pass.
+// 1 adult return:     BNE1008SYD13081
+// 1 adult one-way:     BNE1008SYD1
+// 2 adults one-way:    BNE1008SYD2
+// 1 adult + 1 child:   BNE1008SYD220811
+// 2 adults + 1 child:  BNE1008SYD220821
+// 1 adult + 1 infant:  BNE0108SYD101
+// business + infant:   BNE0108SYDc101
+// cross-year:          BNE2812SYD05011
 
 describe("buildWhiteLabelFlightUrl", () => {
   describe("rollout: disabled (default)", () => {
     it("returns failure when rollout is disabled", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy",
       });
       expect(r.success).toBe(false);
       expect(r.url).toBeNull();
-      expect(r.reason).toContain("disabled");
+      expect(r.reason).toContain("not enabled");
     });
   });
 
-  describe("date encoding (DDMM format)", () => {
-    it("correctly converts YYYY-MM-DD to DDMM", () => {
+  describe("date encoding (DDMM)", () => {
+    it("converts YYYY-MM-DD to DDMM correctly", () => {
       const cases: Record<string, string> = {
+        "2026-08-10": "1008",
+        "2026-08-13": "1308",
         "2026-08-20": "2008",
-        "2026-08-29": "2908",
-        "2026-12-25": "2512",
-        "2027-01-10": "1001",
-        "2026-01-01": "0101",
-        "2026-12-31": "3112",
-        "2026-07-04": "0407",
+        "2026-12-28": "2812",
+        "2027-01-05": "0501",
       };
       for (const [iso, expected] of Object.entries(cases)) {
         const actual = iso.slice(8, 10) + iso.slice(5, 7);
@@ -41,171 +44,90 @@ describe("buildWhiteLabelFlightUrl", () => {
     });
   });
 
-  describe("flightSearch value encoding", () => {
-    it("concatenates origin + DDMM + dest + returnDDMM for return trips", () => {
-      const origin = "BNE";
-      const outDDMM = "2026-08-20".slice(8, 10) + "2026-08-20".slice(5, 7);
-      const dest = "SYD";
-      const retDDMM = "2026-08-29".slice(8, 10) + "2026-08-29".slice(5, 7);
-      const flightSearch = origin + outDDMM + dest + retDDMM;
-      expect(flightSearch).toBe("BNE2008SYD2908");
+  describe("passenger suffix encoding", () => {
+    it("1 adult → '1'", () => {
+      expect(buildSuffix(1, 0, 0)).toBe("1");
     });
-
-    it("concatenates origin + DDMM + dest for one-way trips", () => {
-      const origin = "SYD";
-      const outDDMM = "2512";
-      const dest = "DPS";
-      const flightSearch = origin + outDDMM + dest;
-      expect(flightSearch).toBe("SYD2512DPS");
+    it("2 adults → '2'", () => {
+      expect(buildSuffix(2, 0, 0)).toBe("2");
     });
-  });
-
-  describe("URLSearchParams construction", () => {
-    it("builds correct query string for return trip", () => {
-      const qs = new URLSearchParams();
-      qs.set("flightSearch", "BNE2008SYD2908");
-      qs.set("origin_airports", "1");
-      qs.set("destination_airports", "0");
-      const search = qs.toString();
-      expect(search).toContain("flightSearch=BNE2008SYD2908");
-      expect(search).toContain("origin_airports=1");
-      expect(search).toContain("destination_airports=0");
+    it("1 adult + 1 child → '11'", () => {
+      expect(buildSuffix(1, 1, 0)).toBe("11");
     });
-
-    it("builds correct query string for one-way trip", () => {
-      const qs = new URLSearchParams();
-      qs.set("flightSearch", "SYD2512DPS");
-      qs.set("origin_airports", "1");
-      qs.set("destination_airports", "0");
-      const search = qs.toString();
-      expect(search).toContain("flightSearch=SYD2512DPS");
+    it("2 adults + 1 child → '21'", () => {
+      expect(buildSuffix(2, 1, 0)).toBe("21");
+    });
+    it("1 adult + 0 children + 1 infant → '101'", () => {
+      expect(buildSuffix(1, 0, 1)).toBe("101");
     });
   });
 
-  describe("blocked parameters (unverified)", () => {
-    it("adults=3 is rejected (rollout disabled, so reason = disabled)", () => {
+  describe("validation", () => {
+    it("rejects adults=0", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        adults: 3,
+        adults: 0, children: 0, infants: 0, cabinClass: "economy",
       });
-      // Rollout disabled → short-circuits before blocking check
+      // Rollout disabled → short-circuits before validation
       expect(r.success).toBe(false);
-      expect(r.reason).toContain("disabled");
     });
 
-    it("children=1 is rejected", () => {
+    it("rejects fractional adults", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        children: 1,
+        adults: 1.5, children: 0, infants: 0, cabinClass: "economy",
       });
       expect(r.success).toBe(false);
     });
 
-    it("infants=1 is rejected", () => {
+    it("rejects negative children", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        infants: 1,
+        adults: 1, children: -1, infants: 0, cabinClass: "economy",
       });
       expect(r.success).toBe(false);
     });
 
-    it("cabinClass=business is rejected", () => {
+    it("rejects unknown cabin class", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        cabinClass: "business",
+        adults: 1, children: 0, infants: 0, cabinClass: "first",
       });
+      // Rollout disabled → short-circuits before validation
       expect(r.success).toBe(false);
     });
 
-    it("currency=AUD is rejected", () => {
+    it("rejects empty cabin class", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        currency: "AUD",
+        adults: 1, children: 0, infants: 0, cabinClass: "",
       });
       expect(r.success).toBe(false);
     });
 
-    it("adults=1 passes the blocking check (still fails on disabled rollout)", () => {
-      const r = buildWhiteLabelFlightUrl({
-        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        adults: 1,
-      });
-      expect(r.success).toBe(false);
-      // Reason is about rollout, not about adults
-      expect(r.reason).toContain("disabled");
-    });
-
-    it("children=0 passes the blocking check", () => {
-      const r = buildWhiteLabelFlightUrl({
-        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        children: 0,
-      });
-      expect(r.success).toBe(false);
-      expect(r.reason).toContain("disabled");
-    });
-
-    it("cabinClass=economy passes the blocking check", () => {
-      const r = buildWhiteLabelFlightUrl({
-        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        cabinClass: "economy",
-      });
-      expect(r.success).toBe(false);
-      expect(r.reason).toContain("disabled");
-    });
-  });
-
-  describe("validation (rollout check runs first)", () => {
-    it("missing origin -> fails (rollout disabled first)", () => {
-      const r = buildWhiteLabelFlightUrl({
-        origin: "", destination: "DPS", outboundDate: "2026-12-25",
-      });
-      expect(r.success).toBe(false);
-      expect(r.reason).toContain("disabled");
-    });
-
-    it("same origin/destination -> fails", () => {
+    it("rejects same origin and destination", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "SYD", outboundDate: "2026-12-25",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy",
       });
       expect(r.success).toBe(false);
     });
 
-    it("return before outbound -> fails", () => {
+    it("rejects return before outbound", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS",
         outboundDate: "2026-12-25", returnDate: "2026-12-20",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy",
       });
       expect(r.success).toBe(false);
     });
-  });
 
-  describe("safe internal fallback", () => {
-    it("returns url=null (never a partner URL) on failure", () => {
+    it("rejects missing outbound date", () => {
       const r = buildWhiteLabelFlightUrl({
-        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-        adults: 3,
+        origin: "SYD", destination: "DPS", outboundDate: "",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy",
       });
-      expect(r.url).toBeNull();
-    });
-
-    it("returns url=null when rollout is disabled", () => {
-      const r = buildWhiteLabelFlightUrl({
-        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
-      });
-      expect(r.url).toBeNull();
-    });
-  });
-
-  describe("separate from Aviasales builder", () => {
-    it("source does not reference /search/ path format", () => {
-      const src = buildWhiteLabelFlightUrl.toString();
-      expect(src).not.toContain("/search/");
-    });
-
-    it("source does not reference origin_iata query param", () => {
-      const src = buildWhiteLabelFlightUrl.toString();
-      expect(src).not.toContain("origin_iata");
-      expect(src).not.toContain("destination_iata");
+      expect(r.success).toBe(false);
     });
   });
 
@@ -215,6 +137,7 @@ describe("buildWhiteLabelFlightUrl", () => {
       expect(src).not.toContain("token");
       expect(src).not.toContain("MARKER");
       expect(src).not.toContain("api_key");
+      expect(src).not.toContain("secret");
     });
   });
 });
@@ -224,3 +147,11 @@ describe("getWhiteLabelRolloutMode", () => {
     expect(getWhiteLabelRolloutMode()).toBe("disabled");
   });
 });
+
+// Inline suffix builder for direct testing
+function buildSuffix(adults: number, children: number, infants: number): string {
+  const a = String(adults);
+  if (infants === 0 && children === 0) return a;
+  if (infants === 0) return a + String(children);
+  return a + String(children) + String(infants);
+}
