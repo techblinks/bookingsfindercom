@@ -68,13 +68,47 @@ export interface UrlBuildResult {
 
 // ── Partner Configuration ──
 
+/**
+ * Resolve the White Label host from the build-time environment variable.
+ * Accepts values with or without `https://` prefix.
+ * Strips protocol and trailing slashes so only the bare hostname is stored.
+ * Returns null when the env var is not set, empty, or contains invalid
+ * characters for a hostname (full URLs with paths are rejected).
+ *
+ * Result is cached at module load time — VITE_ env vars are build-time constants.
+ */
+let _whiteLabelHostCache: string | null | undefined;
+
 function getWhiteLabelHost(): string | null {
-  // Read from build-time env. Only set when owner configures the CNAME.
-  // Falls back to null → Edge Function uses aviasales.com directly.
-  const host = import.meta.env.VITE_TRAVEL_WHITE_LABEL_HOST;
-  if (!host || host === "") return null;
-  // Validate it's a hostname, not a full URL
-  if (host.includes("://") || host.includes("/")) return null;
+  if (_whiteLabelHostCache !== undefined) return _whiteLabelHostCache;
+
+  const raw = import.meta.env.VITE_TRAVEL_WHITE_LABEL_HOST;
+  if (!raw || raw === "") {
+    _whiteLabelHostCache = null;
+    return null;
+  }
+
+  // Normalise: strip https:// or http:// prefix
+  let host = raw.trim();
+  if (host.startsWith("https://")) host = host.slice("https://".length);
+  else if (host.startsWith("http://")) host = host.slice("http://".length);
+
+  // Strip trailing slash
+  if (host.endsWith("/")) host = host.slice(0, -1);
+
+  // Reject values that still look like URLs (contain paths or query strings)
+  if (host.includes("/") || host.includes("?") || host.includes("#")) {
+    _whiteLabelHostCache = null;
+    return null;
+  }
+
+  // Reject empty after normalisation
+  if (!host) {
+    _whiteLabelHostCache = null;
+    return null;
+  }
+
+  _whiteLabelHostCache = host;
   return host;
 }
 
@@ -206,13 +240,29 @@ function getEffectiveBaseUrl(partner: TravelPartnerId): string {
 /**
  * Verify that a built URL's host matches the approved partner host.
  * This prevents accidental redirect to an unexpected domain.
+ *
+ * For aviasales, also accepts the configured White Label host (e.g.,
+ * flights.bookingsfinder.com) even though its root domain differs
+ * from the standard aviasales.com.
  */
 function isApprovedHost(urlString: string, partner: TravelPartnerId): boolean {
   try {
     const u = new URL(urlString);
     const approved = APPROVED_HOSTS[partner];
     if (!approved) return false;
-    return u.hostname === approved || u.hostname.endsWith(`.${approved}`);
+
+    // Standard partner host (e.g., aviasales.com or subdomain)
+    if (u.hostname === approved || u.hostname.endsWith(`.${approved}`)) return true;
+
+    // White Label host for aviasales
+    if (partner === "aviasales") {
+      const wlHost = getWhiteLabelHost();
+      if (wlHost && (u.hostname === wlHost || u.hostname.endsWith(`.${wlHost}`))) {
+        return true;
+      }
+    }
+
+    return false;
   } catch {
     return false;
   }
