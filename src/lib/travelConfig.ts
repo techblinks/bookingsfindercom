@@ -373,3 +373,127 @@ export function getPartnerDisclosure(partnerId: TravelPartnerId): string {
  */
 export const AFFILIATE_DISCLOSURE =
   "BookingsFinder is a travel comparison site. We may earn a commission when you book through our partners at no extra cost to you. Final prices and availability are confirmed by the booking provider.";
+
+// ── Redirect Host Validation ──
+
+/**
+ * Approved redirect destination hosts.
+ *
+ * Constructed from partner configuration and the White Label host.
+ *   - aviasales.com (and subdomains) — standard Aviasales search
+ *   - hotellook.com (and subdomains) — standard Hotellook search
+ *   - The configured White Label host, if set
+ *   - localhost / 127.0.0.1 — for development (only in DEV mode)
+ *
+ * The hostname comparison is **exact match only** for the White Label host
+ * and exact or strict dot-boundary suffix for standard partner hosts.
+ * Substring matching (e.g. includes(), endsWith() without a dot) is never used.
+ */
+
+/**
+ * Check whether `hostname` matches `approved`:
+ *   - Exact match ("aviasales.com" matches "aviasales.com")
+ *   - Subdomain match ("www.aviasales.com" matches ".aviasales.com" via endswith)
+ * The rule always uses a dot prefix for suffix matching to prevent lookalike attacks.
+ */
+function hostnameMatches(hostname: string, approved: string): boolean {
+  return hostname === approved || hostname.endsWith("." + approved);
+}
+
+/**
+ * All approved redirect destination hostnames.
+ * Computed once at module load — values are build-time constants.
+ *
+ * White Label host is approved by EXACT hostname only — no root domain, no siblings.
+ */
+export function getApprovedRedirectHosts(): string[] {
+  const hosts: string[] = [
+    // Standard Aviasales host
+    "www.aviasales.com",
+    "aviasales.com",
+    // Hotellook host
+    "search.hotellook.com",
+    "hotellook.com",
+  ];
+
+  // Configured White Label host — exact match only
+  const wlHost = getWhiteLabelHost();
+  if (wlHost) {
+    hosts.push(wlHost);
+  }
+
+  return hosts;
+}
+
+/** Safe localhost patterns — only valid in development mode. */
+const DEV_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
+export interface HostValidationResult {
+  valid: boolean;
+  hostname: string | null;
+  reason?: string;
+}
+
+/**
+ * Validate that a redirect URL resolves to an approved partner host.
+ * HTTPS only in production — localhost is permitted for development only.
+ * Returns a structured result — never throws.
+ */
+export function validateRedirectHost(rawUrl: string): HostValidationResult {
+  // Must be non-empty
+  if (!rawUrl || !rawUrl.trim()) {
+    return { valid: false, hostname: null, reason: "Empty URL" };
+  }
+
+  const trimmed = rawUrl.trim().replace(/\s/g, "%20");
+
+  // Parse with URL constructor
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { valid: false, hostname: null, reason: "Invalid URL" };
+  }
+
+  // Reject dangerous protocols even if URL constructor accepts them
+  if (parsed.protocol === "javascript:" || parsed.protocol === "data:" || parsed.protocol === "file:") {
+    return { valid: false, hostname: null, reason: "Invalid URL" };
+  }
+
+  // Reject URLs with userinfo (username/password) — lookalike vector:
+  //   https://flights.bookingsfinder.com@evil.example → hostname = evil.example
+  if (parsed.username || parsed.password) {
+    return { valid: false, hostname: parsed.hostname, reason: "URLs with credentials are not permitted" };
+  }
+
+  // Normalise hostname for comparison
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Only https: in production; http: allowed for localhost dev
+  const isDevHost = DEV_HOSTS.includes(hostname);
+  if (parsed.protocol !== "https:" && !(isDevHost && import.meta.env.DEV && parsed.protocol === "http:")) {
+    return { valid: false, hostname, reason: "Only HTTPS URLs are permitted" };
+  }
+
+  // Development hosts — only accepted when running in DEV mode
+  if (isDevHost) {
+    if (!import.meta.env.DEV) {
+      return { valid: false, hostname, reason: `Host "${hostname}" is not permitted in production` };
+    }
+    return { valid: true, hostname };
+  }
+
+  // Check against approved hosts
+  const approved = getApprovedRedirectHosts();
+  for (const a of approved) {
+    if (hostnameMatches(hostname, a)) {
+      return { valid: true, hostname };
+    }
+  }
+
+  return {
+    valid: false,
+    hostname,
+    reason: `Host "${hostname}" is not an approved redirect destination`,
+  };
+}
