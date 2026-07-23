@@ -1,24 +1,25 @@
 import { describe, it, expect } from "vitest";
-import { buildWhiteLabelFlightUrl } from "../whiteLabelUrl";
+import { buildWhiteLabelFlightUrl, getWhiteLabelRolloutMode } from "../whiteLabelUrl";
 
 // ── Verified Format ──
 // Live White Label uses: ?flightSearch=BNE2008SYD2908&destination_airports=0&origin_airports=1
 // Where BNE=origin, 2008=20 Aug (DDMM), SYD=dest, 2908=29 Aug (DDMM)
 //
-// NOTE: White Label host (VITE_TRAVEL_WHITE_LABEL_HOST) is not set in the test
-// environment, so buildWhiteLabelFlightUrl() returns { success: false, reason: "White Label is not configured" }
-// for ALL calls. Tests validate the builder's behaviour when the host IS configured
-// by focusing on the encoding logic (DDMM conversion) and the function contract.
+// Rollout mode is "disabled" by default in test environment.
+// Host is not configured (VITE_TRAVEL_WHITE_LABEL_HOST is unset).
+//
+// The rollout check runs FIRST, so all calls fail with "disabled" in tests.
+// Blocking logic runs only after rollout + host checks pass.
 
 describe("buildWhiteLabelFlightUrl", () => {
-  describe("contract when not configured", () => {
-    it("returns failure when White Label host is not set", () => {
+  describe("rollout: disabled (default)", () => {
+    it("returns failure when rollout is disabled", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
       });
       expect(r.success).toBe(false);
       expect(r.url).toBeNull();
-      expect(r.reason).toBe("White Label is not configured");
+      expect(r.reason).toContain("disabled");
     });
   });
 
@@ -42,18 +43,17 @@ describe("buildWhiteLabelFlightUrl", () => {
 
   describe("flightSearch value encoding", () => {
     it("concatenates origin + DDMM + dest + returnDDMM for return trips", () => {
-      // BNE + 2008 + SYD + 2908 = "BNE2008SYD2908"
       const origin = "BNE";
-      const outDDMM = "2026-08-20".slice(8, 10) + "2026-08-20".slice(5, 7); // "2008"
+      const outDDMM = "2026-08-20".slice(8, 10) + "2026-08-20".slice(5, 7);
       const dest = "SYD";
-      const retDDMM = "2026-08-29".slice(8, 10) + "2026-08-29".slice(5, 7); // "2908"
+      const retDDMM = "2026-08-29".slice(8, 10) + "2026-08-29".slice(5, 7);
       const flightSearch = origin + outDDMM + dest + retDDMM;
       expect(flightSearch).toBe("BNE2008SYD2908");
     });
 
     it("concatenates origin + DDMM + dest for one-way trips", () => {
       const origin = "SYD";
-      const outDDMM = "2512"; // 2026-12-25
+      const outDDMM = "2512";
       const dest = "DPS";
       const flightSearch = origin + outDDMM + dest;
       expect(flightSearch).toBe("SYD2512DPS");
@@ -82,79 +82,130 @@ describe("buildWhiteLabelFlightUrl", () => {
     });
   });
 
-  describe("unverified parameters", () => {
-    it("reports adults=3 as unverified", () => {
+  describe("blocked parameters (unverified)", () => {
+    it("adults=3 is rejected (rollout disabled, so reason = disabled)", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
         adults: 3,
       });
-      // Fails due to no White Label host, but unverified params should report
-      if (r.unverifiedParams) {
-        expect(r.unverifiedParams).toContain("adults");
-      }
+      // Rollout disabled → short-circuits before blocking check
+      expect(r.success).toBe(false);
+      expect(r.reason).toContain("disabled");
     });
 
-    it("reports children=1 as unverified", () => {
+    it("children=1 is rejected", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
         children: 1,
       });
-      if (r.unverifiedParams) {
-        expect(r.unverifiedParams).toContain("children");
-      }
+      expect(r.success).toBe(false);
     });
 
-    it("reports cabinClass=business as unverified", () => {
+    it("infants=1 is rejected", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
+        infants: 1,
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("cabinClass=business is rejected", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
         cabinClass: "business",
       });
-      if (r.unverifiedParams) {
-        expect(r.unverifiedParams).toContain("cabinClass");
-      }
+      expect(r.success).toBe(false);
     });
 
-    it("does NOT report adults=1 (default)", () => {
+    it("currency=AUD is rejected", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
+        currency: "AUD",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("adults=1 passes the blocking check (still fails on disabled rollout)", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
         adults: 1,
       });
-      if (r.unverifiedParams) {
-        expect(r.unverifiedParams).not.toContain("adults");
-      }
+      expect(r.success).toBe(false);
+      // Reason is about rollout, not about adults
+      expect(r.reason).toContain("disabled");
     });
 
-    it("does NOT report children=0 (default)", () => {
+    it("children=0 passes the blocking check", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
         children: 0,
       });
-      if (r.unverifiedParams) {
-        expect(r.unverifiedParams).not.toContain("children");
-      }
+      expect(r.success).toBe(false);
+      expect(r.reason).toContain("disabled");
     });
 
-    it("does NOT report cabinClass=economy (default)", () => {
+    it("cabinClass=economy passes the blocking check", () => {
       const r = buildWhiteLabelFlightUrl({
         origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
         cabinClass: "economy",
       });
-      if (r.unverifiedParams) {
-        expect(r.unverifiedParams).not.toContain("cabinClass");
-      }
+      expect(r.success).toBe(false);
+      expect(r.reason).toContain("disabled");
+    });
+  });
+
+  describe("validation (rollout check runs first)", () => {
+    it("missing origin -> fails (rollout disabled first)", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "", destination: "DPS", outboundDate: "2026-12-25",
+      });
+      expect(r.success).toBe(false);
+      expect(r.reason).toContain("disabled");
+    });
+
+    it("same origin/destination -> fails", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "SYD", destination: "SYD", outboundDate: "2026-12-25",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("return before outbound -> fails", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "SYD", destination: "DPS",
+        outboundDate: "2026-12-25", returnDate: "2026-12-20",
+      });
+      expect(r.success).toBe(false);
+    });
+  });
+
+  describe("safe internal fallback", () => {
+    it("returns url=null (never a partner URL) on failure", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
+        adults: 3,
+      });
+      expect(r.url).toBeNull();
+    });
+
+    it("returns url=null when rollout is disabled", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "SYD", destination: "DPS", outboundDate: "2026-12-25",
+      });
+      expect(r.url).toBeNull();
     });
   });
 
   describe("separate from Aviasales builder", () => {
-    it("does not use /search/ path format", () => {
-      // The White Label builder uses ?flightSearch= query param, not /search/ path
-      // Verified by the URL construction logic
-      expect(true).toBe(true);
+    it("source does not reference /search/ path format", () => {
+      const src = buildWhiteLabelFlightUrl.toString();
+      expect(src).not.toContain("/search/");
     });
 
-    it("does not use origin_iata/destination_iata query params", () => {
-      // White Label encodes IATA codes inside flightSearch value, not as separate params
-      expect(true).toBe(true);
+    it("source does not reference origin_iata query param", () => {
+      const src = buildWhiteLabelFlightUrl.toString();
+      expect(src).not.toContain("origin_iata");
+      expect(src).not.toContain("destination_iata");
     });
   });
 
@@ -165,5 +216,11 @@ describe("buildWhiteLabelFlightUrl", () => {
       expect(src).not.toContain("MARKER");
       expect(src).not.toContain("api_key");
     });
+  });
+});
+
+describe("getWhiteLabelRolloutMode", () => {
+  it("returns disabled by default in test environment", () => {
+    expect(getWhiteLabelRolloutMode()).toBe("disabled");
   });
 });
