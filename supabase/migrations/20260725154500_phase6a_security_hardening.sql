@@ -25,7 +25,15 @@ CREATE POLICY "Public can insert click events"
   TO anon, authenticated
   WITH CHECK (true);
 
--- ── Fix 3: Data validation CHECK constraints ───────────────────
+-- ── Fix 3: Replace destination_url with outbound_host ──────────
+-- MUST come before constraint additions that reference outbound_host
+ALTER TABLE public.click_events
+  DROP COLUMN IF EXISTS destination_url;
+
+ALTER TABLE public.click_events
+  ADD COLUMN IF NOT EXISTS outbound_host TEXT;
+
+-- ── Fix 4: Data validation CHECK constraints ───────────────────
 
 -- search_events constraints
 ALTER TABLE public.search_events
@@ -46,7 +54,7 @@ ALTER TABLE public.search_events
   ADD CONSTRAINT ck_utm_medium_length CHECK (utm_medium IS NULL OR char_length(utm_medium) <= 256),
   ADD CONSTRAINT ck_utm_campaign_length CHECK (utm_campaign IS NULL OR char_length(utm_campaign) <= 256);
 
--- click_events constraints
+-- click_events constraints (outbound_host column now exists)
 ALTER TABLE public.click_events
   ADD CONSTRAINT ck_price_nonnegative CHECK (price IS NULL OR price >= 0),
   ADD CONSTRAINT ck_partner_length CHECK (partner IS NOT NULL AND char_length(partner) <= 128),
@@ -55,14 +63,6 @@ ALTER TABLE public.click_events
   ),
   ADD CONSTRAINT ck_session_id_len CHECK (session_id IS NOT NULL AND char_length(session_id) <= 128),
   ADD CONSTRAINT ck_outbound_host_length CHECK (outbound_host IS NULL OR char_length(outbound_host) <= 256);
-
--- ── Fix 4: Replace destination_url with outbound_host ──────────
--- Drop the old column and add the new one
-ALTER TABLE public.click_events
-  DROP COLUMN IF EXISTS destination_url;
-
-ALTER TABLE public.click_events
-  ADD COLUMN IF NOT EXISTS outbound_host TEXT;
 
 -- Add safety CHECK: reject dangerous protocols in outbound_host
 ALTER TABLE public.click_events
