@@ -405,7 +405,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
       const url = getFunctionUrl("search-flights");
-      if (!url) throw new Error("Supabase not configured Ã¢â‚¬â€ cannot search flights");
+      if (!url) throw new Error("Supabase not configured — cannot search flights");
       const response = await fetch(url, {
         method: 'POST',
         headers: {
