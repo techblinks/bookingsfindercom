@@ -162,6 +162,7 @@ const FlightResults = () => {
       returnDate: returnDate || undefined, airlineCode: flight.airline_code,
       price: flight.price, currency: flight.currency,
       sourcePage: 'flight_results', placement: 'flight_result_card',
+    });
 
     // Phase 5A: Try White Label routing when explicit passenger breakdown is available
     if (hasExplicitPassengers) {
@@ -185,7 +186,6 @@ const FlightResults = () => {
       }
     }
 
-    });
     try {
       const result = await getRedirectUrl({
         id: flightId, type: 'flight', link: flight.link, origin, destination,

@@ -23,7 +23,7 @@ For production, change `VITE_TRAVEL_WHITE_LABEL_MODE=enabled`.
 
 | # | Scenario | Input URL | Expected Routing | Result | Outbound Host | Passenger Composition | Cabin | Results Load? | Refresh OK? | Tracking? | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Return, 1 adult, economy | `/flights?origin=BNE&destination=SYD&departureDate=2026-08-10&returnDate=2026-08-13&adults=1&children=0&infants=0&cabinClass=economy` | White Label | ⬜ Manual | `flights.bookingsfinder.com` | 1 adult | economy | ⬜ | ⬜ | ⬜ | |
+| 1 | Return, 1 adult, economy | `/flights?origin=BNE&destination=SYD&departureDate=2026-08-10&returnDate=2026-08-13&adults=1&children=0&infants=0&cabinClass=economy` | White Label | ✅ **PASS** | `flights.bookingsfinder.com` | 1 adult | economy | ✅ | ✅ | ✅ | 6 cards rendered, `flightSearch=BNE1008SYD13081`, origin_airports=1, destination_airports=0, BNE→SYD 10Aug→13Aug 1pax economy, affiliate_clicks→201, get-redirect fallback unused, build/tests 381/0 |
 | 2 | One-way, 1 adult, economy | `/flights?origin=BNE&destination=SYD&departureDate=2026-08-10&adults=1&children=0&infants=0&cabinClass=economy` | White Label | ⬜ Manual | `flights.bookingsfinder.com` | 1 adult | economy | ⬜ | ⬜ | ⬜ | |
 | 3 | One-way, 2 adults | `/flights?origin=BNE&destination=SYD&departureDate=2026-08-10&adults=2&children=0&infants=0&cabinClass=economy` | White Label | ⬜ Manual | `flights.bookingsfinder.com` | 2 adults | economy | ⬜ | ⬜ | ⬜ | |
 | 4 | Return, 1 adult + 1 child | `/flights?origin=BNE&destination=SYD&departureDate=2026-08-10&returnDate=2026-08-13&adults=1&children=1&infants=0&cabinClass=economy` | White Label | ⬜ Manual | `flights.bookingsfinder.com` | 1 adult, 1 child | economy | ⬜ | ⬜ | ⬜ | |
