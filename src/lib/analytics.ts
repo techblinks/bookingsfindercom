@@ -97,6 +97,90 @@ export interface DailyMetric {
   ctr: number;
 }
 
+
+export interface KPIData {
+  totalSearches: number;
+  totalClicks: number;
+  flightSearches: number;
+  hotelSearches: number;
+  flightClicks: number;
+  hotelClicks: number;
+  wlClicks: number;
+  fallbackClicks: number;
+  avgClickedFare: number;
+  dominantCurrency: string;
+  currencies: string;
+  mixedCurrency: boolean;
+  ctr: number;
+}
+
+export interface RouteRow {
+  origin: string;
+  destination: string;
+  searches: number;
+  clicks: number;
+  ctr: number;
+  avgPrice: number;
+  topPartner: string;
+}
+
+export interface DestinationRow {
+  destination: string;
+  searches: number;
+  clicks: number;
+  ctr: number;
+}
+
+export interface PartnerRow {
+  partner: string;
+  partnerType: string;
+  clicks: number;
+  clickShare: number;
+  avgPrice: number;
+  wlClicks: number;
+  fallbackClicks: number;
+}
+
+export interface AirlineRow {
+  airline: string;
+  clicks: number;
+  avgPrice: number;
+  topRoute: string;
+}
+
+export interface LandingPageRow {
+  landingPage: string;
+  searches: number;
+  clicks: number;
+  ctr: number;
+}
+
+export interface TrafficSourceRow {
+  utmSource: string;
+  utmMedium: string;
+  utmCampaign: string;
+  searches: number;
+}
+
+export interface WLVsFallbackData {
+  whiteLabelClicks: number;
+  fallbackClicks: number;
+  totalClicks: number;
+  wlPercentage: number;
+  fbPercentage: number;
+  wlTopRoutes: Array<{ route: string; clicks: number }>;
+  fbTopRoutes: Array<{ route: string; clicks: number }>;
+}
+
+export interface DailyTrendRow {
+  day: string;
+  searches: number;
+  clicks: number;
+  ctr: number;
+  wlClicks: number;
+  fbClicks: number;
+}
+
 // ── Session helpers ──────────────────────────────────────────────
 
 function getSessionId(): string {
@@ -236,6 +320,17 @@ export async function logAffiliateClick(payload: ClickEventPayload): Promise<voi
 async function requireAdmin(): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Authentication required");
+
+  const { data: roleData, error: roleError } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", session.user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (roleError || !roleData) {
+    throw new Error("Admin access required");
+  }
 }
 
 /**
@@ -366,4 +461,124 @@ export async function getDailyMetrics(days = 30): Promise<DailyMetric[]> {
 
   if (error || !data) return [];
   return data as DailyMetric[];
+}
+
+// ── Phase 6B: RPC-backed dashboard queries ──────────────────────
+
+function dateRange(from: string, to: string): { start: string; end: string } {
+  return { start: new Date(from).toISOString(), end: new Date(to).toISOString() };
+}
+
+export async function fetchKPIs(from: string, to: string): Promise<KPIData | null> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_dashboard_kpis", {
+    start_date: start,
+    end_date: end,
+  });
+  if (error || !data) {
+    console.warn("[analytics] fetchKPIs failed:", error?.message);
+    return null;
+  }
+  const d = data as Record<string, unknown>;
+  const totalSearches = Number(d.total_searches ?? 0);
+  const totalClicks = Number(d.total_clicks ?? 0);
+  const mixed = d.mixed_currency === true;
+  return {
+    totalSearches,
+    totalClicks,
+    flightSearches: Number(d.flight_searches ?? 0),
+    hotelSearches: Number(d.hotel_searches ?? 0),
+    flightClicks: Number(d.flight_clicks ?? 0),
+    hotelClicks: Number(d.hotel_clicks ?? 0),
+    wlClicks: Number(d.wl_clicks ?? 0),
+    fallbackClicks: Number(d.fallback_clicks ?? 0),
+    avgClickedFare: mixed ? null : Number(d.avg_clicked_fare ?? 0),
+    dominantCurrency: String(d.dominant_currency ?? "AUD"),
+    currencies: String(d.currencies ?? ""),
+    mixedCurrency: mixed,
+    ctr: totalSearches > 0 ? Math.round((totalClicks / totalSearches) * 10000) / 100 : 0,
+  };
+}
+
+export async function fetchTopRoutes(from: string, to: string, limit = 10): Promise<RouteRow[]> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_top_routes", {
+    start_date: start, end_date: end, limit_rows: limit,
+  });
+  return error || !data ? [] : (data as unknown as RouteRow[]);
+}
+
+export async function fetchTopDestinations(from: string, to: string, limit = 10): Promise<DestinationRow[]> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_top_destinations", {
+    start_date: start, end_date: end, limit_rows: limit,
+  });
+  return error || !data ? [] : (data as unknown as DestinationRow[]);
+}
+
+export async function fetchPartnerPerformance(from: string, to: string): Promise<PartnerRow[]> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_partner_performance", {
+    start_date: start, end_date: end,
+  });
+  return error || !data ? [] : (data as unknown as PartnerRow[]);
+}
+
+export async function fetchAirlinePerformance(from: string, to: string, limit = 10): Promise<AirlineRow[]> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_airline_performance", {
+    start_date: start, end_date: end, limit_rows: limit,
+  });
+  return error || !data ? [] : (data as unknown as AirlineRow[]);
+}
+
+export async function fetchLandingPagePerformance(from: string, to: string): Promise<LandingPageRow[]> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_landing_page_performance", {
+    start_date: start, end_date: end,
+  });
+  return error || !data ? [] : (data as unknown as LandingPageRow[]);
+}
+
+export async function fetchTrafficSources(from: string, to: string): Promise<TrafficSourceRow[]> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_traffic_sources", {
+    start_date: start, end_date: end,
+  });
+  return error || !data ? [] : (data as unknown as TrafficSourceRow[]);
+}
+
+export async function fetchWLvsFallback(from: string, to: string): Promise<WLVsFallbackData | null> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_wl_vs_fallback", {
+    start_date: start, end_date: end,
+  });
+  if (error || !data) return null;
+  const d = data as Record<string, unknown>;
+  return {
+    whiteLabelClicks: Number(d.white_label_clicks ?? 0),
+    fallbackClicks: Number(d.fallback_clicks ?? 0),
+    totalClicks: Number(d.total_clicks ?? 0),
+    wlPercentage: Number(d.wl_percentage ?? 0),
+    fbPercentage: Number(d.fb_percentage ?? 0),
+    wlTopRoutes: (d.wl_top_routes as Array<{ route: string; clicks: number }>) || [],
+    fbTopRoutes: (d.fb_top_routes as Array<{ route: string; clicks: number }>) || [],
+  };
+}
+
+export async function fetchDailyTrends(from: string, to: string): Promise<DailyTrendRow[]> {
+  await requireAdmin();
+  const { start, end } = dateRange(from, to);
+  const { data, error } = await supabase.rpc("get_daily_trends", {
+    start_date: start, end_date: end,
+  });
+  return error || !data ? [] : (data as unknown as DailyTrendRow[]);
 }
