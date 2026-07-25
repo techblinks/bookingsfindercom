@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, ChevronDown, Search, Calendar } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -157,14 +157,11 @@ const FlightResults = () => {
   const handleBookNow = async (flightId: string) => {
     const flight = flights.find(f => f.id === flightId);
     if (!flight) return;
-    trackAffiliateEvent({
-      type: 'flight', action: 'click', origin, destination, departureDate,
-      returnDate: returnDate || undefined, airlineCode: flight.airline_code,
-      price: flight.price, currency: flight.currency,
-      sourcePage: 'flight_results', placement: 'flight_result_card',
-    });
 
-    // Phase 5A: Try White Label routing when explicit passenger breakdown is available
+    // Phase 5A: Determine final outbound URL first, then track once
+    let finalUrl: string | null = null;
+    let outboundHost: string | undefined;
+
     if (hasExplicitPassengers) {
       const wlResult = buildWhiteLabelFlightUrl({
         origin, destination, outboundDate: departureDate,
@@ -173,32 +170,40 @@ const FlightResults = () => {
         cabinClass,
       });
       if (wlResult.success && wlResult.url) {
-        const outboundHost = new URL(wlResult.url).hostname;
-        trackAffiliateEvent({
-          type: 'flight', action: 'click', origin, destination, departureDate,
-          returnDate: returnDate || undefined, airlineCode: flight.airline_code,
-          price: flight.price, currency: flight.currency,
-          sourcePage: 'flight_results', placement: 'flight_result_card',
-          outboundHost,
-        });
-        window.location.href = `/redirect?url=${encodeURIComponent(wlResult.url)}`;
-        return;
+        finalUrl = wlResult.url;
+        outboundHost = new URL(wlResult.url).hostname;
       }
     }
 
-    try {
-      const result = await getRedirectUrl({
-        id: flightId, type: 'flight', link: flight.link, origin, destination,
-        departureDate, returnDate: returnDate || undefined, airline: flight.airline_code,
-      });
-      if (result.success && result.redirectUrl) {
-        window.location.href = `/redirect?url=${encodeURIComponent(result.redirectUrl)}`;
-      } else {
-        toast.error("Could not generate booking link");
+    if (!finalUrl) {
+      try {
+        const result = await getRedirectUrl({
+          id: flightId, type: 'flight', link: flight.link, origin, destination,
+          departureDate, returnDate: returnDate || undefined, airline: flight.airline_code,
+        });
+        if (result.success && result.redirectUrl) {
+          finalUrl = result.redirectUrl;
+          outboundHost = new URL(result.redirectUrl).hostname;
+        }
+      } catch (err) {
+        // URL generation failed — do not track
       }
-    } catch (err) {
-      toast.error("An error occurred");
     }
+
+    if (!finalUrl) {
+      toast.error("Could not generate booking link");
+      return;
+    }
+
+    trackAffiliateEvent({
+      type: 'flight', action: 'click', origin, destination, departureDate,
+      returnDate: returnDate || undefined, airlineCode: flight.airline_code,
+      price: flight.price, currency: flight.currency,
+      sourcePage: 'flight_results', placement: 'flight_result_card',
+      outboundHost,
+    });
+
+    window.location.href = `/redirect?url=${encodeURIComponent(finalUrl)}`;
   };
 
   const handleDateSelect = (date: string) => {
@@ -271,8 +276,8 @@ const FlightResults = () => {
                     <p className="text-xs text-muted-foreground truncate">
                       {formatDate(departureDate)}
                       {returnDate && ` - ${formatDate(returnDate)}`}
-                      {" Â· "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
-                      {" Â· "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
+                      {" · "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
+                      {" · "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
                     </p>
                   </div>
                 </div>
@@ -413,4 +418,3 @@ const FlightResults = () => {
 };
 
 export default FlightResults;
-
