@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Flight, FlightSearchMeta, FilterState, SortOption, DEPARTURE_TIME_SLOTS, FlightWarning, PriceConfidence } from "@/types/flight";
 import { supabase } from "@/integrations/supabase/client";
-import { trackAffiliateEvent } from "@/services/travelApi";
-
 import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 interface UseFlightSearchParams {
@@ -382,15 +380,8 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     setMeta({ total_found: 0, is_complete: false });
     setSearchProgress(0);
 
-    // Track the search
-    trackAffiliateEvent({
-      type: 'flight',
-      action: 'search',
-      origin: params.origin,
-      destination: params.destination,
-      departureDate: params.departureDate,
-      returnDate: params.returnDate,
-    });
+    // Tracking is handled in travelApi.searchFlights after successful response
+    // (avoids duplicate tracking between hook and service layer)
 
     try {
       // Set a 30-second timeout for the search
@@ -414,7 +405,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
       const url = getFunctionUrl("search-flights");
-      if (!url) throw new Error("Supabase not configured — cannot search flights");
+      if (!url) throw new Error("Supabase not configured Ã¢â‚¬â€ cannot search flights");
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -528,4 +519,5 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     fastestDuration,
   };
 }
+
 
