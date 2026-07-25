@@ -7,6 +7,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { isApprovedOutboundHost } from "@/lib/travelConfig";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ export interface ClickEventPayload {
   currency?: string;
   whiteLabelUsed?: boolean;
   fallbackUsed?: boolean;
-  destinationUrl?: string;
+  outboundHost?: string;
   landingPage?: string;
 }
 
@@ -214,7 +215,10 @@ export async function logAffiliateClick(payload: ClickEventPayload): Promise<voi
       currency: payload.currency ?? "AUD",
       white_label_used: payload.whiteLabelUsed ?? false,
       fallback_used: payload.fallbackUsed ?? false,
-      destination_url: payload.destinationUrl ?? null,
+      // Phase 6A v2: Sanitise outbound_host — only store approved hostnames
+      outbound_host: payload.outboundHost && isApprovedOutboundHost(payload.outboundHost, payload.partnerType)
+        ? payload.outboundHost
+        : null,
       landing_page: payload.landingPage || getCurrentPath(),
       device: getDevice(),
     });

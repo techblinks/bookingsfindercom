@@ -90,16 +90,16 @@ const HotelResults = () => {
     if (!hotel) return;
     trackAffiliateEvent({ type: "hotel", action: "click", destination, hotelId: hotel.hotelId?.toString(), price: hotel.price, currency: hotel.currency, sourcePage: "hotel_results", placement: "hotel_result_card" });
 
-    // Phase 6A: Log analytics click event (fire-and-forget)
-    logAffiliateClick({
+    // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
+    void logAffiliateClick({
       partner: "hotellook",
       partnerType: "hotel",
       route: destination,
       price: hotel.price,
       currency: hotel.currency,
-      destinationUrl: hotel.link,
+      outboundHost: hotel.link ? (() => { try { return new URL(hotel.link).hostname; } catch { return null; } })() : null,
       landingPage: "/hotels",
-    });
+    }).catch(() => {});
 
     try {
       let affiliateUrl = hotel.link;

@@ -204,8 +204,8 @@ const FlightResults = () => {
       outboundHost,
     });
 
-    // Phase 6A: Log analytics click event (fire-and-forget)
-    logAffiliateClick({
+    // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
+    void logAffiliateClick({
       partner: outboundHost || 'aviasales',
       partnerType: 'flight',
       route: origin + '-' + destination,
@@ -214,9 +214,9 @@ const FlightResults = () => {
       currency: flight.currency,
       whiteLabelUsed: outboundHost?.includes('bookingsfinder'),
       fallbackUsed: !outboundHost?.includes('bookingsfinder'),
-      destinationUrl: finalUrl,
+      outboundHost: outboundHost || null,
       landingPage: '/flights',
-    });
+    }).catch(() => {});
 
     window.location.href = `/redirect?url=${encodeURIComponent(finalUrl)}`;
   };

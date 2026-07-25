@@ -166,8 +166,8 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
       sourcePage: 'flight_results',
     });
 
-    // Phase 6A: Log analytics search event (fire-and-forget)
-    logSearch({
+    // Phase 6A: Analytics search event (fire-and-forget, non-blocking)
+    void logSearch({
       origin: params.origin,
       destination: params.destination,
       departureDate: params.departureDate,
@@ -176,7 +176,7 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
       cabinClass: params.cabinClass,
       currency: params.currency,
       landingPage: '/flights',
-    });
+    }).catch(() => {});
 
     // Handle new API format: { flights: [], meta: { total_found, is_complete } }
     const flights = data.flights || data.results || [];
@@ -235,15 +235,15 @@ export async function searchHotels(params: HotelSearchParams): Promise<{
       sourcePage: 'hotel_results',
     });
 
-    // Phase 6A: Log analytics hotel search event (fire-and-forget)
-    logSearch({
+    // Phase 6A: Analytics hotel search event (fire-and-forget, non-blocking)
+    void logSearch({
       destination: params.destination,
       departureDate: params.checkIn,
       returnDate: params.checkOut,
       adults: params.guests,
       landingPage: '/hotels',
       currency: params.currency,
-    });
+    }).catch(() => {});
 
     return {
       success: true,

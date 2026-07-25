@@ -412,6 +412,48 @@ function hostnameMatches(hostname: string, approved: string): boolean {
 }
 
 /**
+ * Validate a bare hostname against approved outbound hosts.
+ *
+ * Reuses the same hostnameMatches logic as redirect validation.
+ *   - 'flight': aviasales.com subdomains + configured White Label host
+ *   - 'hotel': hotellook.com subdomains
+ *
+ * Lookalikes (aviasales.com.evil.example) are rejected because
+ * hostnameMatches requires exact match or a dot-prefixed suffix.
+ *
+ * Returns false for null, empty, or malformed hostnames.
+ */
+export function isApprovedOutboundHost(hostname: string | null | undefined, partnerType: "flight" | "hotel"): boolean {
+  if (!hostname) return false;
+
+  let clean: string;
+  try {
+    clean = hostname.trim().toLowerCase();
+    if (clean.startsWith("https://")) clean = clean.slice("https://".length);
+    else if (clean.startsWith("http://")) clean = clean.slice("http://".length);
+    if (clean.endsWith("/")) clean = clean.slice(0, -1);
+    if (clean.includes("/") || clean.includes("?") || clean.includes("#")) return false;
+    if (!clean) return false;
+  } catch {
+    return false;
+  }
+
+  if (partnerType === "flight") {
+    if (hostnameMatches(clean, "aviasales.com")) return true;
+    const wlHost = getWhiteLabelHost();
+    if (wlHost && hostnameMatches(clean, wlHost)) return true;
+    return false;
+  }
+
+  if (partnerType === "hotel") {
+    if (hostnameMatches(clean, "hotellook.com")) return true;
+    return false;
+  }
+
+  return false;
+}
+
+/**
  * All approved redirect destination hostnames.
  * Computed once at module load — values are build-time constants.
  *

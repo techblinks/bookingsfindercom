@@ -3,163 +3,158 @@
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  User Actions                    │
-│  Flight Search │ Hotel Search │ View Deal Click │
-└────────┬──────────────┬──────────────┬──────────┘
-         │              │              │
-         ▼              ▼              ▼
-   ┌─────────────────────────────────────────┐
-   │       Analytics Service                  │
-   │  src/lib/analytics.ts                    │
-   │                                          │
-   │  logSearch()       ──► search_events     │
-   │  logHotelSearch()  ──► search_events     │
-   │  logAffiliateClick()──► click_events     │
-   │                                          │
-   │  getDashboardSummary() ◄── Supabase      │
-   │  getTopRoutes()                            │
-   │  getTopDestinations()                      │
-   │  getDailyMetrics()                         │
-   └─────────────────────────────────────────┘
-         │                              ▲
-         ▼                              │
-   ┌──────────┐              ┌──────────────────┐
-   │ Supabase │              │  Admin Dashboard  │
-   │   DB     │              │  /admin/analytics │
-   └──────────┘              └──────────────────┘
+User Actions: Flight Search | Hotel Search | View Deal Click
+     │              │              │
+     ▼              ▼              ▼
+  Analytics Service (src/lib/analytics.ts)
+  fire-and-forget, non-blocking
+     │              │              │
+     ▼              ▼              ▼
+  search_events  click_events  [daily_metrics]
+     │              │
+     ▼              ▼
+  Admin Dashboard (/admin/analytics)
 ```
 
 ## Database Schema
 
 ### search_events
 
-| Column | Type | Description |
+| Column | Type | Constraints |
 |---|---|---|
-| id | UUID | Primary key |
-| created_at | TIMESTAMPTZ | Event timestamp |
-| session_id | TEXT | Browser session identifier |
-| user_id | UUID (nullable) | Authenticated user |
-| origin | TEXT | IATA origin code |
-| destination | TEXT | IATA destination code |
-| departure_date | DATE | Outbound date |
-| return_date | DATE | Return date (nullable) |
-| adults | INTEGER | Adult count |
-| children | INTEGER | Child count |
-| infants | INTEGER | Infant count |
-| cabin_class | TEXT | Cabin class |
-| trip_type | TEXT | oneway / roundtrip / multi |
-| currency | TEXT | Currency code |
-| country | TEXT | User country (nullable) |
+| id | UUID | PK, gen_random_uuid() |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+| session_id | TEXT | NOT NULL, max 128 chars |
+| user_id | UUID | FK auth.users, ON DELETE SET NULL |
+| origin | TEXT | NULL or uppercase 3-letter IATA |
+| destination | TEXT | NULL or uppercase 3-letter IATA |
+| departure_date | DATE | nullable |
+| return_date | DATE | nullable |
+| adults | INTEGER | NULL or >= 1 |
+| children | INTEGER | NULL or >= 0 |
+| infants | INTEGER | NULL or >= 0 |
+| cabin_class | TEXT | NULL or one of: economy, premium_economy, business, first |
+| trip_type | TEXT | CHECK: oneway, roundtrip, multi |
+| currency | TEXT | NULL or uppercase 3-letter code |
 | device | TEXT | mobile / tablet / desktop |
-| landing_page | TEXT | Page where search occurred |
-| referrer | TEXT | HTTP referrer |
-| utm_source | TEXT | UTM tracking |
-| utm_medium | TEXT | UTM tracking |
-| utm_campaign | TEXT | UTM tracking |
+| landing_page | TEXT | max 256 chars |
+| referrer | TEXT | max 1024 chars |
+| utm_source | TEXT | max 256 chars |
+| utm_medium | TEXT | max 256 chars |
+| utm_campaign | TEXT | max 256 chars |
 
 ### click_events
 
-| Column | Type | Description |
+| Column | Type | Constraints |
 |---|---|---|
-| id | UUID | Primary key |
-| created_at | TIMESTAMPTZ | Event timestamp |
-| search_event_id | UUID (nullable) | Links to search_events |
-| partner | TEXT | Partner name |
-| partner_type | TEXT | flight / hotel |
-| route | TEXT | Origin-Destination |
-| airline | TEXT | Airline code |
-| price | NUMERIC | Price displayed |
-| currency | TEXT | Currency code |
-| white_label_used | BOOLEAN | White Label routing used |
-| fallback_used | BOOLEAN | Aviasales fallback used |
-| destination_url | TEXT | Redirect destination |
-| landing_page | TEXT | Page where click occurred |
-| device | TEXT | mobile / tablet / desktop |
-| session_id | TEXT | Browser session identifier |
+| id | UUID | PK, gen_random_uuid() |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+| search_event_id | UUID | FK search_events, ON DELETE SET NULL |
+| partner | TEXT | NOT NULL, max 128 chars |
+| partner_type | TEXT | CHECK: flight, hotel |
+| route | TEXT | nullable |
+| airline | TEXT | nullable |
+| price | NUMERIC(10,2) | NULL or >= 0 |
+| currency | TEXT | nullable |
+| white_label_used | BOOLEAN | DEFAULT FALSE |
+| fallback_used | BOOLEAN | DEFAULT FALSE |
+| outbound_host | TEXT | NULL, max 256 chars, no dangerous protocols |
+| landing_page | TEXT | nullable |
+| device | TEXT | nullable |
+| session_id | TEXT | NOT NULL, max 128 chars |
 
 ### daily_metrics
 
-Aggregated daily statistics table. Populated by edge function or cron job (future phase).
+**Status: NOT POPULATED.** The table schema exists but there is currently:
+- No database trigger
+- No scheduled Edge Function
+- No pg_cron job
+- No manual aggregation process
 
-| Column | Type | Description |
-|---|---|---|
-| id | UUID | Primary key |
-| date | DATE | Date of metrics |
-| total_searches | INTEGER | Combined searches |
-| total_clicks | INTEGER | Combined clicks |
-| flight_searches | INTEGER | Flight-only searches |
-| hotel_searches | INTEGER | Hotel-only searches |
-| flight_clicks | INTEGER | Flight-only clicks |
-| hotel_clicks | INTEGER | Hotel-only clicks |
-| white_label_clicks | INTEGER | White Label clicks |
-| fallback_clicks | INTEGER | Fallback clicks |
-| unique_sessions | INTEGER | Unique session count |
-| ctr | NUMERIC | Generated click-through rate |
-| created_at | TIMESTAMPTZ | Record created |
-| updated_at | TIMESTAMPTZ | Record updated |
+The admin dashboard queries `search_events` and `click_events` directly using `getDashboardSummary()`. The `getDailyMetrics()` function exists but returns an empty array until a population mechanism is implemented (Phase 6B+).
 
-## Data Flow
+## RLS Policies (v2 — security hardened)
 
-### Logging (fire-and-forget)
+```sql
+-- search_events: anon INSERT (no user_id)
+CREATE POLICY "Anon can insert search events without user_id"
+  ON public.search_events FOR INSERT TO anon
+  WITH CHECK (user_id IS NULL);
 
-1. **Flight search**: `searchFlights()` in `travelApi.ts` calls `logSearch()` after successful API response. Parameters include origin, destination, dates, passenger count, cabin class, currency.
+-- search_events: auth INSERT (own user_id or NULL)
+CREATE POLICY "Auth can insert own search events"
+  ON public.search_events FOR INSERT TO authenticated
+  WITH CHECK (user_id IS NULL OR user_id = auth.uid());
 
-2. **Hotel search**: `searchHotels()` in `travelApi.ts` calls `logSearch()` after successful API response.
+-- search_events: admin SELECT only
+CREATE POLICY "Admin can select search events"
+  ON public.search_events FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM user_roles
+    WHERE user_id = auth.uid() AND role = 'admin'));
 
-3. **View Deal click**: `handleBookNow` in `FlightResults.tsx` calls `logAffiliateClick()` with partner, route, price, White Label/fallback flags, and destination URL. Hotel clicks in `HotelResults.tsx` follow the same pattern.
+-- click_events: public INSERT (no user_id column)
+CREATE POLICY "Public can insert click events"
+  ON public.click_events FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
 
-All logging is **fire-and-forget** — failures never throw, never block navigation, and never affect the user experience. Errors are logged to `console.warn` only.
+-- click_events: admin SELECT only
+CREATE POLICY "Admin can select click events"
+  ON public.click_events FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM user_roles
+    WHERE user_id = auth.uid() AND role = 'admin'));
 
-### Dashboard (admin only)
+-- daily_metrics: admin SELECT only
+CREATE POLICY "Admin can select daily metrics"
+  ON public.daily_metrics FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM user_roles
+    WHERE user_id = auth.uid() AND role = 'admin'));
+```
 
-1. Admin navigates to `/admin/analytics`
-2. `useAdminAuth` hook checks admin role via `user_roles` table
-3. `AdminAnalytics` component calls `getDashboardSummary()` which queries:
-   - Today's search count from `search_events`
-   - Today's click count from `click_events`
-   - Top routes and destinations (computed in-memory from today's data)
-   - Recent searches and clicks (last 10 each)
+## Data Minimisation
 
-## Security
+- **destination_url replaced with outbound_host**: Only the hostname is stored (e.g., `flights.bookingsfinder.com`), never the full URL with query parameters. This prevents accidental storage of API keys, tokens, credentials, PII in query strings, or fragments.
+- **No user_id for anonymous users**: `logSearch()` never sets `user_id`. RLS enforces `user_id IS NULL` for anon inserts.
+- **No secrets**: No API tokens, passwords, or affiliate secrets in any analytics payload.
+- **Approved hosts only (defence in depth)**: Host validation is performed client-side before insert, with a database CHECK constraint rejecting known dangerous protocols (`javascript:`, `data:`, `file:`, `vbscript:`).
 
-### Row Level Security
+## Fire-and-Forget Pattern
 
-| Table | Public (anon/authenticated) | Admin |
-|---|---|---|
-| search_events | INSERT only | SELECT |
-| click_events | INSERT only | SELECT |
-| daily_metrics | None | SELECT |
+All analytics logging uses `void` + `.catch()` to ensure:
+- Never blocks navigation
+- Never delays redirects
+- Never throws unhandled rejections
+- Failures are silent (`console.warn` only, no `console.error`)
 
-Admin access is enforced via `user_roles` table check (`role = 'admin'`).
-
-No secrets, tokens, or environment variables are exposed to the client. All queries use the existing Supabase client with standard RLS policies.
+```typescript
+void logSearch({ origin, destination, ... }).catch(() => {});
+void logAffiliateClick({ partner, ... }).catch(() => {});
+```
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| `supabase/migrations/20260725153000_phase6a_analytics.sql` | New tables + RLS |
-| `src/lib/analytics.ts` | Analytics service (365 lines) |
-| `src/lib/__tests__/analytics.test.ts` | Unit tests (10 tests) |
-| `src/services/travelApi.ts` | +2 `logSearch()` calls |
-| `src/pages/FlightResults.tsx` | +1 `logAffiliateClick()` call |
-| `src/pages/HotelResults.tsx` | +1 `logAffiliateClick()` call |
-| `src/pages/AdminAnalytics.tsx` | Admin dashboard (301 lines) |
-| `src/App.tsx` | +1 route `/admin/analytics` |
+| `supabase/migrations/…_phase6a_analytics.sql` | Base tables + initial RLS |
+| `supabase/migrations/…_phase6a_security_hardening.sql` | Hardened RLS + CHECKs + outbound_host |
+| `src/lib/analytics.ts` | Service: logSearch, logAffiliateClick, dashboard queries |
+| `src/lib/__tests__/analytics.test.ts` | 15 tests covering security, validation, failure isolation |
+| `src/services/travelApi.ts` | void logSearch() in searchFlights + searchHotels |
+| `src/pages/FlightResults.tsx` | void logAffiliateClick() in handleBookNow |
+| `src/pages/HotelResults.tsx` | void logAffiliateClick() in handleViewDeal |
+| `src/pages/AdminAnalytics.tsx` | Dashboard: KPIs, top routes, recent activity |
+| `src/App.tsx` | Route /admin/analytics + import |
 
 ## Future Roadmap
 
-- **Phase 6B**: Edge function for daily_metrics aggregation
-- **Phase 6C**: Charts and trend visualization
-- **Phase 6D**: Revenue estimation from affiliate events
-- **Phase 6E**: Health monitoring and alerting
-- **Phase 6F**: SEO performance analytics
+- Phase 6B: daily_metrics aggregation edge function
+- Phase 6C: Charts and trend visualization
+- Phase 6D: Revenue estimation from affiliate events
+- Phase 6E: Health monitoring and alerting
 
 ## Quality
 
-- **Tests**: 408 passed (20 suites)
-- **TypeScript**: 0 errors
-- **Build**: Passing
-- **No behavior changes**: All existing tracking, routing, and redirect logic unchanged
-- **No TODOs, no console.log, no debug code**
+- Tests: 413 passed (20 suites)
+- TypeScript: 0 errors
+- Build: Passing
+- Lint: 0 warnings on new code
+- No behavior changes to existing user flows
