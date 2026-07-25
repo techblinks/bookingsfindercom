@@ -76,6 +76,7 @@ export interface UrlBuildResult {
  * characters for a hostname (full URLs with paths are rejected).
  *
  * Result is cached at module load time — VITE_ env vars are build-time constants.
+ * The cache can be reset via resetPartnerConfig() for testing.
  */
 let _whiteLabelHostCache: string | null | undefined;
 
@@ -112,6 +113,15 @@ function getWhiteLabelHost(): string | null {
   return host;
 }
 
+/**
+ * Reset cached configuration — for testing only.
+ * Clears the White Label host cache so the next call to getWhiteLabelHost()
+ * re-reads import.meta.env (which can be stubbed in tests via vi.stubEnv).
+ */
+export function resetPartnerConfig(): void {
+  _whiteLabelHostCache = undefined;
+}
+
 export const PARTNERS: Record<TravelPartnerId, TravelPartnerMeta> = {
   aviasales: {
     id: "aviasales",
@@ -119,7 +129,8 @@ export const PARTNERS: Record<TravelPartnerId, TravelPartnerMeta> = {
     productType: "flight",
     website: "https://www.aviasales.com",
     searchBaseUrl: "https://www.aviasales.com",
-    whiteLabelHost: getWhiteLabelHost(),
+    // Lazy getter: re-evaluates on each access so tests can stub env vars
+    get whiteLabelHost() { return getWhiteLabelHost(); },
     disclosure: "Flights are searched via our travel partner Aviasales. Final prices and availability are confirmed on the partner site.",
   },
   hotellook: {

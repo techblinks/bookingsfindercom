@@ -46,6 +46,15 @@ export function getWhiteLabelRolloutMode(): WhiteLabelRolloutMode {
   return "disabled";
 }
 
+/**
+ * Reset the rollout mode cache — for testing only.
+ * After calling this, the next getWhiteLabelRolloutMode() re-reads
+ * import.meta.env (which can be stubbed via vi.stubEnv in tests).
+ */
+export function resetWhiteLabelCache(): void {
+  _rolloutModeCache = undefined;
+}
+
 // ── Helpers ──
 
 function toDDMM(isoDate: string): string {

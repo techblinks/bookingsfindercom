@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   validateFlightParams,
   buildFlightSearchUrl,
@@ -6,7 +6,17 @@ import {
   getPartnerDisclosure,
   AFFILIATE_DISCLOSURE,
   PARTNERS,
+  resetPartnerConfig,
 } from "../travelConfig";
+
+// Ensure tests are isolated from the local .env file.
+// We stub env vars to a clean baseline (no White Label) before each test.
+// Individual test groups override as needed.
+beforeEach(() => {
+  vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "");
+  vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_MODE", "disabled");
+  resetPartnerConfig();
+});
 
 // ── Validation ──
 
@@ -297,6 +307,11 @@ describe("PARTNERS", () => {
   it("hotellook is a hotel partner", () => {
     expect(PARTNERS.hotellook.productType).toBe("hotel");
   });
+
+  it("aviasales.whiteLabelHost is null when env var is not set", () => {
+    // beforeEach stubs VITE_TRAVEL_WHITE_LABEL_HOST=""
+    expect(PARTNERS.aviasales.whiteLabelHost).toBeNull();
+  });
 });
 
 // ── White Label ──
@@ -322,11 +337,30 @@ describe("White Label", () => {
     expect(url.hostname).toContain("aviasales.com");
   });
 
-  it("PARTNERS.aviasales.whiteLabelHost is read from env var", () => {
-    expect(PARTNERS.aviasales.whiteLabelHost).toBeNull();
+  it("getEffectiveBaseUrl uses White Label host when configured", () => {
+    vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "flights.bookingsfinder.com");
+    resetPartnerConfig();
+    const r = buildFlightSearchUrl({
+      origin: "SYD", destination: "DPS", departureDate: "2026-12-25", adults: 1,
+    });
+    expect(r.success).toBe(true);
+    expect(r.url).toContain("flights.bookingsfinder.com");
+    // Query parameters should be identical regardless of host
+    expect(r.url).toContain("/search/SYD20261225DPS1");
+    expect(r.url).toContain("origin_iata=SYD");
+    expect(r.url).toContain("destination_iata=DPS");
+    expect(r.url).toContain("depart_date=2026-12-25");
+    expect(r.url).toContain("adults=1");
+  });
+
+  it("PARTNERS.aviasales.whiteLabelHost returns configured host", () => {
+    vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "flights.bookingsfinder.com");
+    resetPartnerConfig();
+    expect(PARTNERS.aviasales.whiteLabelHost).toBe("flights.bookingsfinder.com");
   });
 
   it("getEffectiveBaseUrl falls back to aviasales.com when not configured", () => {
+    // beforeEach stubs VITE_TRAVEL_WHITE_LABEL_HOST=""
     const r = buildFlightSearchUrl({
       origin: "SYD", destination: "DPS", departureDate: "2026-12-25", adults: 1,
     });

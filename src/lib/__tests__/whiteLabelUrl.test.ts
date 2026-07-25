@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   buildWhiteLabelFlightUrl,
   getWhiteLabelRolloutMode,
+  resetWhiteLabelCache,
 } from "../whiteLabelUrl";
 
 // ── Live-Verified Protocol ──
@@ -15,6 +16,15 @@ import {
 // business + infant:   BNE0108SYDc101
 // cross-year:          BNE2812SYD05011
 
+// Ensure tests are not affected by the local .env file.
+// We reset caches and stub env vars to "disabled" + no host as the baseline,
+// then individual test groups override as needed.
+beforeEach(() => {
+  vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_MODE", "disabled");
+  vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "");
+  resetWhiteLabelCache();
+});
+
 describe("buildWhiteLabelFlightUrl", () => {
   describe("rollout: disabled (default)", () => {
     it("returns failure when rollout is disabled", () => {
@@ -25,6 +35,81 @@ describe("buildWhiteLabelFlightUrl", () => {
       expect(r.success).toBe(false);
       expect(r.url).toBeNull();
       expect(r.reason).toContain("not enabled");
+    });
+  });
+
+  describe("rollout: test mode with host", () => {
+    beforeEach(() => {
+      vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_MODE", "test");
+      vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "flights.bookingsfinder.com");
+      resetWhiteLabelCache();
+    });
+
+    it("builds a valid White Label URL when rollout is test", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        returnDate: "2026-08-13", adults: 1, children: 0, infants: 0,
+        cabinClass: "economy",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flights.bookingsfinder.com");
+      expect(r.url).toContain("flightSearch=BNE1008SYD13081");
+    });
+
+    it("builds a one-way White Label URL", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flightSearch=BNE1008SYD1");
+    });
+
+    it("builds with 2 adults", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        adults: 2, children: 0, infants: 0, cabinClass: "economy",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flightSearch=BNE1008SYD2");
+    });
+
+    it("builds with 1 adult + 1 child", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        returnDate: "2026-08-22", adults: 1, children: 1, infants: 0,
+        cabinClass: "economy",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flightSearch=BNE1008SYD220811");
+    });
+
+    it("builds with 2 adults + 1 child", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        returnDate: "2026-08-22", adults: 2, children: 1, infants: 0,
+        cabinClass: "economy",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flightSearch=BNE1008SYD220821");
+    });
+
+    it("builds with 1 adult + 1 infant", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-01",
+        adults: 1, children: 0, infants: 1, cabinClass: "economy",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flightSearch=BNE0108SYD101");
+    });
+
+    it("builds with business class marker", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-01",
+        adults: 1, children: 0, infants: 1, cabinClass: "business",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flightSearch=BNE0108SYDc101");
     });
   });
 
@@ -144,7 +229,20 @@ describe("buildWhiteLabelFlightUrl", () => {
 
 describe("getWhiteLabelRolloutMode", () => {
   it("returns disabled by default in test environment", () => {
+    // beforeEach stubs env vars to "disabled" + no host
     expect(getWhiteLabelRolloutMode()).toBe("disabled");
+  });
+
+  it("returns test when VITE_TRAVEL_WHITE_LABEL_MODE=test", () => {
+    vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_MODE", "test");
+    resetWhiteLabelCache();
+    expect(getWhiteLabelRolloutMode()).toBe("test");
+  });
+
+  it("returns enabled when VITE_TRAVEL_WHITE_LABEL_MODE=enabled", () => {
+    vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_MODE", "enabled");
+    resetWhiteLabelCache();
+    expect(getWhiteLabelRolloutMode()).toBe("enabled");
   });
 });
 
