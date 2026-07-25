@@ -235,7 +235,7 @@ const FlightResults = () => {
 
       <Header />
 
-      {/* Pre-search state â€” no origin/destination */}
+      {/* Pre-search state — no origin/destination */}
       {!hasSearch ? (
         <main id="main-content" className="flex-1 flex items-center justify-center p-4">
           <div className="text-center max-w-md">
