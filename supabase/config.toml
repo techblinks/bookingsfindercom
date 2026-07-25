@@ -35,3 +35,12 @@ verify_jwt = false
 
 [functions.generate-route-page]
 verify_jwt = false
+
+[functions.search-flights]
+verify_jwt = false
+
+[functions.get-redirect]
+verify_jwt = false
+
+[functions.get-ads]
+verify_jwt = false

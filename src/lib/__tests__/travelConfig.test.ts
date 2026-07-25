@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   validateFlightParams,
   buildFlightSearchUrl,
@@ -6,7 +6,17 @@ import {
   getPartnerDisclosure,
   AFFILIATE_DISCLOSURE,
   PARTNERS,
+  resetPartnerConfig,
 } from "../travelConfig";
+
+// Ensure tests are isolated from the local .env file.
+// We stub env vars to a clean baseline (no White Label) before each test.
+// Individual test groups override as needed.
+beforeEach(() => {
+  vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "");
+  vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_MODE", "disabled");
+  resetPartnerConfig();
+});
 
 // ── Validation ──
 
@@ -86,8 +96,6 @@ describe("validateFlightParams", () => {
 
   it("defaults adults to 1 when missing", () => {
     const r = validateFlightParams({ origin: "SYD", destination: "DPS", departureDate: "2026-12-25" });
-    // adults defaults to 1 in the validator when params.adults is undefined
-    // but the validation sets adults ?? 1 for checking — the param itself is missing
     expect(r.valid).toBe(true);
   });
 
@@ -175,7 +183,6 @@ describe("buildFlightSearchUrl", () => {
       origin: "SYD", destination: "DPS", departureDate: "2026-12-25", adults: 1,
     });
     expect(r.success).toBe(true);
-    // URLSearchParams encodes spaces as + — verify no raw spaces
     expect(r.url).not.toContain(" ");
   });
 
@@ -299,5 +306,77 @@ describe("PARTNERS", () => {
 
   it("hotellook is a hotel partner", () => {
     expect(PARTNERS.hotellook.productType).toBe("hotel");
+  });
+
+  it("aviasales.whiteLabelHost is null when env var is not set", () => {
+    // beforeEach stubs VITE_TRAVEL_WHITE_LABEL_HOST=""
+    expect(PARTNERS.aviasales.whiteLabelHost).toBeNull();
+  });
+});
+
+// ── White Label ──
+
+describe("White Label", () => {
+  it("PARAMETER PRESERVATION: same query params, different host", () => {
+    const r = buildFlightSearchUrl({
+      origin: "SYD", destination: "DPS",
+      departureDate: "2026-12-25", returnDate: "2027-01-10", adults: 2,
+      cabinClass: "business",
+    });
+    expect(r.success).toBe(true);
+
+    const url = new URL(r.url!);
+
+    expect(url.searchParams.get("origin_iata")).toBe("SYD");
+    expect(url.searchParams.get("destination_iata")).toBe("DPS");
+    expect(url.searchParams.get("depart_date")).toBe("2026-12-25");
+    expect(url.searchParams.get("return_date")).toBe("2027-01-10");
+    expect(url.searchParams.get("adults")).toBe("2");
+    expect(url.searchParams.get("cabin_class")).toBe("business");
+    expect(url.pathname).toBe("/search/SYD20261225DPS202701101");
+    expect(url.hostname).toContain("aviasales.com");
+  });
+
+  it("getEffectiveBaseUrl uses White Label host when configured", () => {
+    vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "flights.bookingsfinder.com");
+    resetPartnerConfig();
+    const r = buildFlightSearchUrl({
+      origin: "SYD", destination: "DPS", departureDate: "2026-12-25", adults: 1,
+    });
+    expect(r.success).toBe(true);
+    expect(r.url).toContain("flights.bookingsfinder.com");
+    // Query parameters should be identical regardless of host
+    expect(r.url).toContain("/search/SYD20261225DPS1");
+    expect(r.url).toContain("origin_iata=SYD");
+    expect(r.url).toContain("destination_iata=DPS");
+    expect(r.url).toContain("depart_date=2026-12-25");
+    expect(r.url).toContain("adults=1");
+  });
+
+  it("PARTNERS.aviasales.whiteLabelHost returns configured host", () => {
+    vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "flights.bookingsfinder.com");
+    resetPartnerConfig();
+    expect(PARTNERS.aviasales.whiteLabelHost).toBe("flights.bookingsfinder.com");
+  });
+
+  it("getEffectiveBaseUrl falls back to aviasales.com when not configured", () => {
+    // beforeEach stubs VITE_TRAVEL_WHITE_LABEL_HOST=""
+    const r = buildFlightSearchUrl({
+      origin: "SYD", destination: "DPS", departureDate: "2026-12-25", adults: 1,
+    });
+    expect(r.success).toBe(true);
+    expect(r.url).toContain("aviasales.com");
+  });
+
+  it("buildFlightSearchUrl format is identical structure regardless of host", () => {
+    const r = buildFlightSearchUrl({
+      origin: "MEL", destination: "BNE", departureDate: "2026-12-25", adults: 1,
+    });
+    expect(r.success).toBe(true);
+    expect(r.url).toMatch(/\/search\/[A-Z]{3}\d{8}[A-Z]{3}1/);
+    expect(r.url).toContain("origin_iata=");
+    expect(r.url).toContain("destination_iata=");
+    expect(r.url).toContain("depart_date=");
+    expect(r.url).toContain("adults=");
   });
 });

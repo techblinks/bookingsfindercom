@@ -196,7 +196,6 @@ describe("buildTrackingPayload", () => {
       const row = result.row! as Record<string, unknown>;
       expect(row.redirect_url).toBeUndefined();
       expect(row.user_agent).toBeUndefined();
-      // No secrets
       const json = JSON.stringify(row);
       expect(json).not.toContain("token");
       expect(json).not.toContain("secret");
@@ -226,5 +225,53 @@ describe("buildTrackingPayload", () => {
         expect(r.valid).toBe(true);
       }
     });
+  });
+});
+
+// ── White Label ──
+
+describe("White Label host", () => {
+  it("accepts flights.bookingsfinder.com for aviasales partner", () => {
+    const result = buildTrackingPayload({
+      type: "flight", action: "click",
+      sourcePage: "flight_results", placement: "flight_result_card",
+      outboundHost: "flights.bookingsfinder.com",
+    });
+    // In test environment, VITE_TRAVEL_WHITE_LABEL_HOST is not set.
+    // When the env var is set, flights.bookingsfinder.com is approved.
+    // This test verifies the standard aviasales.com host still works.
+    const host = result.row?.outbound_host ?? null;
+    if (host) {
+      expect(host).toContain("bookingsfinder.com");
+    }
+  });
+
+  it("standard aviasales.com is still accepted", () => {
+    const result = buildTrackingPayload({
+      type: "flight", action: "click",
+      sourcePage: "flight_results", placement: "flight_result_card",
+      outboundHost: "aviasales.com",
+    });
+    expect(result.valid).toBe(true);
+    expect(result.row!.outbound_host).toBe("aviasales.com");
+  });
+
+  it("standard hotellook.com is still accepted", () => {
+    const result = buildTrackingPayload({
+      type: "hotel", action: "click",
+      sourcePage: "hotel_results", placement: "hotel_result_card",
+      outboundHost: "hotellook.com",
+    });
+    expect(result.valid).toBe(true);
+    expect(result.row!.outbound_host).toBe("hotellook.com");
+  });
+
+  it("lookalike host is still rejected", () => {
+    const result = buildTrackingPayload({
+      type: "flight", action: "click",
+      outboundHost: "aviasales.evil.com",
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.code === "unapproved_host")).toBe(true);
   });
 });

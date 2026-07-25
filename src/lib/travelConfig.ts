@@ -68,14 +68,58 @@ export interface UrlBuildResult {
 
 // ── Partner Configuration ──
 
+/**
+ * Resolve the White Label host from the build-time environment variable.
+ * Accepts values with or without `https://` prefix.
+ * Strips protocol and trailing slashes so only the bare hostname is stored.
+ * Returns null when the env var is not set, empty, or contains invalid
+ * characters for a hostname (full URLs with paths are rejected).
+ *
+ * Result is cached at module load time — VITE_ env vars are build-time constants.
+ * The cache can be reset via resetPartnerConfig() for testing.
+ */
+let _whiteLabelHostCache: string | null | undefined;
+
 function getWhiteLabelHost(): string | null {
-  // Read from build-time env. Only set when owner configures the CNAME.
-  // Falls back to null → Edge Function uses aviasales.com directly.
-  const host = import.meta.env.VITE_TRAVEL_WHITE_LABEL_HOST;
-  if (!host || host === "") return null;
-  // Validate it's a hostname, not a full URL
-  if (host.includes("://") || host.includes("/")) return null;
+  if (_whiteLabelHostCache !== undefined) return _whiteLabelHostCache;
+
+  const raw = import.meta.env.VITE_TRAVEL_WHITE_LABEL_HOST;
+  if (!raw || raw === "") {
+    _whiteLabelHostCache = null;
+    return null;
+  }
+
+  // Normalise: strip https:// or http:// prefix
+  let host = raw.trim();
+  if (host.startsWith("https://")) host = host.slice("https://".length);
+  else if (host.startsWith("http://")) host = host.slice("http://".length);
+
+  // Strip trailing slash
+  if (host.endsWith("/")) host = host.slice(0, -1);
+
+  // Reject values that still look like URLs (contain paths or query strings)
+  if (host.includes("/") || host.includes("?") || host.includes("#")) {
+    _whiteLabelHostCache = null;
+    return null;
+  }
+
+  // Reject empty after normalisation
+  if (!host) {
+    _whiteLabelHostCache = null;
+    return null;
+  }
+
+  _whiteLabelHostCache = host;
   return host;
+}
+
+/**
+ * Reset cached configuration — for testing only.
+ * Clears the White Label host cache so the next call to getWhiteLabelHost()
+ * re-reads import.meta.env (which can be stubbed in tests via vi.stubEnv).
+ */
+export function resetPartnerConfig(): void {
+  _whiteLabelHostCache = undefined;
 }
 
 export const PARTNERS: Record<TravelPartnerId, TravelPartnerMeta> = {
@@ -85,7 +129,8 @@ export const PARTNERS: Record<TravelPartnerId, TravelPartnerMeta> = {
     productType: "flight",
     website: "https://www.aviasales.com",
     searchBaseUrl: "https://www.aviasales.com",
-    whiteLabelHost: getWhiteLabelHost(),
+    // Lazy getter: re-evaluates on each access so tests can stub env vars
+    get whiteLabelHost() { return getWhiteLabelHost(); },
     disclosure: "Flights are searched via our travel partner Aviasales. Final prices and availability are confirmed on the partner site.",
   },
   hotellook: {
@@ -206,13 +251,29 @@ function getEffectiveBaseUrl(partner: TravelPartnerId): string {
 /**
  * Verify that a built URL's host matches the approved partner host.
  * This prevents accidental redirect to an unexpected domain.
+ *
+ * For aviasales, also accepts the configured White Label host (e.g.,
+ * flights.bookingsfinder.com) even though its root domain differs
+ * from the standard aviasales.com.
  */
 function isApprovedHost(urlString: string, partner: TravelPartnerId): boolean {
   try {
     const u = new URL(urlString);
     const approved = APPROVED_HOSTS[partner];
     if (!approved) return false;
-    return u.hostname === approved || u.hostname.endsWith(`.${approved}`);
+
+    // Standard partner host (e.g., aviasales.com or subdomain)
+    if (u.hostname === approved || u.hostname.endsWith(`.${approved}`)) return true;
+
+    // White Label host for aviasales
+    if (partner === "aviasales") {
+      const wlHost = getWhiteLabelHost();
+      if (wlHost && (u.hostname === wlHost || u.hostname.endsWith(`.${wlHost}`))) {
+        return true;
+      }
+    }
+
+    return false;
   } catch {
     return false;
   }
@@ -323,3 +384,127 @@ export function getPartnerDisclosure(partnerId: TravelPartnerId): string {
  */
 export const AFFILIATE_DISCLOSURE =
   "BookingsFinder is a travel comparison site. We may earn a commission when you book through our partners at no extra cost to you. Final prices and availability are confirmed by the booking provider.";
+
+// ── Redirect Host Validation ──
+
+/**
+ * Approved redirect destination hosts.
+ *
+ * Constructed from partner configuration and the White Label host.
+ *   - aviasales.com (and subdomains) — standard Aviasales search
+ *   - hotellook.com (and subdomains) — standard Hotellook search
+ *   - The configured White Label host, if set
+ *   - localhost / 127.0.0.1 — for development (only in DEV mode)
+ *
+ * The hostname comparison is **exact match only** for the White Label host
+ * and exact or strict dot-boundary suffix for standard partner hosts.
+ * Substring matching (e.g. includes(), endsWith() without a dot) is never used.
+ */
+
+/**
+ * Check whether `hostname` matches `approved`:
+ *   - Exact match ("aviasales.com" matches "aviasales.com")
+ *   - Subdomain match ("www.aviasales.com" matches ".aviasales.com" via endswith)
+ * The rule always uses a dot prefix for suffix matching to prevent lookalike attacks.
+ */
+function hostnameMatches(hostname: string, approved: string): boolean {
+  return hostname === approved || hostname.endsWith("." + approved);
+}
+
+/**
+ * All approved redirect destination hostnames.
+ * Computed once at module load — values are build-time constants.
+ *
+ * White Label host is approved by EXACT hostname only — no root domain, no siblings.
+ */
+export function getApprovedRedirectHosts(): string[] {
+  const hosts: string[] = [
+    // Standard Aviasales host
+    "www.aviasales.com",
+    "aviasales.com",
+    // Hotellook host
+    "search.hotellook.com",
+    "hotellook.com",
+  ];
+
+  // Configured White Label host — exact match only
+  const wlHost = getWhiteLabelHost();
+  if (wlHost) {
+    hosts.push(wlHost);
+  }
+
+  return hosts;
+}
+
+/** Safe localhost patterns — only valid in development mode. */
+const DEV_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
+export interface HostValidationResult {
+  valid: boolean;
+  hostname: string | null;
+  reason?: string;
+}
+
+/**
+ * Validate that a redirect URL resolves to an approved partner host.
+ * HTTPS only in production — localhost is permitted for development only.
+ * Returns a structured result — never throws.
+ */
+export function validateRedirectHost(rawUrl: string): HostValidationResult {
+  // Must be non-empty
+  if (!rawUrl || !rawUrl.trim()) {
+    return { valid: false, hostname: null, reason: "Empty URL" };
+  }
+
+  const trimmed = rawUrl.trim().replace(/\s/g, "%20");
+
+  // Parse with URL constructor
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { valid: false, hostname: null, reason: "Invalid URL" };
+  }
+
+  // Reject dangerous protocols even if URL constructor accepts them
+  if (parsed.protocol === "javascript:" || parsed.protocol === "data:" || parsed.protocol === "file:") {
+    return { valid: false, hostname: null, reason: "Invalid URL" };
+  }
+
+  // Reject URLs with userinfo (username/password) — lookalike vector:
+  //   https://flights.bookingsfinder.com@evil.example → hostname = evil.example
+  if (parsed.username || parsed.password) {
+    return { valid: false, hostname: parsed.hostname, reason: "URLs with credentials are not permitted" };
+  }
+
+  // Normalise hostname for comparison
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Only https: in production; http: allowed for localhost dev
+  const isDevHost = DEV_HOSTS.includes(hostname);
+  if (parsed.protocol !== "https:" && !(isDevHost && import.meta.env.DEV && parsed.protocol === "http:")) {
+    return { valid: false, hostname, reason: "Only HTTPS URLs are permitted" };
+  }
+
+  // Development hosts — only accepted when running in DEV mode
+  if (isDevHost) {
+    if (!import.meta.env.DEV) {
+      return { valid: false, hostname, reason: `Host "${hostname}" is not permitted in production` };
+    }
+    return { valid: true, hostname };
+  }
+
+  // Check against approved hosts
+  const approved = getApprovedRedirectHosts();
+  for (const a of approved) {
+    if (hostnameMatches(hostname, a)) {
+      return { valid: true, hostname };
+    }
+  }
+
+  return {
+    valid: false,
+    hostname,
+    reason: `Host "${hostname}" is not an approved redirect destination`,
+  };
+}
