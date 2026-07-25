@@ -79,12 +79,11 @@ const adminFeatures = [
   },
   {
     title: 'Analytics Dashboard',
-    description: 'View site traffic, conversions, and revenue metrics',
+    description: 'View search trends, clicks, CTR, top routes and partner performance',
     icon: BarChart3,
     href: '/admin/analytics',
     color: 'text-green-500',
     bgColor: 'bg-green-500/10',
-    comingSoon: true,
   },
   {
     title: 'User Alerts',
