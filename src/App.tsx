@@ -106,6 +106,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/compliance" element={<AdminCompliance />} />
           <Route path="/admin/content-generator" element={<AdminContentGenerator />} />
           <Route path="/admin/route-generator" element={<AdminRouteGenerator />} />
+          <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/d/:slug" element={<DestinationPage />} />
           <Route path="/:slug" element={<CountryLandingPage />} />
           <Route path="/redirect" element={<BookingRedirect />} />

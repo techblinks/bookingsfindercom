@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Use environment variable for the Supabase URL
 import { getFunctionUrl } from "@/lib/supabaseConfig";
+import { logSearch } from "@/lib/analytics";
 
 export interface FlightSearchParams {
   origin: string;
@@ -131,7 +132,7 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
 }> {
   try {
     const url = getFunctionUrl("search-flights");
-    if (!url) throw new Error("Supabase not configured — cannot search flights");
+    if (!url) throw new Error("Supabase not configured â€” cannot search flights");
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -165,6 +166,18 @@ export async function searchFlights(params: FlightSearchParams): Promise<{
       sourcePage: 'flight_results',
     });
 
+    // Phase 6A: Log analytics search event (fire-and-forget)
+    logSearch({
+      origin: params.origin,
+      destination: params.destination,
+      departureDate: params.departureDate,
+      returnDate: params.returnDate,
+      adults: params.passengers,
+      cabinClass: params.cabinClass,
+      currency: params.currency,
+      landingPage: '/flights',
+    });
+
     // Handle new API format: { flights: [], meta: { total_found, is_complete } }
     const flights = data.flights || data.results || [];
     const meta = data.meta || { total_found: flights.length, is_complete: true };
@@ -196,7 +209,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<{
 }> {
   try {
     const url = getFunctionUrl("search-hotels");
-    if (!url) throw new Error("Supabase not configured — cannot search hotels");
+    if (!url) throw new Error("Supabase not configured â€” cannot search hotels");
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -220,6 +233,16 @@ export async function searchHotels(params: HotelSearchParams): Promise<{
       departureDate: params.checkIn,
       returnDate: params.checkOut,
       sourcePage: 'hotel_results',
+    });
+
+    // Phase 6A: Log analytics hotel search event (fire-and-forget)
+    logSearch({
+      destination: params.destination,
+      departureDate: params.checkIn,
+      returnDate: params.checkOut,
+      adults: params.guests,
+      landingPage: '/hotels',
+      currency: params.currency,
     });
 
     return {
@@ -275,7 +298,7 @@ export async function getRedirectUrl(params: RedirectParams): Promise<{
     if (params.link) searchParams.append('link', encodeURIComponent(params.link));
 
     const url = getFunctionUrl("get-redirect");
-    if (!url) throw new Error("Supabase not configured — cannot redirect");
+    if (!url) throw new Error("Supabase not configured â€” cannot redirect");
     const response = await fetch(`${url}?${searchParams.toString()}`, {
       method: 'GET',
       headers: {
