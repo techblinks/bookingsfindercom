@@ -27,3 +27,5 @@ dist-ssr
 *.sw?
 
 supabase/.temp/
+
+.playwright-mcp/

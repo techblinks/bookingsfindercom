@@ -47,6 +47,27 @@ const APPROVED_HOSTS: Record<TrackedPartner, string> = {
   hotellook: "hotellook.com",
 };
 
+/**
+ * White Label host — resolved and cached at module load time.
+ * Read from the same VITE_TRAVEL_WHITE_LABEL_HOST env var used by travelConfig.
+ * Accepts values with or without https:// prefix (normalised to bare hostname).
+ */
+let _wlHostCache: string | null | undefined;
+function getWhiteLabelHost(): string | null {
+  if (_wlHostCache !== undefined) return _wlHostCache;
+  const raw = import.meta.env.VITE_TRAVEL_WHITE_LABEL_HOST;
+  if (!raw || raw === "") { _wlHostCache = null; return null; }
+  let host = raw.trim();
+  if (host.startsWith("https://")) host = host.slice("https://".length);
+  else if (host.startsWith("http://")) host = host.slice("http://".length);
+  if (host.endsWith("/")) host = host.slice(0, -1);
+  if (host.includes("/") || host.includes("?") || host.includes("#") || !host) {
+    _wlHostCache = null; return null;
+  }
+  _wlHostCache = host;
+  return host;
+}
+
 /** Fields accepted for a tracking payload. */
 export interface OutboundTrackingPayload {
   type: TrackedProductType;
@@ -210,10 +231,17 @@ export function buildTrackingPayload(data: OutboundTrackingPayload): TrackingBui
     } catch {
       // Keep as-is for validation
     }
-    const isValid = Object.values(APPROVED_HOSTS).some(
+
+    // Check standard partner hosts
+    const standardApproved = Object.values(APPROVED_HOSTS).some(
       (approved) => host === approved || host.endsWith(`.${approved}`)
     );
-    if (isValid) {
+
+    // Also accept White Label host for aviasales
+    const wlHost = getWhiteLabelHost();
+    const wlApproved = wlHost ? host === wlHost || host.endsWith(`.${wlHost}`) : false;
+
+    if (standardApproved || wlApproved) {
       row.outbound_host = host;
     } else {
       errors.push(err("outboundHost", "unapproved_host", "Outbound host is not an approved partner"));

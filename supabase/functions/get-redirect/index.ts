@@ -3,7 +3,23 @@ import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateQuery, ValidationError } from "../_shared/validation.ts";
 
 // Travelpayouts affiliate base URLs
-const AVIASALES_BASE = "https://www.aviasales.com";
+// White Label host is read from environment; falls back to standard Aviasales
+const WHITE_LABEL_HOST = (() => {
+  const raw = Deno.env.get("WHITE_LABEL_HOST");
+  if (!raw || raw === "") return null;
+  // Normalise: strip protocol if present
+  let host = raw.trim();
+  if (host.startsWith("https://")) host = host.slice("https://".length);
+  else if (host.startsWith("http://")) host = host.slice("http://".length);
+  if (host.endsWith("/")) host = host.slice(0, -1);
+  if (host.includes("/") || host.includes("?") || !host) return null;
+  return host;
+})();
+
+const AVIASALES_BASE = WHITE_LABEL_HOST
+  ? `https://${WHITE_LABEL_HOST}`
+  : "https://www.aviasales.com";
+
 const HOTELLOOK_BASE = "https://search.hotellook.com";
 
 // Zod schema for redirect query parameters
@@ -46,7 +62,7 @@ Deno.serve(async (req) => {
       redirectUrl = decodeURIComponent(params.link);
       partner = params.type === "hotel" ? "Hotellook" : "Aviasales";
     } else if (params.type === "flight" || params.id.startsWith("redir-fl")) {
-      // Build Aviasales search URL
+      // Build Aviasales search URL (uses White Label base when configured)
       const flightParams = new URLSearchParams();
       if (params.origin) flightParams.append("origin_iata", params.origin);
       if (params.destination) flightParams.append("destination_iata", params.destination);

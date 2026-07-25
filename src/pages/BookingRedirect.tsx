@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Shield, Lock, CheckCircle, Plane, Building2, ExternalLink, Clock, TrendingUp } from "lucide-react";
+import { Shield, Lock, CheckCircle, Plane, Building2, ExternalLink, Clock, TrendingUp, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "@/assets/logo.webp";
+import { validateRedirectHost } from "@/lib/travelConfig";
 
 /**
  * White-Label Interstitial Page for BookingsFinder.com
@@ -96,6 +97,12 @@ const BookingRedirect = () => {
 
   const redirectUrl = useMemo(() => normalizeAffiliateUrl(urlParam), [urlParam]);
   
+  // Validate the redirect host against approved partners
+  const hostValidation = useMemo(() => {
+    if (!redirectUrl) return { valid: false, hostname: null, reason: "No URL" };
+    return validateRedirectHost(redirectUrl);
+  }, [redirectUrl]);
+
   // Determine if this is a hotel or flight booking
   const isHotel = useMemo(() => {
     return redirectUrl.includes("hotellook") || redirectUrl.includes("/hotels");
@@ -139,14 +146,13 @@ const BookingRedirect = () => {
     };
   }, []);
 
-  // Auto-redirect after delay
+  // Auto-redirect after delay — only if host is approved
   useEffect(() => {
-    if (!redirectUrl) return;
+    if (!hostValidation.valid) return;
 
     const timer = setTimeout(() => {
       try {
         const safeUrl = redirectUrl.replace(/\s/g, "%20");
-        new URL(safeUrl); // Validate
         window.location.assign(safeUrl);
       } catch (err) {
         console.error("Invalid redirect URL:", err);
@@ -154,7 +160,7 @@ const BookingRedirect = () => {
     }, REDIRECT_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [redirectUrl]);
+  }, [redirectUrl, hostValidation.valid]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background flex flex-col">
@@ -186,128 +192,159 @@ const BookingRedirect = () => {
             </motion.div>
           )}
 
-          {/* Animated Loader */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="mb-6"
-          >
-            <div className="relative w-20 h-20 mx-auto">
-              {/* Background ring */}
-              <div className="absolute inset-0 rounded-full border-4 border-secondary" />
-              {/* Progress ring */}
-              <svg className="absolute inset-0 w-20 h-20 -rotate-90">
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="36"
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 36}`}
-                  strokeDashoffset={`${2 * Math.PI * 36 * (1 - progress / 100)}`}
-                  className="transition-all duration-100"
-                />
-              </svg>
-              {/* Icon */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <motion.div
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  {isHotel ? (
-                    <Building2 className="h-8 w-8 text-primary" />
-                  ) : (
-                    <Plane className="h-8 w-8 text-primary" />
-                  )}
-                </motion.div>
+          {/* Host rejected error state */}
+          {!hostValidation.valid && redirectUrl && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-6 bg-destructive/10 border border-destructive/20 rounded-xl p-4"
+            >
+              <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
+              <h1 className="text-lg font-semibold text-foreground mb-1">Cannot redirect</h1>
+              <p className="text-sm text-muted-foreground">
+                The destination host is not an approved partner.
+              </p>
+              {hostValidation.hostname && (
+                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                  {hostValidation.hostname}
+                </p>
+              )}
+              <a href="/" className="inline-block mt-3 text-primary hover:underline font-medium text-sm">
+                Return to homepage
+              </a>
+            </motion.div>
+          )}
+
+          {/* Animated Loader — only when redirect is valid */}
+          {hostValidation.valid && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="mb-6"
+            >
+              <div className="relative w-20 h-20 mx-auto">
+                {/* Background ring */}
+                <div className="absolute inset-0 rounded-full border-4 border-secondary" />
+                {/* Progress ring */}
+                <svg className="absolute inset-0 w-20 h-20 -rotate-90">
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="36"
+                    fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 36}`}
+                    strokeDashoffset={`${2 * Math.PI * 36 * (1 - progress / 100)}`}
+                    className="transition-all duration-100"
+                  />
+                </svg>
+                {/* Icon */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <motion.div
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    {isHotel ? (
+                      <Building2 className="h-8 w-8 text-primary" />
+                    ) : (
+                      <Plane className="h-8 w-8 text-primary" />
+                    )}
+                  </motion.div>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
 
           {/* Status Text */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="mb-6"
-          >
-            <h1 className="text-xl md:text-2xl font-bold text-foreground mb-2">
-              Connecting to booking partner...
-            </h1>
-            
-            {/* Rotating value propositions */}
-            <div className="h-6 overflow-hidden">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentProp}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
-                >
-                  {(() => {
-                    const Prop = VALUE_PROPS[currentProp];
-                    return (
-                      <>
-                        <Prop.icon className="h-4 w-4" />
-                        <span>{Prop.text}</span>
-                      </>
-                    );
-                  })()}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </motion.div>
+          {hostValidation.valid && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="mb-6"
+            >
+              <h1 className="text-xl md:text-2xl font-bold text-foreground mb-2">
+                Connecting to booking partner...
+              </h1>
+
+              {/* Rotating value propositions */}
+              <div className="h-6 overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentProp}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
+                  >
+                    {(() => {
+                      const Prop = VALUE_PROPS[currentProp];
+                      return (
+                        <>
+                          <Prop.icon className="h-4 w-4" />
+                          <span>{Prop.text}</span>
+                        </>
+                      );
+                    })()}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
 
           {/* Progress Bar */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="mb-6"
-          >
-            <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-primary rounded-full"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            {countdown > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Redirecting in {countdown}...
-              </p>
-            )}
-          </motion.div>
+          {hostValidation.valid && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mb-6"
+            >
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              {countdown > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Redirecting in {countdown}...
+                </p>
+              )}
+            </motion.div>
+          )}
 
           {/* Trust Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
-            className="bg-card border border-border rounded-xl p-4 mb-6"
-          >
-            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-emerald-500" />
-                Secure partner site
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5 text-emerald-500" />
-                Verified partner
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                Price compared
-              </span>
-            </div>
-          </motion.div>
+          {hostValidation.valid && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.4 }}
+              className="bg-card border border-border rounded-xl p-4 mb-6"
+            >
+              <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5 text-emerald-500" />
+                  Secure partner site
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                  Verified partner
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                  Price compared
+                </span>
+              </div>
+            </motion.div>
+          )}
 
           {/* Manual Continue Link */}
-          {redirectUrl && (
+          {hostValidation.valid && redirectUrl && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

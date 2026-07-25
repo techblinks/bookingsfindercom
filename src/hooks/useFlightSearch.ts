@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Flight, FlightSearchMeta, FilterState, SortOption, DEPARTURE_TIME_SLOTS, FlightWarning, PriceConfidence } from "@/types/flight";
 import { supabase } from "@/integrations/supabase/client";
-import { trackAffiliateEvent } from "@/services/travelApi";
-
 import { getFunctionUrl } from "@/lib/supabaseConfig";
 
 interface UseFlightSearchParams {
@@ -190,7 +188,7 @@ function convertApiFlight(apiFlight: any, allApiFlights: any[]): Flight {
 }
 
 // Update filter ranges based on current flights
-function calculateFilterRanges(flights: Flight[]): Partial<FilterState> {
+export function calculateFilterRanges(flights: Flight[]): Partial<FilterState> {
   if (flights.length === 0) return {};
   
   const prices = flights.map(f => f.price).filter(p => p > 0);
@@ -382,15 +380,8 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     setMeta({ total_found: 0, is_complete: false });
     setSearchProgress(0);
 
-    // Track the search
-    trackAffiliateEvent({
-      type: 'flight',
-      action: 'search',
-      origin: params.origin,
-      destination: params.destination,
-      departureDate: params.departureDate,
-      returnDate: params.returnDate,
-    });
+    // Tracking is handled in travelApi.searchFlights after successful response
+    // (avoids duplicate tracking between hook and service layer)
 
     try {
       // Set a 30-second timeout for the search
@@ -458,22 +449,32 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       ) as Flight[];
       setFlights(uniqueFlights);
       setMeta({
-        total_found: data.meta?.total_found || enhancedFlights.length,
+        total_found: data.meta?.total_found || uniqueFlights.length,
         is_complete: data.meta?.is_complete ?? true,
-        cheapest_price: enhancedFlights.length > 0 
-          ? Math.min(...enhancedFlights.map(f => f.price).filter(p => p > 0))
+        cheapest_price: uniqueFlights.length > 0 ? Math.min(...uniqueFlights.map(f => f.price).filter(p => p > 0))
           : undefined,
-        fastest_duration: enhancedFlights.length > 0
-          ? Math.min(...enhancedFlights.map(f => f.duration_minutes).filter(d => d > 0))
+        fastest_duration: uniqueFlights.length > 0
+          ? Math.min(...uniqueFlights.map(f => f.duration_minutes).filter(d => d > 0))
           : undefined,
       });
       setSearchProgress(100);
 
       // Update filter ranges based on results
-      if (enhancedFlights.length > 0 && !hasInitializedFiltersRef.current) {
-        const ranges = calculateFilterRanges(enhancedFlights);
-        setFilters(prev => ({ ...prev, ...ranges }));
-        hasInitializedFiltersRef.current = true;
+      if (uniqueFlights.length > 0) {
+        const ranges = calculateFilterRanges(uniqueFlights);
+        if (!hasInitializedFiltersRef.current) {
+          setFilters(prev => ({ ...prev, ...ranges }));
+          hasInitializedFiltersRef.current = true;
+        } else {
+          setFilters(prev => ({
+            ...prev,
+            minPrice: ranges.minPrice ?? prev.minPrice,
+            maxPrice: ranges.maxPrice ?? prev.maxPrice,
+            priceRange: ranges.priceRange ?? prev.priceRange,
+            maxDuration: ranges.maxDuration ?? prev.maxDuration,
+            durationRange: ranges.durationRange ?? prev.durationRange,
+          }));
+        }
       }
 
     } catch (err) {
@@ -518,4 +519,5 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     fastestDuration,
   };
 }
+
 

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
 import { useAds } from "@/hooks/useAds";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
+import { buildWhiteLabelFlightUrl } from "@/lib/whiteLabelUrl";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
@@ -47,6 +48,19 @@ const FlightResults = () => {
   const returnDate = searchParams.get("returnDate") || "";
   const passengers = parseInt(searchParams.get("passengers") || "1", 10);
   const cabinClass = searchParams.get("cabinClass") || "economy";
+
+  // Phase 5A: Explicit passenger breakdown for White Label eligibility
+  const adultsRaw = searchParams.get("adults");
+  const childrenRaw = searchParams.get("children");
+  const infantsRaw = searchParams.get("infants");
+  const adults = adultsRaw !== null ? parseInt(adultsRaw, 10) : null;
+  const children = childrenRaw !== null ? parseInt(childrenRaw, 10) : null;
+  const infants = infantsRaw !== null ? parseInt(infantsRaw, 10) : null;
+  const hasExplicitPassengers =
+    adults !== null && !isNaN(adults) && Number.isInteger(adults) && adults >= 1 && adults <= 9 &&
+    children !== null && !isNaN(children) && Number.isInteger(children) && children >= 0 && children <= 9 &&
+    infants !== null && !isNaN(infants) && Number.isInteger(infants) && infants >= 0 && infants <= 9;
+
 
   const { geoData } = useGeoLocation();
   const currencyCode = geoData?.currency || "USD";
@@ -143,25 +157,53 @@ const FlightResults = () => {
   const handleBookNow = async (flightId: string) => {
     const flight = flights.find(f => f.id === flightId);
     if (!flight) return;
+
+    // Phase 5A: Determine final outbound URL first, then track once
+    let finalUrl: string | null = null;
+    let outboundHost: string | undefined;
+
+    if (hasExplicitPassengers) {
+      const wlResult = buildWhiteLabelFlightUrl({
+        origin, destination, outboundDate: departureDate,
+        returnDate: returnDate || undefined,
+        adults: adults!, children: children!, infants: infants!,
+        cabinClass,
+      });
+      if (wlResult.success && wlResult.url) {
+        finalUrl = wlResult.url;
+        outboundHost = new URL(wlResult.url).hostname;
+      }
+    }
+
+    if (!finalUrl) {
+      try {
+        const result = await getRedirectUrl({
+          id: flightId, type: 'flight', link: flight.link, origin, destination,
+          departureDate, returnDate: returnDate || undefined, airline: flight.airline_code,
+        });
+        if (result.success && result.redirectUrl) {
+          finalUrl = result.redirectUrl;
+          outboundHost = new URL(result.redirectUrl).hostname;
+        }
+      } catch (err) {
+        // URL generation failed — do not track
+      }
+    }
+
+    if (!finalUrl) {
+      toast.error("Could not generate booking link");
+      return;
+    }
+
     trackAffiliateEvent({
       type: 'flight', action: 'click', origin, destination, departureDate,
       returnDate: returnDate || undefined, airlineCode: flight.airline_code,
       price: flight.price, currency: flight.currency,
       sourcePage: 'flight_results', placement: 'flight_result_card',
+      outboundHost,
     });
-    try {
-      const result = await getRedirectUrl({
-        id: flightId, type: 'flight', link: flight.link, origin, destination,
-        departureDate, returnDate: returnDate || undefined, airline: flight.airline_code,
-      });
-      if (result.success && result.redirectUrl) {
-        window.location.href = `/redirect?url=${encodeURIComponent(result.redirectUrl)}`;
-      } else {
-        toast.error("Could not generate booking link");
-      }
-    } catch (err) {
-      toast.error("An error occurred");
-    }
+
+    window.location.href = `/redirect?url=${encodeURIComponent(finalUrl)}`;
   };
 
   const handleDateSelect = (date: string) => {
@@ -376,4 +418,3 @@ const FlightResults = () => {
 };
 
 export default FlightResults;
-

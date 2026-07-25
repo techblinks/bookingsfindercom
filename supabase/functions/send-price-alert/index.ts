@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     });
 
     const emailResponse = await resend.emails.send({
-      from: "TravelHub <alerts@resend.dev>",
+      from: "BookingsFinder <alerts@bookingsfinder.com>",
       to: [body.to],
       subject,
       html,
