@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import HotelQuickSelect from "@/components/hotels/HotelQuickSelect";
 import { HotelSearchForm } from "@/components/hotels/HotelSearchForm";
 import { trackAffiliateEvent } from "@/services/travelApi";
+import { logAffiliateClick } from "@/lib/analytics";
 import {
   Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious,
 } from "@/components/ui/pagination";
@@ -88,6 +89,18 @@ const HotelResults = () => {
     const hotel = hotels.find(h => h.id === hotelId);
     if (!hotel) return;
     trackAffiliateEvent({ type: "hotel", action: "click", destination, hotelId: hotel.hotelId?.toString(), price: hotel.price, currency: hotel.currency, sourcePage: "hotel_results", placement: "hotel_result_card" });
+
+    // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
+    void logAffiliateClick({
+      partner: "hotellook",
+      partnerType: "hotel",
+      route: destination,
+      price: hotel.price,
+      currency: hotel.currency,
+      outboundHost: hotel.link ? (() => { try { return new URL(hotel.link).hostname; } catch { return null; } })() : null,
+      landingPage: "/hotels",
+    }).catch(() => {});
+
     try {
       let affiliateUrl = hotel.link;
       if (!affiliateUrl) {

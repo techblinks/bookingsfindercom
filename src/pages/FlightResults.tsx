@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
 import { useAds } from "@/hooks/useAds";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
+import { logAffiliateClick } from "@/lib/analytics";
 import { buildWhiteLabelFlightUrl } from "@/lib/whiteLabelUrl";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
@@ -202,6 +203,20 @@ const FlightResults = () => {
       sourcePage: 'flight_results', placement: 'flight_result_card',
       outboundHost,
     });
+
+    // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
+    void logAffiliateClick({
+      partner: outboundHost || 'aviasales',
+      partnerType: 'flight',
+      route: origin + '-' + destination,
+      airline: flight.airline_code,
+      price: flight.price,
+      currency: flight.currency,
+      whiteLabelUsed: outboundHost?.includes('bookingsfinder'),
+      fallbackUsed: !outboundHost?.includes('bookingsfinder'),
+      outboundHost: outboundHost || null,
+      landingPage: '/flights',
+    }).catch(() => {});
 
     window.location.href = `/redirect?url=${encodeURIComponent(finalUrl)}`;
   };
