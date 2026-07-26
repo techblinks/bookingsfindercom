@@ -17,6 +17,7 @@ import { AdminLoginForm } from "@/components/auth/AdminLoginForm";
 import {
   fetchKPIs, fetchTopRoutes, fetchTopDestinations, fetchPartnerPerformance,
   fetchAirlinePerformance, fetchLandingPagePerformance, fetchTrafficSources,
+  resetAdminCheck, nextGeneration,
   fetchWLvsFallback, fetchDailyTrends,
   type KPIData, type RouteRow, type DestinationRow, type PartnerRow,
   type AirlineRow, type LandingPageRow, type TrafficSourceRow,
@@ -121,10 +122,15 @@ const AdminAnalytics = () => {
   const [trafficSources, setTrafficSources] = useState<TrafficSourceRow[]>([]);
   const [wlData, setWlData] = useState<WLVsFallbackData | null>(null);
   const [trends, setTrends] = useState<DailyTrendRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({ kpis: true, routes: true, partners: true, trends: true });
+  const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({ kpis: null, routes: null, partners: null, trends: null });
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["kpis", "funnel"]));
+
+  // Sync legacy loading state — false when all sections loaded
+  const allLoaded = !loadingStates.kpis && !loadingStates.routes && !loadingStates.partners && !loadingStates.trends;
 
   const toggleSection = (id: string) => {
     setExpandedSections(prev => {
@@ -134,42 +140,37 @@ const AdminAnalytics = () => {
     });
   };
 
-  const refresh = useCallback(async () => {
+    const refresh = useCallback(async () => {
     if (!isAdmin) return;
-    setLoading(true);
     setError(null);
-    try {
-      const [kpiResult, prevKpiResult, routes, dests, part, air, lp, ts, wl, tr] = await Promise.all([
-        fetchKPIs(dates.from, dates.to),
-        fetchKPIs(dates.prevFrom, dates.prevTo),
-        fetchTopRoutes(dates.from, dates.to),
-        fetchTopDestinations(dates.from, dates.to),
-        fetchPartnerPerformance(dates.from, dates.to),
-        fetchAirlinePerformance(dates.from, dates.to),
-        fetchLandingPagePerformance(dates.from, dates.to),
-        fetchTrafficSources(dates.from, dates.to),
-        fetchWLvsFallback(dates.from, dates.to),
-        fetchDailyTrends(dates.from, dates.to),
-      ]);
-      setKpis(kpiResult);
-      setPrevKpis(prevKpiResult);
-      setTopRoutes(routes);
-      setTopDestinations(dests);
-      setPartners(part);
-      setAirlines(air);
-      setLandingPages(lp);
-      setTrafficSources(ts);
-      setWlData(wl);
-      setTrends(tr);
-      setLastUpdated(new Date());
-    } catch (err) {
-      setError("Failed to load analytics data.");
-      toast.error("Failed to load analytics");
-    } finally {
-      setLoading(false);
-    }
-  }, [isAdmin, dates]);
+    resetAdminCheck();
+    const gen = nextGeneration();
 
+    const load = <T,>(section: string, fetcher: () => Promise<T>, onData: (d: T) => void) => {
+      setLoadingStates(prev => ({ ...prev, [section]: true }));
+      setSectionErrors(prev => ({ ...prev, [section]: null }));
+      fetcher()
+        .then(d => { if (gen !== undefined) onData(d); })
+        .catch(e => { if (e?.message !== "Stale request") setSectionErrors(prev => ({ ...prev, [section]: e?.message || "Failed" })); })
+        .finally(() => { setLoadingStates(prev => ({ ...prev, [section]: false })); });
+    };
+
+    load("kpis", () => fetchKPIs(dates.from, dates.to, gen), r => setKpis(r));
+    fetchKPIs(dates.prevFrom, dates.prevTo, gen).then(r => setPrevKpis(r)).catch(() => {});
+
+    load("routes", () => fetchTopRoutes(dates.from, dates.to, 10, gen), r => setTopRoutes(r));
+    fetchTopDestinations(dates.from, dates.to, 10, gen).then(r => setTopDestinations(r)).catch(() => {});
+    fetchLandingPagePerformance(dates.from, dates.to, gen).then(r => setLandingPages(r)).catch(() => {});
+
+    load("partners", () => fetchPartnerPerformance(dates.from, dates.to, gen), r => setPartners(r));
+    fetchAirlinePerformance(dates.from, dates.to, 10, gen).then(r => setAirlines(r)).catch(() => {});
+    fetchWLvsFallback(dates.from, dates.to, gen).then(r => setWlData(r)).catch(() => {});
+    fetchTrafficSources(dates.from, dates.to, gen).then(r => setTrafficSources(r)).catch(() => {});
+
+    load("trends", () => fetchDailyTrends(dates.from, dates.to, gen), r => setTrends(r));
+
+    setLastUpdated(new Date());
+  }, [isAdmin, dates]);
   useEffect(() => { refresh(); }, [refresh]);
 
   // ── Auth gating ──────────────────────────────────────────────
@@ -257,7 +258,7 @@ const AdminAnalytics = () => {
         <SectionHeader id="kpis" title="Key Metrics" icon={BarChart3} expanded={expandedSections.has("kpis")} onToggle={() => toggleSection("kpis")} />
         {expandedSections.has("kpis") && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-            {loading ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />) : kpis ? (
+            {loadingStates.kpis ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />) : kpis ? (
               <>
                 <KPICard label="Total Searches" value={formatNumber(kpis.totalSearches)} prev={prevKpis ? pctChange(kpis.totalSearches, prevKpis.totalSearches) : undefined} icon={Search} />
                 <KPICard label="Outbound Clicks" value={formatNumber(kpis.totalClicks)} prev={prevKpis ? pctChange(kpis.totalClicks, prevKpis.totalClicks) : undefined} icon={MousePointerClick} />
