@@ -318,20 +318,33 @@ export async function logAffiliateClick(payload: ClickEventPayload): Promise<voi
 // ── Dashboard queries (admin, authenticated) ─────────────────────
 
 async function requireAdmin(): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("Authentication required");
-
-  const { data: roleData, error: roleError } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", session.user.id)
-    .eq("role", "admin")
-    .maybeSingle();
-
-  if (roleError || !roleData) {
-    throw new Error("Admin access required");
+  if (!_adminCheckPromise) {
+    _adminCheckPromise = (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Authentication required");
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles").select("role")
+        .eq("user_id", session.user.id).eq("role", "admin").maybeSingle();
+      if (roleError || !roleData) throw new Error("Admin access required");
+    })();
   }
+  return _adminCheckPromise;
 }
+
+let _adminCheckPromise: Promise<void> | null = null;
+export function resetAdminCheck(): void { _adminCheckPromise = null; }
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("Request timed out")), ms);
+    promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
+}
+
+let _generation = 0;
+export function nextGeneration(): number { return ++_generation; }
+function isCurrentGeneration(gen: number): boolean { return gen === _generation; }
+
 
 /**
  * Get dashboard summary: today's counts, CTR, top routes, recent activity.
@@ -469,13 +482,13 @@ function dateRange(from: string, to: string): { start: string; end: string } {
   return { start: new Date(from).toISOString(), end: new Date(to).toISOString() };
 }
 
-export async function fetchKPIs(from: string, to: string): Promise<KPIData | null> {
-  await requireAdmin();
+export async function fetchKPIs(from: string, to: string, gen?: number): Promise<KPIData | null> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_dashboard_kpis", {
+  const { data, error } = await withTimeout(supabase.rpc("get_dashboard_kpis", {
     start_date: start,
     end_date: end,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   if (error || !data) {
     console.warn("[analytics] fetchKPIs failed:", error?.message);
     return null;
@@ -501,66 +514,66 @@ export async function fetchKPIs(from: string, to: string): Promise<KPIData | nul
   };
 }
 
-export async function fetchTopRoutes(from: string, to: string, limit = 10): Promise<RouteRow[]> {
-  await requireAdmin();
+export async function fetchTopRoutes(from: string, to: string, limit = 10, gen?: number): Promise<RouteRow[]> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_top_routes", {
+  const { data, error } = await withTimeout(supabase.rpc("get_top_routes", {
     start_date: start, end_date: end, limit_rows: limit,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   return error || !data ? [] : (data as unknown as RouteRow[]);
 }
 
-export async function fetchTopDestinations(from: string, to: string, limit = 10): Promise<DestinationRow[]> {
-  await requireAdmin();
+export async function fetchTopDestinations(from: string, to: string, limit = 10, gen?: number): Promise<DestinationRow[]> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_top_destinations", {
+  const { data, error } = await withTimeout(supabase.rpc("get_top_destinations", {
     start_date: start, end_date: end, limit_rows: limit,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   return error || !data ? [] : (data as unknown as DestinationRow[]);
 }
 
-export async function fetchPartnerPerformance(from: string, to: string): Promise<PartnerRow[]> {
-  await requireAdmin();
+export async function fetchPartnerPerformance(from: string, to: string, gen?: number): Promise<PartnerRow[]> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_partner_performance", {
+  const { data, error } = await withTimeout(supabase.rpc("get_partner_performance", {
     start_date: start, end_date: end,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   return error || !data ? [] : (data as unknown as PartnerRow[]);
 }
 
-export async function fetchAirlinePerformance(from: string, to: string, limit = 10): Promise<AirlineRow[]> {
-  await requireAdmin();
+export async function fetchAirlinePerformance(from: string, to: string, limit = 10, gen?: number): Promise<AirlineRow[]> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_airline_performance", {
+  const { data, error } = await withTimeout(supabase.rpc("get_airline_performance", {
     start_date: start, end_date: end, limit_rows: limit,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   return error || !data ? [] : (data as unknown as AirlineRow[]);
 }
 
-export async function fetchLandingPagePerformance(from: string, to: string): Promise<LandingPageRow[]> {
-  await requireAdmin();
+export async function fetchLandingPagePerformance(from: string, to: string, gen?: number): Promise<LandingPageRow[]> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_landing_page_performance", {
+  const { data, error } = await withTimeout(supabase.rpc("get_landing_page_performance", {
     start_date: start, end_date: end,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   return error || !data ? [] : (data as unknown as LandingPageRow[]);
 }
 
-export async function fetchTrafficSources(from: string, to: string): Promise<TrafficSourceRow[]> {
-  await requireAdmin();
+export async function fetchTrafficSources(from: string, to: string, gen?: number): Promise<TrafficSourceRow[]> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_traffic_sources", {
+  const { data, error } = await withTimeout(supabase.rpc("get_traffic_sources", {
     start_date: start, end_date: end,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   return error || !data ? [] : (data as unknown as TrafficSourceRow[]);
 }
 
-export async function fetchWLvsFallback(from: string, to: string): Promise<WLVsFallbackData | null> {
-  await requireAdmin();
+export async function fetchWLvsFallback(from: string, to: string, gen?: number): Promise<WLVsFallbackData | null> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_wl_vs_fallback", {
+  const { data, error } = await withTimeout(supabase.rpc("get_wl_vs_fallback", {
     start_date: start, end_date: end,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   if (error || !data) return null;
   const d = data as Record<string, unknown>;
   return {
@@ -574,11 +587,11 @@ export async function fetchWLvsFallback(from: string, to: string): Promise<WLVsF
   };
 }
 
-export async function fetchDailyTrends(from: string, to: string): Promise<DailyTrendRow[]> {
-  await requireAdmin();
+export async function fetchDailyTrends(from: string, to: string, gen?: number): Promise<DailyTrendRow[]> {
   const { start, end } = dateRange(from, to);
-  const { data, error } = await supabase.rpc("get_daily_trends", {
+  const { data, error } = await withTimeout(supabase.rpc("get_daily_trends", {
     start_date: start, end_date: end,
-  });
+  }), 15000);
+  if (gen !== undefined && !isCurrentGeneration(gen)) throw new Error("Stale request");
   return error || !data ? [] : (data as unknown as DailyTrendRow[]);
 }

@@ -26,37 +26,58 @@ export function useAdminAuth() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const hasAdminRole = await checkAdminRole(session.user.id);
-          setIsAdmin(hasAdminRole);
-        } else {
-          setIsAdmin(false);
+      async (_event, session) => {
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
+
+          if (session?.user) {
+            const hasAdminRole = await checkAdminRole(session.user.id);
+            if (!cancelled) setIsAdmin(hasAdminRole);
+          } else {
+            if (!cancelled) setIsAdmin(false);
+          }
+        } catch (err) {
+          console.error("[useAdminAuth] onAuthStateChange error:", err);
+          if (!cancelled) setIsAdmin(false);
+        } finally {
+          if (!cancelled) setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        const hasAdminRole = await checkAdminRole(session.user.id);
-        setIsAdmin(hasAdminRole);
+      try {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          const hasAdminRole = await checkAdminRole(session.user.id);
+          if (!cancelled) setIsAdmin(hasAdminRole);
+        }
+      } catch (err) {
+        console.error("[useAdminAuth] getSession error:", err);
+        if (!cancelled) setIsAdmin(false);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      
-      setIsLoading(false);
+    }).catch((err) => {
+      console.error("[useAdminAuth] getSession rejected:", err);
+      if (!cancelled) {
+        setIsAdmin(false);
+        setIsLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
