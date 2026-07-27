@@ -1,6 +1,6 @@
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { validateQuery, ValidationError } from "../_shared/validation.ts";
+import { validateQuery, validateRequest, ValidationError } from "../_shared/validation.ts";
 
 // Comprehensive airport database with major international airports
 const airports = [
@@ -155,10 +155,10 @@ const airports = [
   { code: "MRU", city: "Mauritius", country: "Mauritius", name: "Sir Seewoosagur Ramgoolam International Airport" },
 ];
 
-// Query validation schema
+// Query validation schema — used for both GET query params and POST body
 const AirportSearchSchema = z.object({
   q: z.string().default(""),
-  limit: z.string().transform((v) => Math.min(parseInt(v) || 8, 20)).default("8"),
+  limit: z.coerce.number().min(1).max(20).default(8),
 });
 
 // Fuzzy matching function using Levenshtein distance
@@ -215,10 +215,9 @@ function searchAirports(query: string, limit = 8): typeof airports {
   const scored = airports.map((airport) => {
     const codeScore = getSimilarityScore(q, airport.code);
     const cityScore = getSimilarityScore(q, airport.city);
-    const countryScore = getSimilarityScore(q, airport.country) * 0.5; // Lower weight for country
-    const nameScore = getSimilarityScore(q, airport.name) * 0.3; // Lower weight for full name
+    const countryScore = getSimilarityScore(q, airport.country) * 0.5;
+    const nameScore = getSimilarityScore(q, airport.name) * 0.3;
 
-    // Take the best matching field
     const bestScore = Math.max(codeScore, cityScore, countryScore, nameScore);
 
     return { airport, score: bestScore };
@@ -237,12 +236,22 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const url = new URL(req.url);
+    let q = "";
+    let limit = 8;
 
-    // Validate query parameters with Zod
-    const params = validateQuery(url, AirportSearchSchema);
+    // Support both GET (query params) and POST (JSON body)
+    if (req.method === "POST" || req.method === "PUT") {
+      const params = await validateRequest(req, AirportSearchSchema);
+      q = params.q;
+      limit = params.limit;
+    } else {
+      const url = new URL(req.url);
+      const params = validateQuery(url, AirportSearchSchema);
+      q = params.q;
+      limit = params.limit;
+    }
 
-    const results = searchAirports(params.q, params.limit);
+    const results = searchAirports(q, limit);
 
     return jsonResponse(results);
   } catch (error) {
