@@ -177,6 +177,29 @@ const LocationCombobox = ({
   const showEmptyState = isOpen && query.length < 2;
   const showNoResults = isOpen && !isLoading && !serviceError && query.length >= 2 && airports.length === 0;
 
+  // Shared airport option renderer — three-line hierarchy
+  const renderAirportOption = (airport: Airport) => (
+    <button
+      key={airport.code}
+      type="button"
+      onClick={() => handleSelect(airport)}
+      className="flex w-full items-start gap-3 px-4 py-3 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors text-left"
+    >
+      <Plane className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="text-[15px] font-semibold text-foreground leading-snug">
+          {airport.city}
+        </div>
+        <div className="text-sm text-muted-foreground leading-snug mt-0.5">
+          {airport.name} <span className="font-mono text-xs ml-1">&middot; {airport.code}</span>
+        </div>
+        <div className="text-xs text-muted-foreground/60 leading-snug mt-0.5">
+          {airport.country}
+        </div>
+      </div>
+    </button>
+  );
+
   return (
     <div ref={containerRef} className="relative w-full">
       <div className="relative">
@@ -202,9 +225,9 @@ const LocationCombobox = ({
         )}
       </div>
 
-      {/* Service error state — shown for 401/403/network failures */}
+      {/* Service error state */}
       {isOpen && serviceError && !isLoading && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
+        <div className="absolute z-50 mt-1 w-full min-w-[340px] rounded-md border border-border bg-popover shadow-lg">
           <div className="flex items-center gap-2 py-4 px-3 text-sm text-muted-foreground">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
             Airport search is temporarily unavailable
@@ -214,36 +237,17 @@ const LocationCombobox = ({
 
       {/* Search Results Dropdown */}
       {isOpen && showSearchResults && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
+        <div className="absolute z-50 mt-1 w-full min-w-[340px] rounded-md border border-border bg-popover shadow-lg">
           {isLoading && airports.length === 0 ? (
             <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
               Searching airports...
             </div>
           ) : (
-            <ul className="max-h-64 overflow-auto py-1">
+            <ul className="max-h-[370px] overflow-y-auto py-1" role="listbox">
               {airports.map((airport) => (
-                <li key={airport.code}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(airport)}
-                    className="flex w-full items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left"
-                  >
-                    <Plane className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">
-                          {airport.city}
-                        </span>
-                        <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                          {airport.code}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {airport.name}, {airport.country}
-                      </div>
-                    </div>
-                  </button>
+                <li key={airport.code} role="option" aria-selected={selectedAirport?.code === airport.code}>
+                  {renderAirportOption(airport)}
                 </li>
               ))}
             </ul>
@@ -253,38 +257,19 @@ const LocationCombobox = ({
 
       {/* Recent & Popular Airports (when input is empty/short) */}
       {showEmptyState && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
-          <div className="max-h-80 overflow-auto py-1">
+        <div className="absolute z-50 mt-1 w-full min-w-[340px] rounded-md border border-border bg-popover shadow-lg">
+          <div className="max-h-[420px] overflow-y-auto py-1">
             {/* Recent Airports */}
             {recentAirports.length > 0 && (
               <div className="pb-1">
-                <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <Clock className="h-3 w-3" />
                   Recent
                 </div>
                 <ul>
                   {recentAirports.map((airport) => (
                     <li key={`recent-${airport.code}`}>
-                      <button
-                        type="button"
-                        onClick={() => handleSelect(airport)}
-                        className="flex w-full items-start gap-3 px-3 py-2 hover:bg-accent transition-colors text-left"
-                      >
-                        <Plane className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground text-sm">
-                              {airport.city}
-                            </span>
-                            <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                              {airport.code}
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {airport.country}
-                          </div>
-                        </div>
-                      </button>
+                      {renderAirportOption(airport)}
                     </li>
                   ))}
                 </ul>
@@ -293,33 +278,14 @@ const LocationCombobox = ({
 
             {/* Popular Airports */}
             <div className={recentAirports.length > 0 ? "border-t border-border pt-1" : ""}>
-              <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 <TrendingUp className="h-3 w-3" />
                 Popular Destinations
               </div>
               <ul>
                 {popularAirports.map((airport) => (
                   <li key={`popular-${airport.code}`}>
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(airport)}
-                      className="flex w-full items-start gap-3 px-3 py-2 hover:bg-accent transition-colors text-left"
-                    >
-                      <Plane className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground text-sm">
-                            {airport.city}
-                          </span>
-                          <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                            {airport.code}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {airport.country}
-                        </div>
-                      </div>
-                    </button>
+                    {renderAirportOption(airport)}
                   </li>
                 ))}
               </ul>
@@ -328,9 +294,9 @@ const LocationCombobox = ({
         </div>
       )}
 
-      {/* No results — only for genuine empty-200 responses */}
+      {/* No results */}
       {showNoResults && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
+        <div className="absolute z-50 mt-1 w-full min-w-[340px] rounded-md border border-border bg-popover shadow-lg">
           <div className="py-4 text-center text-sm text-muted-foreground">
             No airports found for "{query}"
           </div>
