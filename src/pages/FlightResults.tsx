@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { ArrowLeft, SlidersHorizontal, X, Plane, Sparkles, ChevronDown, Search, Calendar } from "lucide-react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { ArrowLeft, Plane, ChevronDown, AlertTriangle } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Header from "@/components/layout/Header";
@@ -12,7 +13,6 @@ import EmptyFlightState from "@/components/flights/EmptyFlightState";
 import EnhancedEmptyFlightResults from "@/components/states/EnhancedEmptyFlightResults";
 import SearchingIndicator from "@/components/flights/SearchingIndicator";
 import SortDropdown from "@/components/flights/SortDropdown";
-
 import PriceCalendar from "@/components/flights/PriceCalendar";
 import WeeklyPriceHeatmap from "@/components/flights/WeeklyPriceHeatmap";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
@@ -28,47 +28,51 @@ import { buildWhiteLabelFlightUrl } from "@/lib/whiteLabelUrl";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
-import MobileQuickEditBar from "@/components/flights/MobileQuickEditBar";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
+import ModernFlightSearch from "@/components/search/ModernFlightSearch";
+import { parseAndValidateFlightSearchParams } from "@/lib/flightSearchValidation";
 
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
 
 const FlightResults = () => {
   const [searchParams] = useSearchParams();
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY_COUNT);
   const [priceToolsOpen, setPriceToolsOpen] = useState(false);
-  const [showStickyPrice, setShowStickyPrice] = useState(false);
   const quickSelectRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  const origin = searchParams.get("origin") || "";
-  const destination = searchParams.get("destination") || "";
-  const departureDate = searchParams.get("departureDate") || "";
-  const returnDate = searchParams.get("returnDate") || "";
-  const passengers = parseInt(searchParams.get("passengers") || "1", 10);
-  const cabinClass = searchParams.get("cabinClass") || "economy";
+  // Phase 7A: Single route-mode decision using the shared validator
+  const parsed = useMemo(() => parseAndValidateFlightSearchParams(searchParams), [searchParams]);
+  const isResultsMode = parsed.mode === "results";
+  const validated = parsed.validated;
+  const prefill = parsed.prefill;
+  const validationErrors = parsed.errors;
+
+  // Derive search input values from validated params (results mode) or empty (form mode)
+  const origin = validated?.origin ?? "";
+  const destination = validated?.destination ?? "";
+  const departureDate = validated?.departureDate
+    ? validated.departureDate.toISOString().split("T")[0]
+    : "";
+  const returnDate = validated?.returnDate
+    ? validated.returnDate.toISOString().split("T")[0]
+    : "";
+  const passengers = validated ? (validated.adults + validated.children + validated.infants) : 1;
+  const cabinClass = validated?.cabinClass ?? "economy";
 
   // Phase 5A: Explicit passenger breakdown for White Label eligibility
-  const adultsRaw = searchParams.get("adults");
-  const childrenRaw = searchParams.get("children");
-  const infantsRaw = searchParams.get("infants");
-  const adults = adultsRaw !== null ? parseInt(adultsRaw, 10) : null;
-  const children = childrenRaw !== null ? parseInt(childrenRaw, 10) : null;
-  const infants = infantsRaw !== null ? parseInt(infantsRaw, 10) : null;
+  const adults = validated?.adults ?? null;
+  const children = validated?.children ?? null;
+  const infants = validated?.infants ?? null;
   const hasExplicitPassengers =
-    adults !== null && !isNaN(adults) && Number.isInteger(adults) && adults >= 1 && adults <= 9 &&
-    children !== null && !isNaN(children) && Number.isInteger(children) && children >= 0 && children <= 9 &&
-    infants !== null && !isNaN(infants) && Number.isInteger(infants) && infants >= 0 && infants <= 9;
-
+    adults !== null && children !== null && infants !== null;
 
   const { geoData } = useGeoLocation();
   const currencyCode = geoData?.currency || "USD";
   const currencySymbol = geoData?.currencySymbol || "$";
 
-  const hasSearch = !!(origin && destination && departureDate);
-
+  // Only pass real values when in results mode (validated = fully valid params)
   const {
     flights,
     meta,
@@ -87,9 +91,9 @@ const FlightResults = () => {
     cheapestPrice,
     fastestDuration,
   } = useFlightSearch({
-    origin: hasSearch ? origin : "",
-    destination: hasSearch ? destination : "",
-    departureDate: hasSearch ? departureDate : "",
+    origin: isResultsMode ? origin : "",
+    destination: isResultsMode ? destination : "",
+    departureDate: isResultsMode ? departureDate : "",
     returnDate,
     passengers,
     cabinClass,
@@ -144,16 +148,6 @@ const FlightResults = () => {
     if (sentinel) observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMore, isLoading, loadMore]);
-
-  useEffect(() => {
-    if (!isMobile || !quickSelectRef.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowStickyPrice(!entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(quickSelectRef.current);
-    return () => observer.disconnect();
-  }, [isMobile, isLoading]);
 
   const handleBookNow = async (flightId: string) => {
     const flight = flights.find(f => f.id === flightId);
@@ -239,6 +233,86 @@ const FlightResults = () => {
     ? filteredFlights.reduce((best, f) => (f.deal_score || 0) > (best.deal_score || 0) ? f : best, filteredFlights[0])
     : null;
 
+  // ── Form mode: incomplete or invalid URL → show the canonical search form ──
+  if (!isResultsMode) {
+    const hasPrefill = Object.keys(prefill).length > 0;
+    const hasErrors = validationErrors.length > 0;
+
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Helmet>
+          <title>Search Flights — BookingsFinder</title>
+          <meta
+            name="description"
+            content="Search and compare flights from our travel partners. Find the best deals on flights worldwide."
+          />
+          <meta property="og:title" content="Search Flights — BookingsFinder" />
+          <meta property="og:description" content="Search and compare flights from our travel partners." />
+          <link rel="canonical" href="https://bookingsfinder.com/flights" />
+        </Helmet>
+
+        <Header />
+
+        <main id="main-content" className="flex-1">
+          <section className="py-8 md:py-16 bg-muted/30">
+            <div className="container max-w-5xl mx-auto px-4">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mb-3">
+                  Search Flights
+                </h1>
+                <p className="text-muted-foreground max-w-lg mx-auto">
+                  Compare prices across airlines and find the best deals for your trip.
+                  Enter your route and dates below.
+                </p>
+
+                {/* Validation error banner — shown when complete but invalid URL */}
+                {hasErrors && hasPrefill && (
+                  <div
+                    role="alert"
+                    className="mt-5 inline-flex items-start gap-3 px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl text-left max-w-lg mx-auto"
+                  >
+                    <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="text-sm text-amber-800">
+                      <p className="font-semibold mb-1">Please review the search details.</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-amber-700">
+                        {validationErrors.slice(0, 3).map((err, i) => (
+                          <li key={i}>{err.message}</li>
+                        ))}
+                        {validationErrors.length > 3 && (
+                          <li>…and {validationErrors.length - 3} more issue{validationErrors.length - 3 > 1 ? 's' : ''}</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="max-w-3xl mx-auto bg-card rounded-2xl border border-border p-4 md:p-6 shadow-sm">
+                <ModernFlightSearch prefill={hasPrefill ? prefill : undefined} />
+              </div>
+            </div>
+          </section>
+
+          {/* Popular destinations below the form */}
+          <section className="py-8 md:py-12 bg-background">
+            <div className="container max-w-4xl mx-auto px-4 text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                Or browse{" "}
+                <Link to="/top-flight-destinations" className="text-primary underline underline-offset-2 hover:text-primary-hover">
+                  popular flight destinations
+                </Link>
+                {" "}for inspiration.
+              </p>
+            </div>
+          </section>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  // ── Results mode: fully validated search → show results ──
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <FlightSearchSchema
@@ -250,182 +324,157 @@ const FlightResults = () => {
 
       <Header />
 
-      {/* Pre-search state — no origin/destination */}
-      {!hasSearch ? (
-        <main id="main-content" className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center max-w-md">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-6">
-              <Search className="h-8 w-8 text-muted-foreground" />
+      {/* Search Summary Bar */}
+      <div className="bg-card border-b border-border sticky top-0 z-30 shadow-sm">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link to={`/flights?${searchParams.toString()}`}>
+                <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" aria-label="New search">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div className="min-w-0">
+                <h1 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <span className="truncate">{origin}</span>
+                  <Plane className="h-3.5 w-3.5 text-muted-foreground shrink-0 rotate-90" aria-hidden="true" />
+                  <span className="truncate">{destination}</span>
+                </h1>
+                <p className="text-xs text-muted-foreground truncate">
+                  {formatDate(departureDate)}
+                  {returnDate && ` - ${formatDate(returnDate)}`}
+                  {" · "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
+                  {" · "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
+                </p>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-3">Search flights</h1>
-            <p className="text-muted-foreground mb-6">
-              Enter your origin, destination and travel dates to compare available flights from our travel partners.
-            </p>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to homepage
-            </Link>
-          </div>
-        </main>
-      ) : (
-        <>
-          {/* Search Summary Bar */}
-          <div className="bg-card border-b border-border sticky top-0 z-30 shadow-sm">
-            <div className="container mx-auto px-4 py-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Link to="/">
-                    <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9">
-                      <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <div className="min-w-0">
-                    <h1 className="text-base font-semibold text-foreground flex items-center gap-2">
-                      <span className="truncate">{origin}</span>
-                      <Plane className="h-3.5 w-3.5 text-muted-foreground shrink-0 rotate-90" />
-                      <span className="truncate">{destination}</span>
-                    </h1>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {formatDate(departureDate)}
-                      {returnDate && ` - ${formatDate(returnDate)}`}
-                      {" · "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
-                      {" · "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
-                    </p>
-                  </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {!isLoading && cheapestPrice > 0 && (
+                <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground mr-2">
+                  <span>From <span className="font-semibold text-foreground">{currencySymbol}{cheapestPrice}</span></span>
+                  <span className="w-px h-4 bg-border" />
+                  <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {!isLoading && cheapestPrice > 0 && (
-                    <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground mr-2">
-                      <span>From <span className="font-semibold text-foreground">{currencySymbol}{cheapestPrice}</span></span>
-                      <span className="w-px h-4 bg-border" />
-                      <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
+              )}
+              {/* Phase 7A: Edit preserves current search params for prefill */}
+              <Link to={`/flights?${searchParams.toString()}`} className="shrink-0">
+                <Button variant="outline" size="sm" className="h-9">Edit</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <main id="main-content" className="flex-1 container mx-auto px-4 py-5">
+        <div className="flex gap-6">
+          <aside className="hidden lg:block w-72 shrink-0">
+            <div className="sticky top-[72px] space-y-4">
+              <FlightFiltersPanel
+                filters={filters} airlines={airlines} stopCounts={stopCounts}
+                departureCounts={departureCounts} onFilterChange={updateFilter}
+                onReset={resetFilters} totalResults={totalResults} currency={currencySymbol}
+              />
+            </div>
+          </aside>
+
+          <div className="flex-1 min-w-0">
+            {!isLoading && filteredFlights.length > 0 && (
+              <div className="mb-4" ref={quickSelectRef}>
+                <FlightQuickSelect flights={filteredFlights} currency="$"
+                  onSelect={(id) => { document.getElementById(`flight-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}
+                />
+              </div>
+            )}
+
+            {isMobile ? (
+              <Collapsible open={priceToolsOpen} onOpenChange={setPriceToolsOpen} className="mb-4">
+                <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-card border border-border rounded-xl text-sm font-semibold native-touch">
+                  <span>Price Tools</span>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${priceToolsOpen ? 'rotate-180' : ''}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 mt-3">
+                  <PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onDateSelect={handleDateSelect} />
+                  <WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onWeekSelect={handleDateSelect} />
+                </CollapsibleContent>
+              </Collapsible>
+            ) : (
+              <>
+                <div className="mb-4"><PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onDateSelect={handleDateSelect} /></div>
+                <div className="mb-4"><WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onWeekSelect={handleDateSelect} /></div>
+              </>
+            )}
+
+            {!isLoading && bestDealFlight?.nearby_airport_savings && (
+              <div className="mb-4">
+                <NearbyAirportSuggestion airport={bestDealFlight.nearby_airport_savings.airport} airportName={bestDealFlight.nearby_airport_savings.airport_name} savings={bestDealFlight.nearby_airport_savings.savings} currency={currencySymbol} />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+              <div>
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground animate-pulse">Searching for flights...</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> flight{totalResults !== 1 ? 's' : ''} found
+                  </p>
+                )}
+              </div>
+              <SortDropdown value={sortBy} onChange={setSortBy} />
+            </div>
+
+            {isSearching && !isLoading && (
+              <div className="mb-4">
+                <SearchingIndicator isComplete={meta.is_complete} totalFound={meta.total_found} progress={searchProgress} />
+              </div>
+            )}
+
+            <div className="space-y-3" role="list" aria-label="Flight results">
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => <FlightCardSkeleton key={i} />)
+              ) : error ? (
+                <EmptyFlightState variant="error" errorMessage={error} onRetry={retry} />
+              ) : displayedFlights.length === 0 ? (
+                <EnhancedEmptyFlightResults onClearFilters={resetFilters} origin={origin} destination={destination} departureDate={departureDate} returnDate={returnDate} />
+              ) : (
+                <>
+                  {displayedFlights.map((flight, index) => (
+                    <div key={flight.id} id={`flight-${flight.id}`}>
+                      <div role="listitem" style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}>
+                        <FlightCard flight={flight} currency={currencySymbol} onBookNow={handleBookNow} />
+                      </div>
+                      {index === 2 && ads.after_result_3 && (
+                        <div className="my-3"><AdSlot ad={ads.after_result_3} onImpression={trackImpression} onClick={trackClick} /></div>
+                      )}
+                      {index === 4 && ads.after_result_5 && (
+                        <div className="my-3"><AdSlot ad={ads.after_result_5} onImpression={trackImpression} onClick={trackClick} /></div>
+                      )}
+                    </div>
+                  ))}
+                  {ads.bottom && displayedFlights.length > 0 && (
+                    <div className="mt-4"><AdSlot ad={ads.bottom} onImpression={trackImpression} onClick={trackClick} /></div>
+                  )}
+                  {hasMore && (
+                    <div id="load-more-sentinel" className="py-4">
+                      <div className="flex justify-center">
+                        <Button variant="outline" onClick={loadMore} className="gap-2">
+                          Load More ({filteredFlights.length - displayCount} remaining)
+                        </Button>
+                      </div>
                     </div>
                   )}
-                  <Link to="/" className="shrink-0">
-                    <Button variant="outline" size="sm" className="h-9">Edit</Button>
-                  </Link>
-                </div>
-              </div>
+                </>
+              )}
             </div>
+
+            {!isLoading && displayedFlights.length > 0 && !hasMore && (
+              <div className="mt-6 text-center">
+                <p className="text-sm text-muted-foreground">Showing all {totalResults} flight{totalResults !== 1 ? 's' : ''}</p>
+              </div>
+            )}
           </div>
-
-          <main id="main-content" className="flex-1 container mx-auto px-4 py-5">
-            <div className="flex gap-6">
-              <aside className="hidden lg:block w-72 shrink-0">
-                <div className="sticky top-[72px] space-y-4">
-                  <FlightFiltersPanel
-                    filters={filters} airlines={airlines} stopCounts={stopCounts}
-                    departureCounts={departureCounts} onFilterChange={updateFilter}
-                    onReset={resetFilters} totalResults={totalResults} currency={currencySymbol}
-                  />
-                </div>
-              </aside>
-
-              <div className="flex-1 min-w-0">
-                {!isLoading && filteredFlights.length > 0 && (
-                  <div className="mb-4" ref={quickSelectRef}>
-                    <FlightQuickSelect flights={filteredFlights} currency="$"
-                      onSelect={(id) => { document.getElementById(`flight-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}
-                    />
-                  </div>
-                )}
-
-                {hasSearch && (
-                  isMobile ? (
-                    <Collapsible open={priceToolsOpen} onOpenChange={setPriceToolsOpen} className="mb-4">
-                      <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-card border border-border rounded-xl text-sm font-semibold native-touch">
-                        <span>Price Tools</span>
-                        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${priceToolsOpen ? 'rotate-180' : ''}`} />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-4 mt-3">
-                        <PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onDateSelect={handleDateSelect} />
-                        <WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onWeekSelect={handleDateSelect} />
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ) : (
-                    <>
-                      <div className="mb-4"><PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onDateSelect={handleDateSelect} /></div>
-                      <div className="mb-4"><WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onWeekSelect={handleDateSelect} /></div>
-                    </>
-                  )
-                )}
-
-                {!isLoading && bestDealFlight?.nearby_airport_savings && (
-                  <div className="mb-4">
-                    <NearbyAirportSuggestion airport={bestDealFlight.nearby_airport_savings.airport} airportName={bestDealFlight.nearby_airport_savings.airport_name} savings={bestDealFlight.nearby_airport_savings.savings} currency={currencySymbol} />
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
-                  <div>
-                    {isLoading ? (
-                      <p className="text-sm text-muted-foreground animate-pulse">Searching for flights...</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> flight{totalResults !== 1 ? 's' : ''} found
-                      </p>
-                    )}
-                  </div>
-                  <SortDropdown value={sortBy} onChange={setSortBy} />
-                </div>
-
-                {isSearching && !isLoading && (
-                  <div className="mb-4">
-                    <SearchingIndicator isComplete={meta.is_complete} totalFound={meta.total_found} progress={searchProgress} />
-                  </div>
-                )}
-
-                <div className="space-y-3" role="list" aria-label="Flight results">
-                  {isLoading ? (
-                    Array.from({ length: 6 }).map((_, i) => <FlightCardSkeleton key={i} />)
-                  ) : error ? (
-                    <EmptyFlightState variant="error" errorMessage={error} onRetry={retry} />
-                  ) : displayedFlights.length === 0 ? (
-                    <EnhancedEmptyFlightResults onClearFilters={resetFilters} origin={origin} destination={destination} departureDate={departureDate} returnDate={returnDate} />
-                  ) : (
-                    <>
-                      {displayedFlights.map((flight, index) => (
-                        <div key={flight.id} id={`flight-${flight.id}`}>
-                          <div role="listitem" style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}>
-                            <FlightCard flight={flight} currency={currencySymbol} onBookNow={handleBookNow} />
-                          </div>
-                          {index === 2 && ads.after_result_3 && (
-                            <div className="my-3"><AdSlot ad={ads.after_result_3} onImpression={trackImpression} onClick={trackClick} /></div>
-                          )}
-                          {index === 4 && ads.after_result_5 && (
-                            <div className="my-3"><AdSlot ad={ads.after_result_5} onImpression={trackImpression} onClick={trackClick} /></div>
-                          )}
-                        </div>
-                      ))}
-                      {ads.bottom && displayedFlights.length > 0 && (
-                        <div className="mt-4"><AdSlot ad={ads.bottom} onImpression={trackImpression} onClick={trackClick} /></div>
-                      )}
-                      {hasMore && (
-                        <div id="load-more-sentinel" className="py-4">
-                          <div className="flex justify-center">
-                            <Button variant="outline" onClick={loadMore} className="gap-2">
-                              Load More ({filteredFlights.length - displayCount} remaining)
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {!isLoading && displayedFlights.length > 0 && !hasMore && (
-                  <div className="mt-6 text-center">
-                    <p className="text-sm text-muted-foreground">Showing all {totalResults} flight{totalResults !== 1 ? 's' : ''}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </main>
-        </>
-      )}
+        </div>
+      </main>
 
       <Footer />
     </div>

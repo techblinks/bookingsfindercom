@@ -46,28 +46,67 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
+import { validateFlightSearch, type FlightSearchFormValues } from "@/lib/flightSearchValidation";
+import { logSearch as logAnalyticsSearch } from "@/lib/analytics";
 
 type TripType = "roundtrip" | "oneway" | "multicity";
 
-const ModernFlightSearch = () => {
+interface ModernFlightSearchProps {
+  /** Prefill values from URL params (for Edit flow and /flights form mode). */
+  prefill?: Partial<FlightSearchFormValues>;
+}
+
+// Dedup window for analytics: prevent duplicate search events within 3 seconds for identical params
+const SEARCH_DEDUP_WINDOW_MS = 3000;
+
+function getDedupKey(params: string): string {
+  return `bf_search_dedup_${params}`;
+}
+
+function isDuplicateSubmission(params: string): boolean {
+  try {
+    const key = getDedupKey(params);
+    const lastSubmit = sessionStorage.getItem(key);
+    if (lastSubmit) {
+      const elapsed = Date.now() - parseInt(lastSubmit, 10);
+      if (elapsed < SEARCH_DEDUP_WINDOW_MS) return true;
+    }
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch {
+    // Storage access failure — allow the submission (analytics is best-effort)
+  }
+  return false;
+}
+
+const ModernFlightSearch = ({ prefill }: ModernFlightSearchProps = {}) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { geoData } = useGeoLocation();
-  const [tripType, setTripType] = useState<TripType>("roundtrip");
+  const [tripType, setTripType] = useState<TripType>(
+    prefill?.tripType ?? "roundtrip"
+  );
 
-  // Form state
-  const [flightFrom, setFlightFrom] = useState("");
-  const [flightFromDisplay, setFlightFromDisplay] = useState("");
-  const [flightTo, setFlightTo] = useState("");
-  const [flightToDisplay, setFlightToDisplay] = useState("");
-  const [departureDate, setDepartureDate] = useState<Date | undefined>();
-  const [returnDate, setReturnDate] = useState<Date | undefined>();
+  // Form state — initialised from prefill, then geo location fallback
+  const [flightFrom, setFlightFrom] = useState(prefill?.origin ?? "");
+  const [flightFromDisplay, setFlightFromDisplay] = useState(
+    prefill?.origin ? `${prefill.origin}` : ""
+  );
+  const [flightTo, setFlightTo] = useState(prefill?.destination ?? "");
+  const [flightToDisplay, setFlightToDisplay] = useState(
+    prefill?.destination ? `${prefill.destination}` : ""
+  );
+  const [departureDate, setDepartureDate] = useState<Date | undefined>(
+    prefill?.departureDate
+  );
+  const [returnDate, setReturnDate] = useState<Date | undefined>(
+    prefill?.returnDate
+  );
   const [passengers, setPassengers] = useState<PassengerCount>({
-    adults: 1,
-    children: 0,
-    infants: 0,
+    adults: prefill?.adults ?? 1,
+    children: prefill?.children ?? 0,
+    infants: prefill?.infants ?? 0,
   });
-  const [cabinClass, setCabinClass] = useState("economy");
+  const [cabinClass, setCabinClass] = useState(prefill?.cabinClass ?? "economy");
 
   // Advanced options
   const [flexibleDates, setFlexibleDates] = useState(false);
@@ -81,13 +120,13 @@ const ModernFlightSearch = () => {
   const [optionsDrawerOpen, setOptionsDrawerOpen] = useState(false);
   const [selectingReturn, setSelectingReturn] = useState(false);
 
-  // Set default origin based on geo location
+  // Set default origin based on geo location (only if no prefill)
   useEffect(() => {
-    if (geoData && !flightFrom) {
+    if (geoData && !flightFrom && !prefill?.origin) {
       setFlightFrom(geoData.defaultOrigin);
       setFlightFromDisplay(`${geoData.defaultOriginName} (${geoData.defaultOrigin})`);
     }
-  }, [geoData, flightFrom]);
+  }, [geoData, flightFrom, prefill]);
 
   const swapLocations = () => {
     const tempCode = flightFrom;
@@ -129,15 +168,30 @@ const ModernFlightSearch = () => {
   };
 
   const handleSearch = () => {
-    if (!flightFrom || !flightTo || !departureDate) {
-      toast.error("Please fill in origin, destination, and departure date");
+    // Phase 7A: Use shared validator (single source of truth)
+    const values: FlightSearchFormValues = {
+      origin: flightFrom,
+      destination: flightTo,
+      departureDate,
+      returnDate,
+      adults: passengers.adults,
+      children: passengers.children,
+      infants: passengers.infants,
+      cabinClass,
+      tripType: tripType === "multicity" ? "roundtrip" : tripType,
+    };
+
+    const errors = validateFlightSearch(values);
+    if (errors.length > 0) {
+      // Show the first error as a toast
+      toast.error(errors[0].message);
       return;
     }
 
     const params = new URLSearchParams({
       origin: flightFrom.toUpperCase(),
       destination: flightTo.toUpperCase(),
-      departureDate: format(departureDate, "yyyy-MM-dd"),
+      departureDate: format(departureDate!, "yyyy-MM-dd"),
       passengers: String(totalPassengers),
       adults: String(passengers.adults),
       children: String(passengers.children),
@@ -157,7 +211,25 @@ const ModernFlightSearch = () => {
       params.append("nearbyAirports", "true");
     }
 
-    navigate(`/flights?${params.toString()}`);
+    const paramString = params.toString();
+
+    // Phase 7A: Exactly-once analytics — fire-and-forget, deduped by sessionStorage
+    if (!isDuplicateSubmission(paramString)) {
+      void logAnalyticsSearch({
+        origin: flightFrom.toUpperCase(),
+        destination: flightTo.toUpperCase(),
+        departureDate: format(departureDate!, "yyyy-MM-dd"),
+        returnDate: returnDate ? format(returnDate, "yyyy-MM-dd") : undefined,
+        adults: passengers.adults,
+        children: passengers.children,
+        infants: passengers.infants,
+        cabinClass,
+        tripType: tripType === "multicity" ? "roundtrip" : tripType,
+        landingPage: window.location.pathname,
+      }).catch(() => {});
+    }
+
+    navigate(`/flights?${paramString}`);
   };
 
   const updatePassengerCount = (
