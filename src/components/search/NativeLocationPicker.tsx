@@ -1,15 +1,16 @@
- import { useState, useEffect, useRef } from "react";
- import { motion, AnimatePresence } from "framer-motion";
- import { X, MapPin, Plane, Loader2, Clock, TrendingUp, Search } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, MapPin, Plane, Loader2, Clock, TrendingUp, Search, AlertCircle } from "lucide-react";
  import { cn } from "@/lib/utils";
- 
+ import { supabase } from "@/integrations/supabase/client";
+
  interface Airport {
    code: string;
    city: string;
    country: string;
    name: string;
  }
- 
+
  const popularAirports: Airport[] = [
    { code: "JFK", city: "New York", country: "USA", name: "John F. Kennedy International Airport" },
    { code: "LAX", city: "Los Angeles", country: "USA", name: "Los Angeles International Airport" },
@@ -18,9 +19,9 @@
    { code: "SIN", city: "Singapore", country: "Singapore", name: "Changi Airport" },
    { code: "SYD", city: "Sydney", country: "Australia", name: "Sydney Kingsford Smith Airport" },
  ];
- 
+
  const RECENT_AIRPORTS_KEY = "recent_airports";
- 
+
  const getRecentAirports = (): Airport[] => {
    try {
      const stored = localStorage.getItem(RECENT_AIRPORTS_KEY);
@@ -29,7 +30,7 @@
      return [];
    }
  };
- 
+
  const saveRecentAirport = (airport: Airport) => {
    try {
      const recent = getRecentAirports();
@@ -40,7 +41,7 @@
      // Ignore storage errors
    }
  };
- 
+
  interface NativeLocationPickerProps {
    isOpen: boolean;
    onClose: () => void;
@@ -48,7 +49,7 @@
    title?: string;
    placeholder?: string;
  }
- 
+
  const NativeLocationPicker = ({
    isOpen,
    onClose,
@@ -59,76 +60,78 @@
    const [query, setQuery] = useState("");
    const [airports, setAirports] = useState<Airport[]>([]);
    const [isLoading, setIsLoading] = useState(false);
+   const [serviceError, setServiceError] = useState(false);
    const [recentAirports, setRecentAirports] = useState<Airport[]>([]);
    const inputRef = useRef<HTMLInputElement>(null);
    const debounceRef = useRef<ReturnType<typeof setTimeout>>();
- 
+
    useEffect(() => {
      if (isOpen) {
        setRecentAirports(getRecentAirports());
        setQuery("");
        setAirports([]);
+       setServiceError(false);
        // Focus input after animation
        setTimeout(() => inputRef.current?.focus(), 300);
      }
    }, [isOpen]);
- 
+
    useEffect(() => {
      if (debounceRef.current) {
        clearTimeout(debounceRef.current);
      }
- 
+
      if (query.length < 2) {
        setAirports([]);
        setIsLoading(false);
+       setServiceError(false);
        return;
      }
- 
+
      setIsLoading(true);
- 
+     setServiceError(false);
+
      debounceRef.current = setTimeout(async () => {
        try {
-         const response = await fetch(
-           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-airports?q=${encodeURIComponent(query)}&limit=8`,
-           {
-             headers: {
-               "Content-Type": "application/json",
-              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "",
-             },
-           }
-         );
- 
-         if (response.ok) {
-           const results = await response.json();
-           setAirports(results);
+         const { data, error } = await supabase.functions.invoke("search-airports", {
+           body: { q: query, limit: 8 },
+         });
+
+         if (error) {
+           console.error("Airport search error:", error);
+           setAirports([]);
+           setServiceError(true);
+         } else if (data) {
+           setAirports(Array.isArray(data) ? data : []);
          } else {
            setAirports([]);
          }
-       } catch (error) {
-         console.error("Airport search error:", error);
+       } catch (err) {
+         console.error("Airport search error:", err);
          setAirports([]);
+         setServiceError(true);
        } finally {
          setIsLoading(false);
        }
      }, 150);
- 
+
      return () => {
        if (debounceRef.current) {
          clearTimeout(debounceRef.current);
        }
      };
    }, [query]);
- 
+
    const handleSelect = (airport: Airport) => {
      saveRecentAirport(airport);
      onSelect(airport.code, airport);
      onClose();
    };
- 
+
    const showSearchResults = query.length >= 2;
    const showEmptyState = query.length < 2;
-   const showNoResults = !isLoading && query.length >= 2 && airports.length === 0;
- 
+   const showNoResults = !isLoading && !serviceError && query.length >= 2 && airports.length === 0;
+
    const AirportItem = ({ airport, showFullName = false }: { airport: Airport; showFullName?: boolean }) => (
      <motion.button
        initial={{ opacity: 0, y: 10 }}
@@ -154,7 +157,7 @@
        </div>
      </motion.button>
    );
- 
+
    return (
      <AnimatePresence>
        {isOpen && (
@@ -176,7 +179,7 @@
                </button>
                <h2 className="text-lg font-semibold text-foreground flex-1">{title}</h2>
              </div>
- 
+
              {/* Search Input */}
              <div className="px-4 py-3 border-b border-border bg-card">
                <div className="relative">
@@ -206,11 +209,21 @@
                  )}
                </div>
              </div>
- 
+
              {/* Results */}
              <div className="flex-1 overflow-auto">
+               {/* Service error state */}
+               {showSearchResults && serviceError && !isLoading && (
+                 <div className="flex items-center justify-center py-12 text-muted-foreground">
+                   <div className="text-center">
+                     <AlertCircle className="h-10 w-10 mx-auto mb-3 text-amber-500 opacity-50" />
+                     <p className="text-sm">Airport search is temporarily unavailable</p>
+                   </div>
+                 </div>
+               )}
+
                {/* Search Results */}
-               {showSearchResults && (
+               {showSearchResults && !serviceError && (
                  <div className="divide-y divide-border">
                    {isLoading && airports.length === 0 && (
                      <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -236,7 +249,7 @@
                    )}
                  </div>
                )}
- 
+
                {/* Empty State - Recent & Popular */}
                {showEmptyState && (
                  <div>
@@ -261,7 +274,7 @@
                        </div>
                      </div>
                    )}
- 
+
                    {/* Popular Airports */}
                    <div className={cn(recentAirports.length > 0 && "border-t border-border")}>
                      <div className="flex items-center gap-2 px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -290,5 +303,5 @@
      </AnimatePresence>
    );
  };
- 
+
  export default NativeLocationPicker;

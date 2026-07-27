@@ -2,6 +2,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import NativeLocationPicker from "@/components/search/NativeLocationPicker";
 
+// ── Mock supabase client ──
+
+const mockInvoke = vi.fn();
+
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    functions: {
+      invoke: (...args: unknown[]) => mockInvoke(...args),
+    },
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+    },
+  },
+}));
+
+// ── Helpers ──
+
 const BNE_AIRPORT = {
   code: "BNE",
   city: "Brisbane",
@@ -16,12 +33,16 @@ const SYD_AIRPORT = {
   name: "Sydney Kingsford Smith Airport",
 };
 
-function mockFetchResponse(status: number, body: unknown) {
-  return vi.fn().mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    json: () => Promise.resolve(body),
-  });
+function mockInvokeSuccess(data: unknown) {
+  mockInvoke.mockResolvedValue({ data, error: null });
+}
+
+function mockInvokeError(message: string) {
+  mockInvoke.mockResolvedValue({ data: null, error: { message } });
+}
+
+function mockInvokeNetworkFailure() {
+  mockInvoke.mockRejectedValue(new Error("Network error"));
 }
 
 function typeInInput(input: HTMLElement, text: string) {
@@ -29,27 +50,23 @@ function typeInInput(input: HTMLElement, text: string) {
   fireEvent.input(input, { target: { value: text } });
 }
 
-describe("NativeLocationPicker — Phase 7A apikey fix", () => {
-  let originalFetch: typeof global.fetch;
-
+describe("NativeLocationPicker — Phase 7A supabase.functions.invoke fix", () => {
   beforeEach(() => {
-    originalFetch = global.fetch;
+    mockInvoke.mockReset();
     sessionStorage.clear();
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
-  // ── 1. Sends apikey header ──
+  // ── 1. Uses supabase.functions.invoke ──
 
-  it("sends the Supabase apikey header on fetch", async () => {
-    const mockFetch = mockFetchResponse(200, [BNE_AIRPORT]);
-    global.fetch = mockFetch as unknown as typeof fetch;
+  it("calls supabase.functions.invoke with correct body", async () => {
+    mockInvokeSuccess([BNE_AIRPORT]);
 
     render(
       <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
@@ -60,26 +77,18 @@ describe("NativeLocationPicker — Phase 7A apikey fix", () => {
     vi.advanceTimersByTime(200);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
+      expect(mockInvoke).toHaveBeenCalled();
     });
 
-    const callArgs = mockFetch.mock.calls[0];
-    const fetchUrl = callArgs[0] as string;
-    const fetchInit = callArgs[1] as RequestInit;
-
-    expect(fetchUrl).toContain("search-airports");
-    expect(fetchUrl).toContain("q=bris");
-
-    const headers = fetchInit?.headers as Record<string, string>;
-    expect(headers["apikey"]).toBeDefined();
-    expect(headers["apikey"]).not.toBe("");
-    expect(headers["Content-Type"]).toBe("application/json");
+    expect(mockInvoke).toHaveBeenCalledWith("search-airports", {
+      body: { q: "bris", limit: 8 },
+    });
   });
 
   // ── 2. Successful "bris" → Brisbane ──
 
   it('displays Brisbane (BNE) for a successful "bris" search', async () => {
-    global.fetch = mockFetchResponse(200, [BNE_AIRPORT]) as unknown as typeof fetch;
+    mockInvokeSuccess([BNE_AIRPORT]);
 
     render(
       <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
@@ -98,7 +107,7 @@ describe("NativeLocationPicker — Phase 7A apikey fix", () => {
   // ── 3. Successful "syd" → Sydney ──
 
   it('displays Sydney (SYD) for a successful "syd" search', async () => {
-    global.fetch = mockFetchResponse(200, [SYD_AIRPORT]) as unknown as typeof fetch;
+    mockInvokeSuccess([SYD_AIRPORT]);
 
     render(
       <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
@@ -114,44 +123,46 @@ describe("NativeLocationPicker — Phase 7A apikey fix", () => {
     expect(screen.getByText("SYD")).toBeTruthy();
   });
 
-  // ── 4. 401/403 → NOT misleading "No airports found" ──
+  // ── 4. Service error → "temporarily unavailable" ──
 
-  it("does not show 'No airports found' for 401 response", async () => {
-    global.fetch = mockFetchResponse(401, { error: "Unauthorized" }) as unknown as typeof fetch;
-
-    render(
-      <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
-    );
-
-    const input = screen.getByPlaceholderText("Search airports or cities...");
-    typeInInput(input, "bris");
-    vi.advanceTimersByTime(200);
-
-    await waitFor(() => {
-      expect(screen.queryByText(/No airports found for/i)).toBeFalsy();
-    });
-  });
-
-  it("does not show 'No airports found' for 403 response", async () => {
-    global.fetch = mockFetchResponse(403, { error: "Forbidden" }) as unknown as typeof fetch;
+  it('shows "temporarily unavailable" for invoke error', async () => {
+    mockInvokeError("Unauthorized");
 
     render(
       <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
     );
 
     const input = screen.getByPlaceholderText("Search airports or cities...");
-    typeInInput(input, "bris");
+    typeInInput(input, "syd");
     vi.advanceTimersByTime(200);
 
     await waitFor(() => {
-      expect(screen.queryByText(/No airports found for/i)).toBeFalsy();
+      expect(screen.getByText(/temporarily unavailable/i)).toBeTruthy();
+    });
+
+    expect(screen.queryByText(/No airports found for/i)).toBeFalsy();
+  });
+
+  it('shows "temporarily unavailable" for network failure', async () => {
+    mockInvokeNetworkFailure();
+
+    render(
+      <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
+    );
+
+    const input = screen.getByPlaceholderText("Search airports or cities...");
+    typeInInput(input, "syd");
+    vi.advanceTimersByTime(200);
+
+    await waitFor(() => {
+      expect(screen.getByText(/temporarily unavailable/i)).toBeTruthy();
     });
   });
 
-  // ── 5. Genuine empty 200 → "No airports found" ──
+  // ── 5. Genuine empty → "No airports found" ──
 
-  it('shows "No airports found" for genuine empty 200 results', async () => {
-    global.fetch = mockFetchResponse(200, []) as unknown as typeof fetch;
+  it('shows "No airports found" for genuine empty results', async () => {
+    mockInvokeSuccess([]);
 
     render(
       <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
@@ -168,9 +179,9 @@ describe("NativeLocationPicker — Phase 7A apikey fix", () => {
 
   // ── 6. No key leaked ──
 
-  it("does not log the apikey to console", async () => {
+  it("does not log sensitive data to console", async () => {
     const consoleSpy = vi.spyOn(console, "error");
-    global.fetch = mockFetchResponse(200, [BNE_AIRPORT]) as unknown as typeof fetch;
+    mockInvokeSuccess([BNE_AIRPORT]);
 
     render(
       <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
@@ -187,14 +198,14 @@ describe("NativeLocationPicker — Phase 7A apikey fix", () => {
     for (const call of consoleSpy.mock.calls) {
       const callStr = JSON.stringify(call);
       expect(callStr).not.toMatch(/sb_publishable/);
+      expect(callStr).not.toMatch(/service_role/);
     }
   });
 
   // ── 7. Debounce ──
 
-  it("debounces rapid typing to one fetch with final value", async () => {
-    const mockFetch = mockFetchResponse(200, [BNE_AIRPORT]);
-    global.fetch = mockFetch as unknown as typeof fetch;
+  it("debounces rapid typing", async () => {
+    mockInvokeSuccess([BNE_AIRPORT]);
 
     render(
       <NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
@@ -208,11 +219,10 @@ describe("NativeLocationPicker — Phase 7A apikey fix", () => {
     vi.advanceTimersByTime(200);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
+      expect(mockInvoke).toHaveBeenCalled();
     });
 
-    const lastCall = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
-    const lastUrl = lastCall[0] as string;
-    expect(lastUrl).toContain("q=bris");
+    const lastCall = mockInvoke.mock.calls[mockInvoke.mock.calls.length - 1];
+    expect(lastCall[1]?.body?.q).toBe("bris");
   });
 });

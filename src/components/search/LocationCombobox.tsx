@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, Loader2, Plane, Clock, TrendingUp } from "lucide-react";
+import { MapPin, Loader2, Plane, Clock, TrendingUp, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Airport {
   code: string;
@@ -62,6 +63,7 @@ const LocationCombobox = ({
   const [query, setQuery] = useState(value);
   const [airports, setAirports] = useState<Airport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [serviceError, setServiceError] = useState(false);
   const [recentAirports, setRecentAirports] = useState<Airport[]>([]);
   const [selectedAirport, setSelectedAirport] = useState<Airport | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,32 +103,32 @@ const LocationCombobox = ({
     if (query.length < 2) {
       setAirports([]);
       setIsLoading(false);
+      setServiceError(false);
       return;
     }
 
     setIsLoading(true);
+    setServiceError(false);
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-airports?q=${encodeURIComponent(query)}&limit=8`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "",
-            },
-          }
-        );
+        const { data, error } = await supabase.functions.invoke("search-airports", {
+          body: { q: query, limit: 8 },
+        });
 
-        if (response.ok) {
-          const results = await response.json();
-          setAirports(results);
+        if (error) {
+          console.error("Airport search error:", error);
+          setAirports([]);
+          setServiceError(true);
+        } else if (data) {
+          setAirports(Array.isArray(data) ? data : []);
         } else {
           setAirports([]);
         }
-      } catch (error) {
-        console.error("Airport search error:", error);
+      } catch (err) {
+        console.error("Airport search error:", err);
         setAirports([]);
+        setServiceError(true);
       } finally {
         setIsLoading(false);
       }
@@ -171,10 +173,9 @@ const LocationCombobox = ({
     }
   };
 
-  // Determine what to show in dropdown
-  const showSearchResults = query.length >= 2 && (airports.length > 0 || isLoading);
+  const showSearchResults = query.length >= 2 && (airports.length > 0 || isLoading || serviceError);
   const showEmptyState = isOpen && query.length < 2;
-  const showNoResults = isOpen && !isLoading && query.length >= 2 && airports.length === 0;
+  const showNoResults = isOpen && !isLoading && !serviceError && query.length >= 2 && airports.length === 0;
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -200,6 +201,16 @@ const LocationCombobox = ({
           <Loader2 className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
         )}
       </div>
+
+      {/* Service error state — shown for 401/403/network failures */}
+      {isOpen && serviceError && !isLoading && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
+          <div className="flex items-center gap-2 py-4 px-3 text-sm text-muted-foreground">
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+            Airport search is temporarily unavailable
+          </div>
+        </div>
+      )}
 
       {/* Search Results Dropdown */}
       {isOpen && showSearchResults && (
@@ -317,7 +328,7 @@ const LocationCombobox = ({
         </div>
       )}
 
-      {/* No results */}
+      {/* No results — only for genuine empty-200 responses */}
       {showNoResults && (
         <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
           <div className="py-4 text-center text-sm text-muted-foreground">
