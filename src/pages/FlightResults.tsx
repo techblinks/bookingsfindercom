@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
+import { FlightLandingPage } from "@/pages/flight/FlightLandingPage";
 import { parseAndValidateFlightSearchParams } from "@/lib/flightSearchValidation";
 
 const INITIAL_DISPLAY_COUNT = 10;
@@ -233,83 +234,10 @@ const FlightResults = () => {
     ? filteredFlights.reduce((best, f) => (f.deal_score || 0) > (best.deal_score || 0) ? f : best, filteredFlights[0])
     : null;
 
-  // ── Form mode: incomplete or invalid URL → show the canonical search form ──
+  // ── Form mode — delegated to FlightLandingPage ──
+
   if (!isResultsMode) {
-    const hasPrefill = Object.keys(prefill).length > 0;
-    const hasErrors = validationErrors.length > 0;
-
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Helmet>
-          <title>Search Flights — BookingsFinder</title>
-          <meta
-            name="description"
-            content="Search and compare flights from our travel partners. Find the best deals on flights worldwide."
-          />
-          <meta property="og:title" content="Search Flights — BookingsFinder" />
-          <meta property="og:description" content="Search and compare flights from our travel partners." />
-          <link rel="canonical" href="https://bookingsfinder.com/flights" />
-        </Helmet>
-
-        <Header />
-
-        <main id="main-content" className="flex-1">
-          <section className="py-8 md:py-16 bg-muted/30">
-            <div className="container max-w-5xl mx-auto px-4">
-              <div className="text-center mb-8">
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mb-3">
-                  Search Flights
-                </h1>
-                <p className="text-muted-foreground max-w-lg mx-auto">
-                  Compare prices across airlines and find the best deals for your trip.
-                  Enter your route and dates below.
-                </p>
-
-                {/* Validation error banner — shown when complete but invalid URL */}
-                {hasErrors && hasPrefill && (
-                  <div
-                    role="alert"
-                    className="mt-5 inline-flex items-start gap-3 px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl text-left max-w-lg mx-auto"
-                  >
-                    <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
-                    <div className="text-sm text-amber-800">
-                      <p className="font-semibold mb-1">Please review the search details.</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-amber-700">
-                        {validationErrors.slice(0, 3).map((err, i) => (
-                          <li key={i}>{err.message}</li>
-                        ))}
-                        {validationErrors.length > 3 && (
-                          <li>…and {validationErrors.length - 3} more issue{validationErrors.length - 3 > 1 ? 's' : ''}</li>
-                        )}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="max-w-3xl mx-auto bg-card rounded-2xl border border-border p-4 md:p-6 shadow-sm">
-                <ModernFlightSearch prefill={hasPrefill ? prefill : undefined} />
-              </div>
-            </div>
-          </section>
-
-          {/* Popular destinations below the form */}
-          <section className="py-8 md:py-12 bg-background">
-            <div className="container max-w-4xl mx-auto px-4 text-center">
-              <p className="text-sm text-muted-foreground mb-4">
-                Or browse{" "}
-                <Link to="/top-flight-destinations" className="text-primary underline underline-offset-2 hover:text-primary-hover">
-                  popular flight destinations
-                </Link>
-                {" "}for inspiration.
-              </p>
-            </div>
-          </section>
-        </main>
-
-        <Footer />
-      </div>
-    );
+    return <FlightLandingPage prefill={prefill} validationErrors={validationErrors} suppliedSearchParams={searchParams} />;
   }
 
   // ── Results mode: fully validated search → show results ──
