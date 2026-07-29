@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo.webp";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 const Footer = () => {
   const footerLinks = {
@@ -37,7 +37,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="col-span-2">
             <Link to="/" className="block mb-4">
-              <img src={logo} alt="BookingsFinder" className="h-10 w-auto" />
+              <BrandLogo variant="default" className="h-10 w-auto" />
             </Link>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed max-w-xs">
               Plan your trip, understand the real cost, and keep every booking organised. BookingsFinder helps you travel ready.
