@@ -25,6 +25,7 @@ import { useAds } from "@/hooks/useAds";
 import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
 import { logAffiliateClick } from "@/lib/analytics";
 import { buildWhiteLabelFlightUrl } from "@/lib/whiteLabelUrl";
+import { getWhiteLabelHost } from "@/lib/travelConfig";
 import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
@@ -207,8 +208,8 @@ const FlightResults = () => {
       airline: flight.airline_code,
       price: flight.price,
       currency: flight.currency,
-      whiteLabelUsed: outboundHost?.includes('bookingsfinder'),
-      fallbackUsed: !outboundHost?.includes('bookingsfinder'),
+      whiteLabelUsed: outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost(),
+      fallbackUsed: !(outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost()),
       outboundHost: outboundHost || null,
       landingPage: '/flights',
     }).catch(() => {});
