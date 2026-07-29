@@ -9,12 +9,12 @@
  * convenience layer — actual enforcement is server-side.
  */
 
-import { useState, useCallback, useRef, type FormEvent } from 'react';
+import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Save, RotateCcw, Loader2, Shield,
-  Image, Palette, Eye, LogOut,
+  ArrowLeft, Save, RotateCcw, Loader2,
+  Image, Palette, Eye, AlertTriangle,
 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -23,7 +23,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useBranding } from '@/hooks/useBranding';
 import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
@@ -42,17 +41,9 @@ import {
 } from '@/types/branding';
 import { toast } from 'sonner';
 
-// ── Helpers ───────────────────────────────────────────────────────
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
 export default function AdminBranding() {
   const { user, isLoading: authLoading, isAdmin } = useAdminAuth();
-  const { branding, isLoading: brandingLoading, refresh } = useBranding();
+  const { branding, isLoading: brandingLoading, error: brandingError, refresh } = useBranding();
 
   // ── Form State ────────────────────────────────────────────────
   const [siteName, setSiteName] = useState('');
@@ -69,16 +60,18 @@ export default function AdminBranding() {
   const [previewUrls, setPreviewUrls] = useState<Partial<Record<BrandingAssetSlot, string>>>({});
   const fileRefs = useRef<Partial<Record<BrandingAssetSlot, File>>>({});
 
-  // ── Init form from branding ──────────────────────────────────
+  // ── Init form from branding (effect, never during render) ─────
   const initialized = useRef(false);
-  if (!initialized.current && !brandingLoading && branding.id) {
-    initialized.current = true;
-    setSiteName(branding.site_name);
-    setTagline(branding.tagline || '');
-    setPrimaryColor(branding.primary_color);
-    setSecondaryColor(branding.secondary_color);
-    setAccentColor(branding.accent_color);
-  }
+  useEffect(() => {
+    if (!initialized.current && !brandingLoading && branding.id) {
+      initialized.current = true;
+      setSiteName(branding.site_name);
+      setTagline(branding.tagline || '');
+      setPrimaryColor(branding.primary_color);
+      setSecondaryColor(branding.secondary_color);
+      setAccentColor(branding.accent_color);
+    }
+  }, [brandingLoading, branding]);
 
   const checkChanges = useCallback(() => {
     if (siteName !== branding.site_name) return true;
@@ -130,16 +123,13 @@ export default function AdminBranding() {
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
 
-    // Validate colours — exact 6-digit hex only
     for (const [label, color] of [
       ['Primary', primaryColor],
       ['Secondary', secondaryColor],
       ['Accent', accentColor],
     ] as const) {
       if (!isValidHexColor(color)) {
-        toast.error(
-          `${label} colour must be a 6-digit hex code (e.g. #FF6B35).`,
-        );
+        toast.error(`${label} colour must be a 6-digit hex code (e.g. #FF6B35).`);
         return;
       }
     }
@@ -152,37 +142,30 @@ export default function AdminBranding() {
     setIsSaving(true);
 
     try {
-      // 1. Upload files (if any) — upsert to fixed paths
       const uploadedUrls: Partial<Record<BrandingAssetSlot, string>> = {};
 
-      for (const [slot, file] of Object.entries(fileRefs.current) as [
-        BrandingAssetSlot,
-        File,
-      ][]) {
+      for (const [slot, file] of Object.entries(fileRefs.current) as [BrandingAssetSlot, File][]) {
         setUploadingSlot(slot);
         setUploadProgress(0);
 
         const path = BRANDING_STORAGE_PATHS[slot];
         const ext = file.type === 'image/webp' ? 'webp' : 'png';
 
-        // Upload with correct content-type, cache control, upsert
         const { error: uploadError } = await supabase.storage
           .from(BRANDING_BUCKET_NAME)
           .upload(path, file, {
-            cacheControl: 'no-cache', // prevent stale cached logo
+            cacheControl: 'no-cache',
             contentType: `image/${ext}`,
             upsert: true,
           });
 
         if (uploadError) throw uploadError;
 
-        // Get public URL with cache-busting version param
         const { data: urlData } = supabase.storage
           .from(BRANDING_BUCKET_NAME)
           .getPublicUrl(path);
 
         if (urlData?.publicUrl) {
-          // Append version param to bust browser cache
           const versioned = `${urlData.publicUrl}?v=${Date.now()}`;
           uploadedUrls[slot] = versioned;
         }
@@ -190,7 +173,6 @@ export default function AdminBranding() {
         setUploadProgress(100);
       }
 
-      // 2. Upsert against singleton id='default'
       const updatePayload: Record<string, unknown> = {
         id: BRANDING_SINGLETON_ID,
         site_name: siteName.trim(),
@@ -199,7 +181,6 @@ export default function AdminBranding() {
         secondary_color: secondaryColor,
         accent_color: accentColor,
       };
-      // Only include URLs that were actually just uploaded
       for (const [slot, url] of Object.entries(uploadedUrls)) {
         updatePayload[slot] = url;
       }
@@ -210,7 +191,6 @@ export default function AdminBranding() {
 
       if (dbError) throw dbError;
 
-      // 3. Cleanup
       fileRefs.current = {};
       for (const url of Object.values(previewUrls)) {
         URL.revokeObjectURL(url);
@@ -225,9 +205,7 @@ export default function AdminBranding() {
       toast.success('Branding saved! All changes are now live on the website.');
     } catch (err) {
       console.error('[AdminBranding] Save error:', err);
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to save branding.',
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to save branding.');
     } finally {
       setIsSaving(false);
       setUploadingSlot(null);
@@ -235,7 +213,7 @@ export default function AdminBranding() {
     }
   };
 
-  // ── Reset ────────────────────────────────────────────────────
+  // ── Reset / Cancel ───────────────────────────────────────────
 
   const handleReset = () => {
     setSiteName(DEFAULT_BRANDING.site_name);
@@ -267,20 +245,24 @@ export default function AdminBranding() {
     toast.info('Unsaved changes discarded.');
   };
 
-  // ── Loading / Auth Guard ─────────────────────────────────────
+  // ── Loading / Auth Guard / Error ──────────────────────────────
 
   if (authLoading || brandingLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex flex-col items-center justify-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {authLoading ? 'Checking admin access…' : 'Loading branding settings…'}
+          </p>
         </main>
         <Footer />
       </div>
     );
   }
 
+  // Auth error: not authenticated or not admin
   if (!user || !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -293,6 +275,12 @@ export default function AdminBranding() {
         <Footer />
       </div>
     );
+  }
+
+  // Branding fetch error — show warning but let admin continue
+  if (brandingError) {
+    // Warn but allow the page to work with defaults
+    toast.error('Could not load branding. Using defaults.', { id: 'branding-load-error' });
   }
 
   // ── Render ────────────────────────────────────────────────────
@@ -335,18 +323,10 @@ export default function AdminBranding() {
             </div>
             {currentUnsaved && (
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={isSaving}
-                >
+                <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="gap-2"
-                >
+                <Button onClick={handleSave} disabled={isSaving} className="gap-2">
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -376,7 +356,6 @@ export default function AdminBranding() {
 
             {/* ── Logos Tab ───────────────────────────────── */}
             <TabsContent value="logos" className="space-y-6 mt-6">
-              {/* Site Name & Tagline */}
               <Card>
                 <CardHeader>
                   <CardTitle>Site Identity</CardTitle>
@@ -412,13 +391,11 @@ export default function AdminBranding() {
                 </CardContent>
               </Card>
 
-              {/* Asset Uploads */}
               <Card>
                 <CardHeader>
                   <CardTitle>Brand Assets</CardTitle>
                   <CardDescription>
-                    Upload logos and favicon. Accepted: PNG, WebP. Max 2 MB per
-                    file.
+                    Upload logos and favicon. Accepted: PNG, WebP. Max 2 MB per file.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -439,7 +416,6 @@ export default function AdminBranding() {
                 </CardContent>
               </Card>
 
-              {/* Travelpayouts note */}
               <BrandPublicUrls
                 logoUrl={branding.logo_url}
                 iconUrl={branding.icon_url}
@@ -463,35 +439,25 @@ export default function AdminBranding() {
                     label="Primary Colour"
                     description="Main brand colour — header backgrounds, primary buttons."
                     value={primaryColor}
-                    onChange={(v) => {
-                      setPrimaryColor(v);
-                      setHasUnsavedChanges(true);
-                    }}
+                    onChange={(v) => { setPrimaryColor(v); setHasUnsavedChanges(true); }}
                   />
                   <BrandColourEditor
                     id="secondary"
                     label="Secondary Colour"
                     description="Accent colour for CTAs and highlights."
                     value={secondaryColor}
-                    onChange={(v) => {
-                      setSecondaryColor(v);
-                      setHasUnsavedChanges(true);
-                    }}
+                    onChange={(v) => { setSecondaryColor(v); setHasUnsavedChanges(true); }}
                   />
                   <BrandColourEditor
                     id="accent"
                     label="Accent Colour"
                     description="Tertiary colour for badges, links, and subtle accents."
                     value={accentColor}
-                    onChange={(v) => {
-                      setAccentColor(v);
-                      setHasUnsavedChanges(true);
-                    }}
+                    onChange={(v) => { setAccentColor(v); setHasUnsavedChanges(true); }}
                   />
                 </CardContent>
               </Card>
 
-              {/* Reset */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -499,16 +465,11 @@ export default function AdminBranding() {
                     Reset to Defaults
                   </CardTitle>
                   <CardDescription>
-                    Restore all branding settings to the BookingsFinder
-                    defaults.
+                    Restore all branding settings to the BookingsFinder defaults.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button
-                    variant="outline"
-                    onClick={handleReset}
-                    className="gap-2"
-                  >
+                  <Button variant="outline" onClick={handleReset} className="gap-2">
                     <RotateCcw className="h-4 w-4" />
                     Reset to Defaults
                   </Button>
@@ -528,25 +489,16 @@ export default function AdminBranding() {
             </TabsContent>
           </Tabs>
 
-          {/* Bottom action bar */}
           {currentUnsaved && (
             <div className="sticky bottom-4 bg-card border border-border rounded-xl p-4 shadow-lg flex items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
                 You have unsaved changes to your branding settings.
               </p>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={isSaving}
-                >
+                <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
                   Discard
                 </Button>
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="gap-2"
-                >
+                <Button onClick={handleSave} disabled={isSaving} className="gap-2">
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
