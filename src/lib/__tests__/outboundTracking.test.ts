@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   buildTrackingPayload,
   SOURCE_PAGES,
@@ -231,19 +231,16 @@ describe("buildTrackingPayload", () => {
 // ── White Label ──
 
 describe("White Label host", () => {
-  it("accepts flights.bookingsfinder.com for aviasales partner", () => {
+  it("accepts flights.bookingsfinder.com when White Label host is configured", () => {
+    vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "flights.bookingsfinder.com");
     const result = buildTrackingPayload({
       type: "flight", action: "click",
       sourcePage: "flight_results", placement: "flight_result_card",
       outboundHost: "flights.bookingsfinder.com",
     });
-    // In test environment, VITE_TRAVEL_WHITE_LABEL_HOST is not set.
-    // When the env var is set, flights.bookingsfinder.com is approved.
-    // This test verifies the standard aviasales.com host still works.
-    const host = result.row?.outbound_host ?? null;
-    if (host) {
-      expect(host).toContain("bookingsfinder.com");
-    }
+    vi.unstubAllEnvs();
+    expect(result.valid).toBe(true);
+    expect(result.row!.outbound_host).toBe("flights.bookingsfinder.com");
   });
 
   it("standard aviasales.com is still accepted", () => {

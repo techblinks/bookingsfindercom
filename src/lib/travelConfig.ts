@@ -80,7 +80,7 @@ export interface UrlBuildResult {
  */
 let _whiteLabelHostCache: string | null | undefined;
 
-function getWhiteLabelHost(): string | null {
+export function getWhiteLabelHost(): string | null {
   if (_whiteLabelHostCache !== undefined) return _whiteLabelHostCache;
 
   const raw = import.meta.env.VITE_TRAVEL_WHITE_LABEL_HOST;
