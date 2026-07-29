@@ -5,15 +5,20 @@
  * Reads from BrandingProvider, falls back to built-in assets.
  *
  * Usage:
- *   <BrandLogo variant="default" className="h-9 w-auto" />
+ *   <!-- Auto-sized from branding settings -->
+ *   <BrandLogo variant="default" context="desktop" />
+ *   <BrandLogo variant="default" context="mobile" />
+ *   <BrandLogo variant="default" context="footer" />
+ *
+ *   <!-- Manual sizing (overrides context) -->
  *   <BrandLogo variant="icon" className="h-8 w-8" />
- *   <BrandLogo variant="light" className="h-10 w-auto" />
+ *   <BrandLogo variant="default" className="h-16 md:h-20 w-auto" />
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useBranding } from '@/hooks/useBranding';
 import { cn } from '@/lib/utils';
-import type { LogoVariant } from '@/types/branding';
+import type { LogoVariant, LogoContext } from '@/types/branding';
 
 // Built-in fallback assets (bundled at build time)
 import fallbackLogo from '@/assets/logo.webp';
@@ -21,7 +26,9 @@ import fallbackLogo from '@/assets/logo.webp';
 interface BrandLogoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> {
   /** Which logo variant to display. */
   variant?: LogoVariant;
-  /** Additional CSS classes (e.g. sizing). */
+  /** Which UI context — auto-sizes from branding settings. */
+  context?: LogoContext;
+  /** Additional CSS classes. If context is set, height is automatic; manual className overrides it. */
   className?: string;
   /** Override alt text (defaults to site_name). */
   alt?: string;
@@ -36,6 +43,7 @@ const FALLBACK_MAP: Record<LogoVariant, string> = {
 
 export function BrandLogo({
   variant = 'default',
+  context,
   className,
   alt,
   ...rest
@@ -54,22 +62,38 @@ export function BrandLogo({
     }
   }, [imgError]);
 
-  // Reset error state if brandingUrl changes
-  if (imgError && brandingUrl === src) {
-    // This would mean the fallback also errored, but we guard against loops.
-  }
-
   const altText = alt || branding.site_name || 'BookingsFinder';
+
+  // ── Compute height from branding context ────────────────────
+  const contextHeight = useMemo(() => {
+    if (!context) return undefined;
+    switch (context) {
+      case 'desktop':
+        return branding.logo_height_desktop;
+      case 'mobile':
+        return branding.logo_height_mobile;
+      case 'footer':
+        return branding.logo_height_footer;
+    }
+  }, [context, branding]);
+
+  // Combine classes: if context is set, use its height via inline style;
+  // otherwise use whatever className was passed.
+  const style = contextHeight
+    ? { height: `${contextHeight}px`, width: 'auto', ...rest.style }
+    : rest.style;
+
+  const finalClassName = cn('object-contain', className, !className && !context && 'h-9 w-auto');
 
   return (
     <img
       src={src}
       alt={altText}
-      className={cn('object-contain', className)}
+      className={finalClassName}
+      style={style}
       onError={handleError}
       loading="eager"
       {...rest}
-      // Prevent layout shift with fixed dimensions via className
     />
   );
 }

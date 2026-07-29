@@ -174,7 +174,7 @@ const BookingRedirect = () => {
             transition={{ duration: 0.4 }}
             className="mb-6"
           >
-            <BrandLogo variant="default" className="h-12 w-auto mx-auto" />
+            <BrandLogo variant="default" context="desktop" className="mx-auto" />
           </motion.div>
 
           {/* Route Info (if available) */}

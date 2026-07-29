@@ -14,7 +14,7 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Save, RotateCcw, Loader2,
-  Image, Palette, Eye, AlertTriangle,
+  Image, Palette, Eye, Ruler,
 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -37,9 +37,15 @@ import {
   BRANDING_SINGLETON_ID,
   DEFAULT_BRANDING,
   isValidHexColor,
+  LOGO_HEIGHT_MIN,
+  LOGO_HEIGHT_MAX,
   type BrandingAssetSlot,
 } from '@/types/branding';
 import { toast } from 'sonner';
+
+function isValidLogoHeight(n: number): boolean {
+  return Number.isInteger(n) && n >= LOGO_HEIGHT_MIN && n <= LOGO_HEIGHT_MAX;
+}
 
 export default function AdminBranding() {
   const { user, isLoading: authLoading, isAdmin } = useAdminAuth();
@@ -51,6 +57,9 @@ export default function AdminBranding() {
   const [primaryColor, setPrimaryColor] = useState('');
   const [secondaryColor, setSecondaryColor] = useState('');
   const [accentColor, setAccentColor] = useState('');
+  const [logoHeightDesktop, setLogoHeightDesktop] = useState(56);
+  const [logoHeightMobile, setLogoHeightMobile] = useState(40);
+  const [logoHeightFooter, setLogoHeightFooter] = useState(48);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -70,6 +79,9 @@ export default function AdminBranding() {
       setPrimaryColor(branding.primary_color);
       setSecondaryColor(branding.secondary_color);
       setAccentColor(branding.accent_color);
+      setLogoHeightDesktop(branding.logo_height_desktop);
+      setLogoHeightMobile(branding.logo_height_mobile);
+      setLogoHeightFooter(branding.logo_height_footer);
     }
   }, [brandingLoading, branding]);
 
@@ -79,9 +91,13 @@ export default function AdminBranding() {
     if (primaryColor !== branding.primary_color) return true;
     if (secondaryColor !== branding.secondary_color) return true;
     if (accentColor !== branding.accent_color) return true;
+    if (logoHeightDesktop !== branding.logo_height_desktop) return true;
+    if (logoHeightMobile !== branding.logo_height_mobile) return true;
+    if (logoHeightFooter !== branding.logo_height_footer) return true;
     if (Object.keys(fileRefs.current).length > 0) return true;
     return false;
-  }, [siteName, tagline, primaryColor, secondaryColor, accentColor, branding]);
+  }, [siteName, tagline, primaryColor, secondaryColor, accentColor,
+      logoHeightDesktop, logoHeightMobile, logoHeightFooter, branding]);
 
   // ── Copy URL helper ──────────────────────────────────────────
 
@@ -139,6 +155,20 @@ export default function AdminBranding() {
       return;
     }
 
+    // Validate logo heights
+    for (const [label, h] of [
+      ['Desktop', logoHeightDesktop],
+      ['Mobile', logoHeightMobile],
+      ['Footer', logoHeightFooter],
+    ] as const) {
+      if (!isValidLogoHeight(h)) {
+        toast.error(
+          `${label} logo height must be between ${LOGO_HEIGHT_MIN} and ${LOGO_HEIGHT_MAX} px.`,
+        );
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     try {
@@ -180,6 +210,9 @@ export default function AdminBranding() {
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         accent_color: accentColor,
+        logo_height_desktop: logoHeightDesktop,
+        logo_height_mobile: logoHeightMobile,
+        logo_height_footer: logoHeightFooter,
       };
       for (const [slot, url] of Object.entries(uploadedUrls)) {
         updatePayload[slot] = url;
@@ -221,6 +254,9 @@ export default function AdminBranding() {
     setPrimaryColor(DEFAULT_BRANDING.primary_color);
     setSecondaryColor(DEFAULT_BRANDING.secondary_color);
     setAccentColor(DEFAULT_BRANDING.accent_color);
+    setLogoHeightDesktop(DEFAULT_BRANDING.logo_height_desktop);
+    setLogoHeightMobile(DEFAULT_BRANDING.logo_height_mobile);
+    setLogoHeightFooter(DEFAULT_BRANDING.logo_height_footer);
     fileRefs.current = {};
     for (const url of Object.values(previewUrls)) {
       URL.revokeObjectURL(url);
@@ -236,6 +272,9 @@ export default function AdminBranding() {
     setPrimaryColor(branding.primary_color);
     setSecondaryColor(branding.secondary_color);
     setAccentColor(branding.accent_color);
+    setLogoHeightDesktop(branding.logo_height_desktop);
+    setLogoHeightMobile(branding.logo_height_mobile);
+    setLogoHeightFooter(branding.logo_height_footer);
     fileRefs.current = {};
     for (const url of Object.values(previewUrls)) {
       URL.revokeObjectURL(url);
@@ -262,7 +301,6 @@ export default function AdminBranding() {
     );
   }
 
-  // Auth error: not authenticated or not admin
   if (!user || !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -277,9 +315,7 @@ export default function AdminBranding() {
     );
   }
 
-  // Branding fetch error — show warning but let admin continue
   if (brandingError) {
-    // Warn but allow the page to work with defaults
     toast.error('Could not load branding. Using defaults.', { id: 'branding-load-error' });
   }
 
@@ -387,6 +423,74 @@ export default function AdminBranding() {
                       }}
                       placeholder="Plan, Prepare, and Travel Ready"
                     />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Logo Sizes */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Ruler className="h-5 w-5" />
+                    Logo Sizes
+                  </CardTitle>
+                  <CardDescription>
+                    Control how large the logo renders in each context (px).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="logo-height-desktop">Desktop Header</Label>
+                      <Input
+                        id="logo-height-desktop"
+                        type="number"
+                        min={LOGO_HEIGHT_MIN}
+                        max={LOGO_HEIGHT_MAX}
+                        value={logoHeightDesktop}
+                        onChange={(e) => {
+                          setLogoHeightDesktop(Number(e.target.value));
+                          setHasUnsavedChanges(true);
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {LOGO_HEIGHT_MIN}–{LOGO_HEIGHT_MAX} px
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="logo-height-mobile">Mobile Header</Label>
+                      <Input
+                        id="logo-height-mobile"
+                        type="number"
+                        min={LOGO_HEIGHT_MIN}
+                        max={LOGO_HEIGHT_MAX}
+                        value={logoHeightMobile}
+                        onChange={(e) => {
+                          setLogoHeightMobile(Number(e.target.value));
+                          setHasUnsavedChanges(true);
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {LOGO_HEIGHT_MIN}–{LOGO_HEIGHT_MAX} px
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="logo-height-footer">Footer</Label>
+                      <Input
+                        id="logo-height-footer"
+                        type="number"
+                        min={LOGO_HEIGHT_MIN}
+                        max={LOGO_HEIGHT_MAX}
+                        value={logoHeightFooter}
+                        onChange={(e) => {
+                          setLogoHeightFooter(Number(e.target.value));
+                          setHasUnsavedChanges(true);
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {LOGO_HEIGHT_MIN}–{LOGO_HEIGHT_MAX} px
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
