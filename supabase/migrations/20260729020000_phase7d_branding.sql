@@ -25,26 +25,50 @@ CREATE TABLE IF NOT EXISTS public.site_branding (
 );
 
 -- ═══════════════════════════════════════════════════════════════
--- 2. CONSTRAINTS
+-- 2. CONSTRAINTS — idempotent: drop first, then add
 -- ═══════════════════════════════════════════════════════════════
 
 -- Colour: 6-digit hex only
 ALTER TABLE public.site_branding
-  ADD CONSTRAINT IF NOT EXISTS ck_primary_color_hex
-    CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9a-fA-F]{6}$'),
-  ADD CONSTRAINT IF NOT EXISTS ck_secondary_color_hex
-    CHECK (secondary_color IS NULL OR secondary_color ~ '^#[0-9a-fA-F]{6}$'),
-  ADD CONSTRAINT IF NOT EXISTS ck_accent_color_hex
-    CHECK (accent_color IS NULL OR accent_color ~ '^#[0-9a-fA-F]{6}$'),
-  ADD CONSTRAINT IF NOT EXISTS ck_site_name_not_empty
+  DROP CONSTRAINT IF EXISTS ck_primary_color_hex;
+ALTER TABLE public.site_branding
+  ADD CONSTRAINT ck_primary_color_hex
+    CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9a-fA-F]{6}$');
+
+ALTER TABLE public.site_branding
+  DROP CONSTRAINT IF EXISTS ck_secondary_color_hex;
+ALTER TABLE public.site_branding
+  ADD CONSTRAINT ck_secondary_color_hex
+    CHECK (secondary_color IS NULL OR secondary_color ~ '^#[0-9a-fA-F]{6}$');
+
+ALTER TABLE public.site_branding
+  DROP CONSTRAINT IF EXISTS ck_accent_color_hex;
+ALTER TABLE public.site_branding
+  ADD CONSTRAINT ck_accent_color_hex
+    CHECK (accent_color IS NULL OR accent_color ~ '^#[0-9a-fA-F]{6}$');
+
+ALTER TABLE public.site_branding
+  DROP CONSTRAINT IF EXISTS ck_site_name_not_empty;
+ALTER TABLE public.site_branding
+  ADD CONSTRAINT ck_site_name_not_empty
     CHECK (site_name IS NOT NULL AND char_length(trim(site_name)) > 0);
 
 ALTER TABLE public.site_branding
-  ADD CONSTRAINT IF NOT EXISTS ck_primary_color_not_null
-    CHECK (primary_color IS NOT NULL),
-  ADD CONSTRAINT IF NOT EXISTS ck_secondary_color_not_null
-    CHECK (secondary_color IS NOT NULL),
-  ADD CONSTRAINT IF NOT EXISTS ck_accent_color_not_null
+  DROP CONSTRAINT IF EXISTS ck_primary_color_not_null;
+ALTER TABLE public.site_branding
+  ADD CONSTRAINT ck_primary_color_not_null
+    CHECK (primary_color IS NOT NULL);
+
+ALTER TABLE public.site_branding
+  DROP CONSTRAINT IF EXISTS ck_secondary_color_not_null;
+ALTER TABLE public.site_branding
+  ADD CONSTRAINT ck_secondary_color_not_null
+    CHECK (secondary_color IS NOT NULL);
+
+ALTER TABLE public.site_branding
+  DROP CONSTRAINT IF EXISTS ck_accent_color_not_null;
+ALTER TABLE public.site_branding
+  ADD CONSTRAINT ck_accent_color_not_null
     CHECK (accent_color IS NOT NULL);
 
 -- ═══════════════════════════════════════════════════════════════
@@ -139,7 +163,7 @@ ON CONFLICT (id) DO UPDATE SET
 -- ═══════════════════════════════════════════════════════════════
 
 -- Policy helper: drop existing policies before (re)creating them.
--- safety is per-policy — a missing policy will raise NOTICE only.
+-- A missing policy raises NOTICE only — safe to rerun.
 
 -- A. Admin read/list branding objects
 DROP POLICY IF EXISTS "Admins can view branding objects" ON storage.objects;
