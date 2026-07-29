@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import logo from "@/assets/logo.webp";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
 
 const Header = () => {
@@ -27,11 +27,9 @@ const Header = () => {
         <div className="container max-w-7xl mx-auto flex h-16 lg:h-[68px] items-center justify-between gap-4 px-4">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0 group" onClick={close} aria-label="BookingsFinder - Go to homepage">
-            <img
-              src={logo}
-              alt="BookingsFinder logo"
-              className="h-11 lg:h-12 w-auto transition-transform duration-200 group-hover:scale-[1.03] drop-shadow-sm"
-            />
+            <div className="h-11 lg:h-12 w-auto transition-transform duration-200 group-hover:scale-[1.03] drop-shadow-sm">
+              <BrandLogo variant="default" className="h-full w-auto" />
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
@@ -111,7 +109,7 @@ const Header = () => {
             >
               <div className="flex items-center justify-between px-5 h-14 border-b border-border/50">
                 <Link to="/" onClick={close}>
-                  <img src={logo} alt="BookingsFinder" className="h-8 w-auto" />
+                  <BrandLogo variant="default" className="h-8 w-auto" />
                 </Link>
                 <Button variant="ghost" size="icon" className="rounded-full h-9 w-9" onClick={close}>
                   <X className="h-5 w-5" />

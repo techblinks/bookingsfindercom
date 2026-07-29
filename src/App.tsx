@@ -25,6 +25,7 @@ import AdminPress from "./pages/AdminPress";
 import AdminCountryPages from "./pages/AdminCountryPages";
 import AdminSubscribers from "./pages/AdminSubscribers";
 import AdminSettings from "./pages/AdminSettings";
+import AdminBranding from "./pages/AdminBranding";
 import AdminCompliance from "./pages/AdminCompliance";
 import AdminContentGenerator from "./pages/AdminContentGenerator";
 import AdminRouteGenerator from "./pages/AdminRouteGenerator";
@@ -104,6 +105,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/country-pages" element={<AdminCountryPages />} />
           <Route path="/admin/subscribers" element={<AdminSubscribers />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/branding" element={<AdminBranding />} />
           <Route path="/admin/compliance" element={<AdminCompliance />} />
           <Route path="/admin/content-generator" element={<AdminContentGenerator />} />
           <Route path="/admin/route-generator" element={<AdminRouteGenerator />} />

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Shield, Lock, CheckCircle, Plane, Building2, ExternalLink, Clock, TrendingUp, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import logo from "@/assets/logo.webp";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { validateRedirectHost } from "@/lib/travelConfig";
 
 /**
@@ -174,7 +174,7 @@ const BookingRedirect = () => {
             transition={{ duration: 0.4 }}
             className="mb-6"
           >
-            <img src={logo} alt="BookingsFinder" className="h-12 w-auto mx-auto" />
+            <BrandLogo variant="default" className="h-12 w-auto mx-auto" />
           </motion.div>
 
           {/* Route Info (if available) */}

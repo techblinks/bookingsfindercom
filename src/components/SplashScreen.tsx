@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import logo from "@/assets/logo.webp";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -27,10 +27,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         transition={{ duration: 0.5, ease: "easeOut" }}
       >
         {/* Logo with pulse animation */}
-        <motion.img
-          src={logo}
-          alt="BookingsFinder"
-          className="h-16 md:h-20 w-auto"
+        <motion.div
           animate={{ 
             scale: [1, 1.02, 1],
           }}
@@ -39,7 +36,9 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             repeat: Infinity,
             ease: "easeInOut" 
           }}
-        />
+        >
+          <BrandLogo variant="default" className="h-16 md:h-20 w-auto" />
+        </motion.div>
         
         {/* Loading indicator */}
         <div className="flex gap-1.5">

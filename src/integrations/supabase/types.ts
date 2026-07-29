@@ -640,6 +640,62 @@ export type Database = {
         }
         Relationships: []
       }
+      site_branding: {
+        Row: {
+          accent_color: string
+          favicon_url: string | null
+          icon_url: string | null
+          id: string
+          logo_dark_url: string | null
+          logo_light_url: string | null
+          logo_url: string | null
+          primary_color: string
+          secondary_color: string
+          site_name: string
+          tagline: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accent_color?: string
+          favicon_url?: string | null
+          icon_url?: string | null
+          id?: string
+          logo_dark_url?: string | null
+          logo_light_url?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          site_name?: string
+          tagline?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accent_color?: string
+          favicon_url?: string | null
+          icon_url?: string | null
+          id?: string
+          logo_dark_url?: string | null
+          logo_light_url?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          site_name?: string
+          tagline?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_branding_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           created_at: string

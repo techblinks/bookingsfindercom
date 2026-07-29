@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import App from "./App.tsx";
 import SplashScreen from "./components/SplashScreen.tsx";
+import { BrandingProvider } from "./hooks/useBranding";
+import { FaviconUpdater } from "./components/brand/FaviconUpdater";
 import "./index.css";
 
 const SPLASH_DURATION = 1500; // 1.5 seconds
@@ -37,7 +39,12 @@ const Root = () => {
 
   // Skip splash entirely if already seen
   if (!showSplash && hasSeenSplash) {
-    return <App />;
+    return (
+      <BrandingProvider>
+        <FaviconUpdater />
+        <App />
+      </BrandingProvider>
+    );
   }
 
   return (
@@ -52,7 +59,10 @@ const Root = () => {
       <div 
         className={`transition-opacity duration-300 ${showSplash ? 'opacity-0' : 'opacity-100'}`}
       >
-        <App />
+        <BrandingProvider>
+          <FaviconUpdater />
+          <App />
+        </BrandingProvider>
       </div>
     </>
   );

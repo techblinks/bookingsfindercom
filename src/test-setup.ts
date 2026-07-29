@@ -1,6 +1,7 @@
 // Vitest global setup for jsdom environment
 
 import { vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 // Polyfill ResizeObserver (used by Radix UI slider and other components).
 // Multiple UI test suites render components that transitively depend on
