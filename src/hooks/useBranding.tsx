@@ -32,6 +32,38 @@ interface BrandingContextValue {
 
 const BrandingContext = createContext<BrandingContextValue | undefined>(undefined);
 
+// ── Helpers ────────────────────────────────────────────────────────
+
+/** Merge a DB row with DEFAULT_BRANDING so missing columns never become undefined. */
+function mergeWithDefaults(raw: Record<string, unknown>): BrandingSettings {
+  return {
+    ...DEFAULT_BRANDING,
+    ...raw,
+    // Explicit guards for columns added in later migrations
+    id: typeof raw.id === 'string' ? raw.id : '',
+    logo_height_desktop:
+      typeof raw.logo_height_desktop === 'number'
+        ? raw.logo_height_desktop
+        : DEFAULT_BRANDING.logo_height_desktop,
+    logo_height_mobile:
+      typeof raw.logo_height_mobile === 'number'
+        ? raw.logo_height_mobile
+        : DEFAULT_BRANDING.logo_height_mobile,
+    logo_height_footer:
+      typeof raw.logo_height_footer === 'number'
+        ? raw.logo_height_footer
+        : DEFAULT_BRANDING.logo_height_footer,
+    updated_at:
+      typeof raw.updated_at === 'string'
+        ? raw.updated_at
+        : new Date().toISOString(),
+    updated_by:
+      raw.updated_by === null || typeof raw.updated_by === 'string'
+        ? (raw.updated_by as string | null)
+        : null,
+  } as BrandingSettings;
+}
+
 // ── Provider ──────────────────────────────────────────────────────
 
 interface BrandingProviderProps {
@@ -39,15 +71,9 @@ interface BrandingProviderProps {
 }
 
 export function BrandingProvider({ children }: BrandingProviderProps) {
-  const [branding, setBranding] = useState<BrandingSettings>(() => ({
-    ...DEFAULT_BRANDING,
-    id: '',
-    logo_height_desktop: DEFAULT_BRANDING.logo_height_desktop,
-    logo_height_mobile: DEFAULT_BRANDING.logo_height_mobile,
-    logo_height_footer: DEFAULT_BRANDING.logo_height_footer,
-    updated_at: new Date().toISOString(),
-    updated_by: null,
-  }));
+  const [branding, setBranding] = useState<BrandingSettings>(() =>
+    mergeWithDefaults({}),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -63,8 +89,9 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
       if (dbError) throw dbError;
 
       if (data) {
-        setBranding(data as BrandingSettings);
+        setBranding(mergeWithDefaults(data as Record<string, unknown>));
       }
+      // If no data, keep defaults (already set by mergeWithDefaults({}))
     } catch (err) {
       console.error('[BrandingProvider] Failed to fetch branding:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
@@ -83,7 +110,9 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'site_branding' },
-        () => { fetchBranding(); },
+        () => {
+          fetchBranding();
+        },
       )
       .subscribe();
 
@@ -133,7 +162,9 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
     [branding, isLoading, error, fetchBranding, getLogoUrl, hasCustomBranding],
   );
 
-  return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
+  return (
+    <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>
+  );
 }
 
 // ── Hook ──────────────────────────────────────────────────────────
@@ -144,15 +175,8 @@ export function useBranding(): BrandingContextValue {
     return context;
   }
 
-  const safeBranding: BrandingSettings = {
-    ...DEFAULT_BRANDING,
-    id: '',
-    logo_height_desktop: DEFAULT_BRANDING.logo_height_desktop,
-    logo_height_mobile: DEFAULT_BRANDING.logo_height_mobile,
-    logo_height_footer: DEFAULT_BRANDING.logo_height_footer,
-    updated_at: new Date().toISOString(),
-    updated_by: null,
-  };
+  // ── Safe fallback when no provider exists ──────────────────────
+  const safeBranding = mergeWithDefaults({});
 
   return {
     branding: safeBranding,

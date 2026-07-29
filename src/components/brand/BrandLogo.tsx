@@ -18,7 +18,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useBranding } from '@/hooks/useBranding';
 import { cn } from '@/lib/utils';
-import type { LogoVariant, LogoContext } from '@/types/branding';
+import { DEFAULT_BRANDING, type LogoVariant, type LogoContext } from '@/types/branding';
 
 // Built-in fallback assets (bundled at build time)
 import fallbackLogo from '@/assets/logo.webp';
@@ -28,7 +28,7 @@ interface BrandLogoProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>,
   variant?: LogoVariant;
   /** Which UI context — auto-sizes from branding settings. */
   context?: LogoContext;
-  /** Additional CSS classes. If context is set, height is automatic; manual className overrides it. */
+  /** Additional CSS classes. If context is set, height is automatic; manual className adds extra classes. */
   className?: string;
   /** Override alt text (defaults to site_name). */
   alt?: string;
@@ -40,6 +40,40 @@ const FALLBACK_MAP: Record<LogoVariant, string> = {
   dark: fallbackLogo,
   icon: fallbackLogo,
 };
+
+/** Safe logo height lookup — falls back to DEFAULT_BRANDING if DB hasn't been updated. */
+function getContextHeight(
+  context: LogoContext | undefined,
+  desktop: unknown,
+  mobile: unknown,
+  footer: unknown,
+): number | undefined {
+  if (!context) return undefined;
+
+  let value: unknown;
+  let fallback: number;
+
+  switch (context) {
+    case 'desktop':
+      value = desktop;
+      fallback = DEFAULT_BRANDING.logo_height_desktop;
+      break;
+    case 'mobile':
+      value = mobile;
+      fallback = DEFAULT_BRANDING.logo_height_mobile;
+      break;
+    case 'footer':
+      value = footer;
+      fallback = DEFAULT_BRANDING.logo_height_footer;
+      break;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  // DB column not yet applied — use default
+  return fallback;
+}
 
 export function BrandLogo({
   variant = 'default',
@@ -66,24 +100,25 @@ export function BrandLogo({
 
   // ── Compute height from branding context ────────────────────
   const contextHeight = useMemo(() => {
-    if (!context) return undefined;
-    switch (context) {
-      case 'desktop':
-        return branding.logo_height_desktop;
-      case 'mobile':
-        return branding.logo_height_mobile;
-      case 'footer':
-        return branding.logo_height_footer;
-    }
-  }, [context, branding]);
+    return getContextHeight(
+      context,
+      branding.logo_height_desktop,
+      branding.logo_height_mobile,
+      branding.logo_height_footer,
+    );
+  }, [context, branding.logo_height_desktop, branding.logo_height_mobile, branding.logo_height_footer]);
 
-  // Combine classes: if context is set, use its height via inline style;
-  // otherwise use whatever className was passed.
+  // Combine classes: if context is set, use its height via inline style
   const style = contextHeight
     ? { height: `${contextHeight}px`, width: 'auto', ...rest.style }
     : rest.style;
 
-  const finalClassName = cn('object-contain', className, !className && !context && 'h-9 w-auto');
+  const finalClassName = cn(
+    'object-contain',
+    className,
+    // Bare-minimum fallback only if no context AND no className was provided
+    !context && !className && 'h-9 w-auto',
+  );
 
   return (
     <img
