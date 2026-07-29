@@ -35,7 +35,7 @@ export function BrandPreviewPanel({
         <CardContent>
           <div className="border border-border rounded-xl p-4 bg-card">
             <div className="flex items-center gap-4">
-              <BrandLogo variant="default" className="h-10 w-auto" />
+              <BrandLogo variant="default" context="desktop" />
               <div className="flex gap-2">
                 <div className="h-8 w-20 rounded-full bg-muted" />
                 <div className="h-8 w-20 rounded-full bg-muted" />
@@ -60,7 +60,7 @@ export function BrandPreviewPanel({
         <CardContent>
           <div className="border border-border rounded-xl p-3 bg-card max-w-sm">
             <div className="flex items-center justify-between">
-              <BrandLogo variant="default" className="h-8 w-auto" />
+              <BrandLogo variant="default" context="mobile" />
               <div className="w-8 h-8 rounded-lg bg-muted" />
             </div>
           </div>

@@ -647,6 +647,9 @@ export type Database = {
           icon_url: string | null
           id: string
           logo_dark_url: string | null
+          logo_height_desktop: number
+          logo_height_footer: number
+          logo_height_mobile: number
           logo_light_url: string | null
           logo_url: string | null
           primary_color: string
@@ -662,6 +665,9 @@ export type Database = {
           icon_url?: string | null
           id?: string
           logo_dark_url?: string | null
+          logo_height_desktop?: number
+          logo_height_footer?: number
+          logo_height_mobile?: number
           logo_light_url?: string | null
           logo_url?: string | null
           primary_color?: string
@@ -677,6 +683,9 @@ export type Database = {
           icon_url?: string | null
           id?: string
           logo_dark_url?: string | null
+          logo_height_desktop?: number
+          logo_height_footer?: number
+          logo_height_mobile?: number
           logo_light_url?: string | null
           logo_url?: string | null
           primary_color?: string

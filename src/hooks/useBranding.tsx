@@ -17,22 +17,16 @@ import React, {
 } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { BrandingSettings, LogoVariant } from '@/types/branding';
-import { DEFAULT_BRANDING, BRANDING_SINGLETON_ID } from '@/types/branding';
+import { DEFAULT_BRANDING } from '@/types/branding';
 
 // ── Types ──────────────────────────────────────────────────────────
 
 interface BrandingContextValue {
-  /** The current branding settings (never null — uses defaults while loading). */
   branding: BrandingSettings;
-  /** True while the initial fetch is in progress. */
   isLoading: boolean;
-  /** Error from the last fetch attempt, or null. */
   error: Error | null;
-  /** Reload branding from the database. */
   refresh: () => Promise<void>;
-  /** Get the URL for a specific logo variant. Falls back to built-in assets. */
   getLogoUrl: (variant: LogoVariant) => string;
-  /** True if custom branding has been loaded (at least one asset URL is set). */
   hasCustomBranding: boolean;
 }
 
@@ -48,6 +42,9 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
   const [branding, setBranding] = useState<BrandingSettings>(() => ({
     ...DEFAULT_BRANDING,
     id: '',
+    logo_height_desktop: DEFAULT_BRANDING.logo_height_desktop,
+    logo_height_mobile: DEFAULT_BRANDING.logo_height_mobile,
+    logo_height_footer: DEFAULT_BRANDING.logo_height_footer,
     updated_at: new Date().toISOString(),
     updated_by: null,
   }));
@@ -68,35 +65,25 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
       if (data) {
         setBranding(data as BrandingSettings);
       }
-      // If no data, keep defaults
     } catch (err) {
       console.error('[BrandingProvider] Failed to fetch branding:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
-      // Keep defaults on error — site must still render
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Load on mount
   useEffect(() => {
     fetchBranding();
   }, [fetchBranding]);
 
-  // Listen for realtime changes (admin saved branding)
   useEffect(() => {
     const channel = supabase
       .channel('branding-changes')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'site_branding',
-        },
-        () => {
-          fetchBranding();
-        },
+        { event: '*', schema: 'public', table: 'site_branding' },
+        () => { fetchBranding(); },
       )
       .subscribe();
 
@@ -157,13 +144,12 @@ export function useBranding(): BrandingContextValue {
     return context;
   }
 
-  // ── Safe fallback when no provider exists ──────────────────────
-  // This allows existing components/tests to work without wrapping
-  // everything in <BrandingProvider>. Uses built-in static assets.
-
   const safeBranding: BrandingSettings = {
     ...DEFAULT_BRANDING,
     id: '',
+    logo_height_desktop: DEFAULT_BRANDING.logo_height_desktop,
+    logo_height_mobile: DEFAULT_BRANDING.logo_height_mobile,
+    logo_height_footer: DEFAULT_BRANDING.logo_height_footer,
     updated_at: new Date().toISOString(),
     updated_by: null,
   };

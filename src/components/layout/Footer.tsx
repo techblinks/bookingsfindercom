@@ -37,7 +37,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="col-span-2">
             <Link to="/" className="block mb-4">
-              <BrandLogo variant="default" className="h-10 w-auto" />
+              <BrandLogo variant="default" context="footer" />
             </Link>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed max-w-xs">
               Plan your trip, understand the real cost, and keep every booking organised. BookingsFinder helps you travel ready.

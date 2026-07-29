@@ -17,6 +17,9 @@ export interface BrandingSettings {
   primary_color: string;
   secondary_color: string;
   accent_color: string;
+  logo_height_desktop: number;
+  logo_height_mobile: number;
+  logo_height_footer: number;
   updated_at: string;
   updated_by: string | null;
 }
@@ -33,6 +36,9 @@ export const DEFAULT_BRANDING: Omit<BrandingSettings, 'id' | 'updated_at' | 'upd
   primary_color: '#0D4F5C',
   secondary_color: '#CC4D28',
   accent_color: '#2E6B4A',
+  logo_height_desktop: 56,
+  logo_height_mobile: 40,
+  logo_height_footer: 48,
 };
 
 /** Singleton row key for upserts. */
@@ -59,6 +65,13 @@ export function isValidHexColor(color: string): boolean {
 
 /** Logo variant identifiers for <BrandLogo />. */
 export type LogoVariant = 'default' | 'light' | 'dark' | 'icon';
+
+/** Logo display context — drives auto-sizing from branding settings. */
+export type LogoContext = 'desktop' | 'mobile' | 'footer';
+
+/** Minimum and maximum allowed logo heights (px). */
+export const LOGO_HEIGHT_MIN = 24;
+export const LOGO_HEIGHT_MAX = 120;
 
 /** Branding asset slot names corresponding to DB columns. */
 export type BrandingAssetSlot =
