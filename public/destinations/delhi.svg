@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e65100"/>
+      <stop offset="100%" stop-color="#ff8f00"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- India Gate motif -->
+  <rect x="300" y="190" width="80" height="120" rx="6" fill="#fff" opacity="0.12"/>
+  <rect x="310" y="170" width="60" height="25" rx="4" fill="#fff" opacity="0.16"/>
+  <rect x="320" y="150" width="40" height="25" rx="4" fill="#fff" opacity="0.18"/>
+  <rect x="330" y="130" width="20" height="25" rx="3" fill="#ffd700" opacity="0.25"/>
+  <!-- Arch -->
+  <rect x="320" y="200" width="40" height="80" rx="20" fill="#e65100" opacity="0.6"/>
+  <!-- Side pillars -->
+  <rect x="290" y="220" width="10" height="90" rx="2" fill="#fff" opacity="0.1"/>
+  <rect x="380" y="220" width="10" height="90" rx="2" fill="#fff" opacity="0.1"/>
+  <text x="400" y="390" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="700" fill="white">Delhi</text>
+  <text x="400" y="430" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="white" opacity="0.6">India</text>
+</svg>

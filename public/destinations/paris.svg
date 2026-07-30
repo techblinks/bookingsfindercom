@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1565c0"/>
+      <stop offset="100%" stop-color="#42a5f5"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- Eiffel Tower motif -->
+  <rect x="370" y="140" width="8" height="160" rx="3" fill="#fff" opacity="0.18"/>
+  <polygon points="370,140 440,140 405,180" fill="#fff" opacity="0.12"/>
+  <rect x="360" y="220" width="28" height="6" rx="2" fill="#fff" opacity="0.1"/>
+  <rect x="365" y="240" width="18" height="4" rx="2" fill="#fff" opacity="0.08"/>
+  <!-- Base legs -->
+  <line x1="340" y1="300" x2="374" y2="240" stroke="#fff" stroke-width="4" opacity="0.12"/>
+  <line x1="410" y1="300" x2="374" y2="240" stroke="#fff" stroke-width="4" opacity="0.12"/>
+  <!-- Stars / sparkle -->
+  <circle cx="300" cy="160" r="3" fill="#ffd700" opacity="0.25"/>
+  <circle cx="500" cy="150" r="3" fill="#ffd700" opacity="0.2"/>
+  <circle cx="480" cy="180" r="2" fill="#ffd700" opacity="0.15"/>
+  <text x="400" y="375" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="700" fill="white">Paris</text>
+  <text x="400" y="415" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="white" opacity="0.6">France</text>
+</svg>

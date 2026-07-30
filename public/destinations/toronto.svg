@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#37474f"/>
+      <stop offset="100%" stop-color="#607d8b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- CN Tower motif -->
+  <rect x="393" y="110" width="6" height="200" rx="3" fill="#fff" opacity="0.18"/>
+  <ellipse cx="396" cy="180" rx="16" ry="6" fill="#fff" opacity="0.1"/>
+  <ellipse cx="396" cy="210" rx="10" ry="4" fill="#fff" opacity="0.08"/>
+  <ellipse cx="396" cy="120" rx="8" ry="4" fill="#fff" opacity="0.12"/>
+  <rect x="387" y="108" width="18" height="6" rx="3" fill="#ffd700" opacity="0.25"/>
+  <!-- Skyline buildings -->
+  <rect x="250" y="240" width="30" height="70" rx="2" fill="#fff" opacity="0.08"/>
+  <rect x="290" y="220" width="20" height="90" rx="2" fill="#fff" opacity="0.1"/>
+  <rect x="320" y="250" width="35" height="60" rx="2" fill="#fff" opacity="0.08"/>
+  <rect x="430" y="230" width="25" height="80" rx="2" fill="#fff" opacity="0.1"/>
+  <rect x="460" y="250" width="30" height="60" rx="2" fill="#fff" opacity="0.08"/>
+  <rect x="500" y="240" width="22" height="70" rx="2" fill="#fff" opacity="0.09"/>
+  <!-- Maple leaf motif -->
+  <text x="396" y="355" text-anchor="middle" font-size="24" fill="#ff80ab" opacity="0.3">&#10041;</text>
+  <text x="400" y="400" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="700" fill="white">Toronto</text>
+  <text x="400" y="440" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="white" opacity="0.6">Canada</text>
+</svg>
