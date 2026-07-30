@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="%%23222333" /><text x="400" y="260" text-anchor="middle" font-family="system-ui" font-size="44" fill="white" opacity="0.8">BookingsFinder</text></svg> 
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#006ba6"/>
+      <stop offset="100%" stop-color="#26c6da"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- Opera House shell motif -->
+  <path d="M300,280 Q340,140 360,200" stroke="#fff" stroke-width="4" fill="none" opacity="0.18"/>
+  <path d="M340,280 Q380,130 400,200" stroke="#fff" stroke-width="4" fill="none" opacity="0.22"/>
+  <path d="M380,280 Q420,140 440,200" stroke="#fff" stroke-width="4" fill="none" opacity="0.18"/>
+  <path d="M420,280 Q460,160 480,210" stroke="#fff" stroke-width="4" fill="none" opacity="0.14"/>
+  <!-- Base -->
+  <rect x="280" y="275" width="220" height="10" rx="4" fill="#fff" opacity="0.12"/>
+  <!-- Harbour Bridge motif -->
+  <path d="M200,240 Q400,180 600,240" stroke="#fff" stroke-width="3" fill="none" opacity="0.1"/>
+  <rect x="195" y="235" width="8" height="45" rx="3" fill="#fff" opacity="0.08"/>
+  <rect x="597" y="235" width="8" height="45" rx="3" fill="#fff" opacity="0.08"/>
+  <!-- Sun -->
+  <circle cx="500" cy="140" r="25" fill="#ffd700" opacity="0.2"/>
+  <text x="400" y="380" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="700" fill="white">Sydney</text>
+  <text x="400" y="420" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="white" opacity="0.6">Australia</text>
+</svg>

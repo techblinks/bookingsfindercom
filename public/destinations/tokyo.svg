@@ -1,1 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="%%23222333" /><text x="400" y="260" text-anchor="middle" font-family="system-ui" font-size="44" fill="white" opacity="0.8">BookingsFinder</text></svg> 
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#880e4f"/>
+      <stop offset="100%" stop-color="#e91e63"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- Mount Fuji motif -->
+  <polygon points="280,260 380,120 480,260" fill="#fff" opacity="0.1"/>
+  <polygon points="360,200 380,120 400,200" fill="white" opacity="0.2"/>
+  <!-- Pagoda motif -->
+  <rect x="340" y="200" width="12" height="100" rx="3" fill="#fff" opacity="0.12"/>
+  <rect x="320" y="200" width="52" height="8" rx="2" fill="#fff" opacity="0.08"/>
+  <rect x="330" y="180" width="32" height="8" rx="2" fill="#fff" opacity="0.12"/>
+  <rect x="335" y="160" width="22" height="8" rx="2" fill="#fff" opacity="0.15"/>
+  <rect x="338" y="140" width="16" height="8" rx="2" fill="#fff" opacity="0.18"/>
+  <rect x="341" y="120" width="10" height="8" rx="2" fill="#ffd700" opacity="0.25"/>
+  <!-- Cherry blossom dots -->
+  <circle cx="240" cy="230" r="5" fill="#ff80ab" opacity="0.3"/>
+  <circle cx="250" cy="245" r="4" fill="#ff80ab" opacity="0.25"/>
+  <circle cx="530" cy="220" r="5" fill="#ff80ab" opacity="0.25"/>
+  <circle cx="520" cy="240" r="4" fill="#ff80ab" opacity="0.2"/>
+  <text x="400" y="385" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="700" fill="white">Tokyo</text>
+  <text x="400" y="425" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="white" opacity="0.6">Japan</text>
+</svg>

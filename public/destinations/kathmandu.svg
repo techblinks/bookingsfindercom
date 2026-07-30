@@ -1,1 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="%%23222333" /><text x="400" y="260" text-anchor="middle" font-family="system-ui" font-size="44" fill="white" opacity="0.8">BookingsFinder</text></svg> 
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4527a0"/>
+      <stop offset="100%" stop-color="#7c4dff"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- Mountains motif -->
+  <polygon points="80,260 180,140 280,260" fill="#fff" opacity="0.06"/>
+  <polygon points="180,260 320,110 460,260" fill="#fff" opacity="0.1"/>
+  <polygon points="340,260 480,130 620,260" fill="#fff" opacity="0.08"/>
+  <polygon points="500,260 600,160 700,260" fill="#fff" opacity="0.05"/>
+  <!-- Snow caps -->
+  <polygon points="310,140 320,110 330,140" fill="white" opacity="0.3"/>
+  <polygon points="470,160 480,130 490,160" fill="white" opacity="0.25"/>
+  <!-- Stupa motif -->
+  <rect x="350" y="200" width="60" height="50" rx="4" fill="#fff" opacity="0.12"/>
+  <rect x="365" y="180" width="30" height="25" rx="3" fill="#fff" opacity="0.15"/>
+  <circle cx="380" cy="170" r="12" fill="#fff" opacity="0.18"/>
+  <rect x="377" y="158" width="6" height="15" rx="2" fill="#ffd700" opacity="0.3"/>
+  <!-- Eyes on stupa -->
+  <ellipse cx="373" cy="170" rx="3" ry="5" fill="#4527a0" opacity="0.7"/>
+  <ellipse cx="387" cy="170" rx="3" ry="5" fill="#4527a0" opacity="0.7"/>
+  <text x="400" y="390" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="700" fill="white">Kathmandu</text>
+  <text x="400" y="430" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="white" opacity="0.6">Nepal</text>
+</svg>

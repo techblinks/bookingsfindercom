@@ -1,1 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="%%23222333" /><text x="400" y="260" text-anchor="middle" font-family="system-ui" font-size="44" fill="white" opacity="0.8">BookingsFinder</text></svg> 
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00695c"/>
+      <stop offset="100%" stop-color="#00bfa5"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- Temple + palm motif -->
+  <rect x="340" y="180" width="14" height="120" rx="3" fill="#fff" opacity="0.14"/>
+  <rect x="352" y="200" width="50" height="100" rx="5" fill="#fff" opacity="0.1"/>
+  <!-- Temple tiers -->
+  <rect x="358" y="180" width="38" height="10" rx="2" fill="#fff" opacity="0.15"/>
+  <rect x="362" y="165" width="30" height="10" rx="2" fill="#fff" opacity="0.18"/>
+  <rect x="367" y="150" width="20" height="10" rx="2" fill="#fff" opacity="0.2"/>
+  <rect x="372" y="135" width="10" height="10" rx="2" fill="#ffd700" opacity="0.25"/>
+  <!-- Palm tree -->
+  <rect x="280" y="220" width="6" height="70" rx="3" fill="#fff" opacity="0.12"/>
+  <ellipse cx="283" cy="220" rx="30" ry="12" fill="#fff" opacity="0.06"/>
+  <ellipse cx="283" cy="225" rx="22" ry="10" fill="#fff" opacity="0.05"/>
+  <ellipse cx="283" cy="215" rx="25" ry="10" fill="#fff" opacity="0.05"/>
+  <rect x="450" y="240" width="5" height="55" rx="3" fill="#fff" opacity="0.1"/>
+  <ellipse cx="452" cy="240" rx="24" ry="10" fill="#fff" opacity="0.05"/>
+  <ellipse cx="452" cy="244" rx="18" ry="8" fill="#fff" opacity="0.04"/>
+  <text x="400" y="400" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="700" fill="white">Bali</text>
+  <text x="400" y="440" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" fill="white" opacity="0.6">Indonesia</text>
+</svg>
