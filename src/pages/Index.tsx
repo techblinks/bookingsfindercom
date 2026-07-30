@@ -11,6 +11,7 @@ import { FlightHandoff } from "@/components/home-v2/FlightHandoff";
 import { TrustTransparency } from "@/components/home-v2/TrustTransparency";
 import { SectionContainer } from "@/components/home-v2/SectionContainer";
 import { SectionHeading } from "@/components/home-v2/SectionHeading";
+import { PopularDestinationsCards } from "@/components/sections/PopularDestinationsCards";
 import PopularRoutes from "@/components/sections/PopularRoutes";
 
 const Index = () => {
@@ -78,16 +79,19 @@ const Index = () => {
           {/* 7. Flight Search Handoff */}
           <FlightHandoff />
 
-          {/* 8. Destination Discovery — legacy PopularRoutes */}
+          {/* 8. Popular Destinations — curated custom cards */}
+          <PopularDestinationsCards />
+
+          {/* 9. Popular Routes */}
           <SectionContainer className="bg-muted/50">
             <SectionHeading
-              headline="Not sure where to go?"
-              supporting="Browse popular routes and see indicative flight prices from your nearest airport."
+              headline="Popular flight routes"
+              supporting="Explore commonly searched routes and continue to compare available flight options."
             />
             <PopularRoutes showHeading={false} />
           </SectionContainer>
 
-          {/* 9. Trust and Transparency */}
+          {/* 10. Trust and Transparency */}
           <TrustTransparency />
         </main>
 
