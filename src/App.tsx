@@ -30,6 +30,7 @@ import AdminCompliance from "./pages/AdminCompliance";
 import AdminContentGenerator from "./pages/AdminContentGenerator";
 import AdminRouteGenerator from "./pages/AdminRouteGenerator";
 import AdminAnalytics from "./pages/AdminAnalytics";
+import AdminFlightDestinations from "./pages/AdminFlightDestinations";
 import AboutUs from "./pages/AboutUs";
 import Careers from "./pages/Careers";
 import HelpCenter from "./pages/HelpCenter";
@@ -110,6 +111,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/content-generator" element={<AdminContentGenerator />} />
           <Route path="/admin/route-generator" element={<AdminRouteGenerator />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
+          <Route path="/admin/flights/destinations" element={<AdminFlightDestinations />} />
           <Route path="/d/:slug" element={<DestinationPage />} />
           <Route path="/:slug" element={<CountryLandingPage />} />
           <Route path="/redirect" element={<BookingRedirect />} />
