@@ -640,6 +640,57 @@ export type Database = {
         }
         Relationships: []
       }
+      flight_destinations: {
+        Row: {
+          alt_text: string | null
+          city: string
+          country: string
+          created_at: string
+          description: string | null
+          display_order: number
+          focal_x: number
+          focal_y: number
+          iata_code: string
+          id: string
+          image_path: string | null
+          is_active: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          alt_text?: string | null
+          city: string
+          country: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          focal_x?: number
+          focal_y?: number
+          iata_code: string
+          id?: string
+          image_path?: string | null
+          is_active?: boolean
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          alt_text?: string | null
+          city?: string
+          country?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          focal_x?: number
+          focal_y?: number
+          iata_code?: string
+          id?: string
+          image_path?: string | null
+          is_active?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_branding: {
         Row: {
           accent_color: string

@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.get-ads]
 verify_jwt = false
+
+[functions.flight-destinations]
+verify_jwt = false
