@@ -300,9 +300,10 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
           {/* Swap Button */}
           <button
             onClick={swapLocations}
+            aria-label="Swap origin and destination"
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-card border border-border rounded-full flex items-center justify-center shadow-sm active:scale-95 transition-transform"
           >
-            <ArrowRightLeft className="h-4 w-4 text-muted-foreground rotate-90" />
+            <ArrowRightLeft className="h-4 w-4 text-muted-foreground rotate-90" aria-hidden="true" />
           </button>
 
           {/* To Field */}

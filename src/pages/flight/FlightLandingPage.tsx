@@ -1,14 +1,14 @@
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, Shield, Search, ArrowRight, ExternalLink,
+  AlertTriangle, Search, ArrowRight, ExternalLink,
   Calculator, PiggyBank, FileCheck, Globe, ClipboardCheck, DollarSign, Plane,
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import ModernFlightSearch from "@/components/search/ModernFlightSearch";
+import { FlightHero, TrustPoints } from "@/components/flight-landing";
 import type { FlightSearchFormValues, ValidationError } from "@/lib/flightSearchValidation";
 import { cn } from "@/lib/utils";
 
@@ -60,15 +60,6 @@ const VALUE_CARDS = [
 
 const WORKING_TOOLS = [
   { label: "Trip Cost Planner", description: "Estimate every category of travel spending in one view.", icon: Calculator, route: "/trip-cost" },
-];
-
-// ── Trust items ──
-
-const TRUST_ITEMS = [
-  { label: "Compare live partner fares", icon: Search },
-  { label: "Secure partner handoff", icon: Shield },
-  { label: "No fee from BookingsFinder", icon: DollarSign },
-  { label: "Multiple booking providers", icon: ExternalLink },
 ];
 
 // ── FAQ ──
@@ -147,8 +138,38 @@ export function FlightLandingPage({ prefill, validationErrors, suppliedSearchPar
     ? `Search live flight fares for ${routeName}. Compare prices, schedules, stops and baggage options from trusted airlines and booking partners.`
     : "Compare flight options from trusted airlines and booking partners. Search by route, dates, travellers and cabin class with BookingsFinder.";
 
+  // Route-aware heading (preserves existing behaviour); default is the Phase 1 headline.
+  const heroHeading = routeName
+    ? `Compare flights from ${routeName}`
+    : "Compare flights for your next journey";
+
+  // Validation banner — shown only when the user supplied invalid URL params.
+  const errorBanner =
+    hasErrors && hasPrefill ? (
+      <div
+        role="alert"
+        className="mt-5 flex max-w-lg items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-left"
+      >
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
+        <div className="text-sm text-amber-800">
+          <p className="mb-1 font-semibold">Please review the search details.</p>
+          <ul className="list-inside list-disc space-y-0.5 text-amber-700">
+            {relevantErrors.slice(0, 3).map((err, i) => (
+              <li key={i}>{err.message}</li>
+            ))}
+            {relevantErrors.length > 3 && (
+              <li>
+                …and {relevantErrors.length - 3} more issue
+                {relevantErrors.length - 3 > 1 ? "s" : ""}
+              </li>
+            )}
+          </ul>
+        </div>
+      </div>
+    ) : null;
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flights-landing min-h-screen bg-background flex flex-col">
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
@@ -161,65 +182,15 @@ export function FlightLandingPage({ prefill, validationErrors, suppliedSearchPar
 
       <main id="main-content" className="flex-1">
         {/* ── 1. Hero + Search Form ── */}
-        <section className="relative py-10 md:py-20 bg-muted/30">
-          <div className="container max-w-5xl mx-auto px-4">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight text-balance mb-4">
-                {routeName
-                  ? `Compare flights from ${routeName}`
-                  : "Compare flights with BookingsFinder"}
-              </h1>
-              <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Search live fares from trusted airlines and booking partners.
-                Compare prices, schedules, stops and baggage options before choosing.
-              </p>
-              <p className="mt-3 text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
-                Independent travel comparison
-              </p>
+        <FlightHero
+          heading={heroHeading}
+          prefill={prefill}
+          hasPrefill={hasPrefill}
+          errorBanner={errorBanner}
+        />
 
-              {/* Validation error banner — only when invalid URL params exist */}
-              {hasErrors && hasPrefill && (
-                <div role="alert" className="mt-5 inline-flex items-start gap-3 px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl text-left max-w-lg mx-auto">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
-                  <div className="text-sm text-amber-800">
-                    <p className="font-semibold mb-1">Please review the search details.</p>
-                    <ul className="list-disc list-inside space-y-0.5 text-amber-700">
-                      {relevantErrors.slice(0, 3).map((err, i) => (
-                        <li key={i}>{err.message}</li>
-                      ))}
-                      {relevantErrors.length > 3 && (
-                        <li>…and {relevantErrors.length - 3} more issue{relevantErrors.length - 3 > 1 ? 's' : ''}</li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Search form card */}
-            <div className="max-w-3xl mx-auto bg-card rounded-2xl border border-border p-4 md:p-6 shadow-sm">
-              <ModernFlightSearch prefill={hasPrefill ? prefill : undefined} hideMultiCity />
-            </div>
-          </div>
-        </section>
-
-        {/* ── 2. Trust Strip ── */}
-        <section className="py-6 md:py-8 bg-background">
-          <div className="max-w-[1100px] mx-auto px-4">
-            <div className="bg-muted/40 border border-border/60 rounded-2xl px-6 py-5 md:px-10 md:py-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
-                {TRUST_ITEMS.map((item) => (
-                  <div key={item.label} className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <item.icon className="h-4 w-4 text-primary" aria-hidden="true" />
-                    </div>
-                    <span className="text-sm font-semibold text-foreground">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* ── 2. Trust Row (compact) ── */}
+        <TrustPoints />
 
         {/* ── 3. Popular Routes ── */}
         <section className="py-12 md:py-16 bg-background">
