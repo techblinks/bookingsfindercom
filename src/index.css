@@ -264,6 +264,38 @@
   }
 }
 
+/*
+ * Page-scoped cool-neutral palette for the /flights landing page (Phase 1).
+ *
+ * Overrides ONLY the neutral tokens (background / surfaces / text / borders)
+ * for descendants of `.flights-landing`. Brand tokens — primary (teal),
+ * accent (coral), success (green), ring, destructive, warning — are left
+ * untouched and inherit from :root, so the brand identity is preserved.
+ *
+ * Scoped to light mode via `:root:not(.dark)` so dark mode keeps the existing
+ * global `.dark` tokens with zero regression. Global `:root` is not modified.
+ */
+:root:not(.dark) .flights-landing {
+  --background: 210 40% 98%;        /* #F8FAFC — cool slate canvas */
+  --foreground: 215 25% 27%;        /* #1F2937 — body text */
+  --card: 0 0% 100%;                /* #FFFFFF — card surfaces */
+  --card-foreground: 215 25% 27%;   /* #1F2937 */
+  --card-hover: 210 40% 98%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 25% 27%;
+  --muted: 210 40% 96%;             /* cool muted surface */
+  --muted-foreground: 215 16% 47%;  /* cool muted text */
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 215 25% 27%;
+  --border: 214 32% 91%;            /* cool hairline */
+  --input: 214 32% 91%;
+}
+
+/* Headings sit a shade darker than body text (#111827) within the scope. */
+:root:not(.dark) .flights-landing :is(h1, h2, h3, h4, h5, h6) {
+  color: hsl(221 39% 11%);
+}
+
 /* Respect user motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *,

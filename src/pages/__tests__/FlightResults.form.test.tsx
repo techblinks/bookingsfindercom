@@ -1,11 +1,15 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import FlightResults from "@/pages/FlightResults";
 
+// Toggleable mobile flag + navigate spy — hoisted so the vi.mock factories below
+// (which are hoisted above imports) can reference them.
+const hoisted = vi.hoisted(() => ({ isMobile: false, navigate: vi.fn() }));
+
 // ── Mocks ──
 
-vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => hoisted.isMobile }));
 vi.mock("@/hooks/useGeoLocation", () => ({
   useGeoLocation: () => ({ geoData: { currency: "USD", currencySymbol: "$", defaultOrigin: "BNE", defaultOriginName: "Brisbane" } }),
 }));
@@ -26,16 +30,26 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { getSessio
 vi.mock("@/lib/supabaseConfig", () => ({ getFunctionUrl: () => "https://mock.test/functions/v1" }));
 vi.mock("react-helmet-async", () => ({ Helmet: ({ children }: { children: React.ReactNode }) => <div data-testid="helmet">{children}</div> }));
 vi.mock("framer-motion", async () => { const a = await vi.importActual("framer-motion"); return { ...a, useReducedMotion: () => true }; });
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return { ...actual, useNavigate: () => hoisted.navigate };
+});
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() }, Toaster: () => null }));
 
 // ════════════════════════════════════════════════════════════
 
 describe("FlightResults — Phase 7B landing page", () => {
+  beforeEach(() => {
+    hoisted.isMobile = false;
+    hoisted.navigate.mockClear();
+  });
+
   // ── Page structure ──
 
   it("renders hero heading on untouched /flights", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
-    expect(screen.getByText("Compare flights with BookingsFinder")).toBeTruthy();
+    expect(screen.getByText("Compare flights for your next journey")).toBeTruthy();
   });
 
   // ── Validation state ──
@@ -69,12 +83,57 @@ describe("FlightResults — Phase 7B landing page", () => {
     expect(screen.getByText("One way")).toBeTruthy();
   });
 
-  // ── Trust strip ──
+  // ── Trust row (compact) ──
 
-  it("renders trust strip items", () => {
+  it("renders the three compact trust points", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
-    expect(screen.getByText("Compare live partner fares")).toBeTruthy();
-    expect(screen.getByText("No fee from BookingsFinder")).toBeTruthy();
+    expect(screen.getByText("Compare available flight options")).toBeTruthy();
+    expect(screen.getByText("Clear and simple search")).toBeTruthy();
+    expect(screen.getByText("Continue securely to the selected provider")).toBeTruthy();
+  });
+
+  it("trust row shows exactly 3 points (no large cards)", () => {
+    render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
+    const list = screen.getByTestId("trust-points");
+    expect(list.querySelectorAll("li").length).toBe(3);
+  });
+
+  // ── Phase 1 hero collage ──
+
+  it("desktop hero renders no more than 3 images", () => {
+    hoisted.isMobile = false;
+    const { container } = render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
+    const heroImgs = Array.from(container.querySelectorAll("img")).filter(
+      (img) => img.getAttribute("src")?.includes("/flights/hero/")
+    );
+    expect(heroImgs.length).toBeLessThanOrEqual(3);
+    expect(heroImgs.length).toBe(3);
+  });
+
+  it("mobile hero presentation uses exactly 1 image", () => {
+    hoisted.isMobile = true;
+    const { container } = render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
+    const heroImgs = Array.from(container.querySelectorAll("img")).filter(
+      (img) => img.getAttribute("src")?.includes("/flights/hero/")
+    );
+    expect(heroImgs.length).toBe(1);
+  });
+
+  it("mobile swap button has an accessible name", () => {
+    hoisted.isMobile = true;
+    render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: /swap origin and destination/i })).toBeTruthy();
+  });
+
+  // ── Search submit wiring (handleSearch unchanged) ──
+
+  it("hero search button is present and an incomplete submit does not navigate", () => {
+    render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
+    const searchBtn = screen.getByRole("button", { name: /search flights/i });
+    expect(searchBtn).toBeTruthy();
+    fireEvent.click(searchBtn);
+    // Incomplete form (no destination / date) → validation blocks navigation.
+    expect(hoisted.navigate).not.toHaveBeenCalled();
   });
 
   // ── Popular routes ──
@@ -173,7 +232,7 @@ describe("FlightResults — Phase 7B landing page", () => {
 
   it("uses default heading on untouched /flights", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
-    expect(screen.getByText("Compare flights with BookingsFinder")).toBeTruthy();
+    expect(screen.getByText("Compare flights for your next journey")).toBeTruthy();
   });
 
   // ── Results mode unchanged ──
