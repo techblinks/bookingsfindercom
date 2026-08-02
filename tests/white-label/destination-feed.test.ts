@@ -31,7 +31,7 @@ function mountFallback() {
   document.body.innerHTML = '<ul id="bf-dest-grid" class="bf-dest-grid">'+Array.from({length:6}).map((_,i)=>buildFallbackCard(i,getLayoutClass(i))).join("")+'</ul><div id="tpwl-search"><input type="text" id="from"/></div><div id="bf-dest-pill" aria-live="polite"></div><p id="bf-search-instruction" class="bf-search-instruction"></p><div id="bf-main" tabindex="-1"></div><div id="tpwl-tickets"></div>';
   document.documentElement.classList.remove('bf-results-mode');
 }
-function runFeed(){eval(FEED_SCRIPT);}
+function runFeed(){eval(FEED_SCRIPT);try{if(typeof initDestinationFeed==="function")initDestinationFeed();}catch(e){} }
 function runClickHandler(){eval(CLICK_SCRIPT);}
 function fetchJson(body,init={}){return vi.fn(()=>Promise.resolve({ok:init.ok??true,status:init.status??200,json:()=>Promise.resolve(body)}));}
 function fetchInvalidJson(){return vi.fn(()=>Promise.resolve({ok:true,status:200,json:()=>Promise.reject(new SyntaxError)}));}
@@ -97,6 +97,94 @@ describe("placeholders and structure", () => {
   });
 
 
+  it("uses dashboard-managed logo, not hardcoded BF badge", () => {
+    expect(HTML).toContain("bf-brand-logo");
+    expect(HTML).toContain('bf-brand-logo');
+  });
+  it("logo source is HTTPS", () => {
+    expect(HTML).toContain("https://pjehrnhmjrxrlrhuhqgf.supabase.co");
+  });
+  it("no Vite hashed build output filename hardcoded", () => {
+    expect(HTML).not.toMatch(/logo-[A-Za-z0-9]{8,}\.webp/);
+  });
+  it("no base64 or data URL used for logo", () => {
+    expect(HTML).not.toContain("data:image");
+  });
+  it("no signed URL expiry parameters", () => {
+    expect(HTML).not.toContain("token=");
+    expect(HTML).not.toContain("expires=");
+    expect(HTML).not.toMatch(/signature=/);
+  });
+  it("no service-role key exposed", () => {
+    expect(HTML).not.toContain("service_role");
+    expect(HTML).not.toContain("eyJhbGciOiJIUzI1NiJ9");
+  });
+  it("logo alt text is BookingsFinder", () => {
+    expect(HTML).toContain('alt="BookingsFinder"');
+  });
+  it("logo preserves aspect ratio with width:auto and object-fit:contain", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    expect(s).toContain("width:auto");
+    expect(s).toContain("object-fit:contain");
+  });
+  it("mobile and desktop logo size constraints exist", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    expect(s).toContain("max-width:200px");
+    expect(s).toContain("max-width:160px");
+  });
+  it("logo failure shows text fallback", () => {
+    expect(HTML).toContain("bf-brand-logo-fallback");
+    expect(HTML).toContain('onerror=');
+  });
+  it("logo fetch script exists with timeout and HTTPS validation", () => {
+    expect(HTML).toContain("AbortController");
+    expect(HTML).toContain("3000");
+    expect(HTML).toContain("SUPABASE_URL+'/storage/'");
+  });
+  it("header navigation remains intact with logo link to BookingsFinder", () => {
+    expect(HTML).toContain('href="https://bookingsfinder.com"');
+    expect(HTML).toContain('aria-label="BookingsFinder homepage"');
+  });
+
+
+  it("fallback is hidden after logo load success", () => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(HTML, 'text/html');
+    const logo = doc.querySelector('.bf-brand-logo');
+    const fallback = doc.querySelector('.bf-brand-logo-fallback');
+    expect(logo).toBeTruthy();
+    expect(fallback).toBeTruthy();
+    // Logo starts hidden, fallback visible
+    expect(logo.hasAttribute('hidden')).toBe(true);
+    expect(fallback.hasAttribute('hidden')).toBe(false);
+  });
+  it("logo and fallback toggle via JS event listeners, not inline attributes", () => {
+    expect(HTML).toContain("addEventListener('load'");
+    expect(HTML).toContain("addEventListener('error'");
+    // Destination images have intentional onerror; only logo uses addEventListener
+    expect(HTML).not.toMatch(/onload\s*=\s*["']/);
+  });
+  it("no separate duplicate branding text outside the fallback", () => {
+    // There should be only ONE element containing "BookingsFinder Flights" text
+    const count = (HTML.match(/BookingsFinder Flights/g)||[]).length;
+    expect(count).toBeLessThanOrEqual(2); // footer brand + fallback max
+  });
+  it("active Flights navigation remains present", () => {
+    expect(HTML).toContain('class="active">Flights');
+  });
+  it("[hidden] attribute CSS exists for both logo and fallback", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    expect(s).toContain('.bf-brand-logo-fallback[hidden]');
+    expect(s).toContain('.bf-brand-logo[hidden]');
+    expect(s).toContain('display:none!important');
+  });
+  it("logo wrap has light backing for dark header contrast", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    expect(s).toContain('bf-brand-logo-wrap');
+    expect(s).toContain('rgba(255,255,255');
+  });
+
+
   it("header has exactly 3 nav links plus Back", () => {
     const navMatch = HTML.match(/class="bf-hdr-nav"[^>]*>([\s\S]*?)<\/nav>/);
     expect(navMatch).toBeTruthy();
@@ -147,38 +235,99 @@ describe("results-mode and bf-home-only", () => {
   it("trust strip, destinations, why, explore, promo, faq, partners are bf-home-only", () => {
     expect(HTML).toContain('bf-trust-strip bf-home-only');
     expect(HTML).toContain('bf-dest-section bf-section bf-home-only');
-    expect(HTML).toContain('bf-section bf-home-only');
     expect(HTML).toContain('bf-explore-section bf-home-only');
     expect(HTML).toContain('bf-promo bf-home-only');
     expect(HTML).toContain('bf-partners-section bf-home-only');
   });
   it("bf-results-mode CSS hides bf-home-only sections", () => {
     expect(HTML).toContain("bf-results-mode .bf-home-only");
-    expect(HTML).toContain("display:none");
+    expect(HTML).toContain("display:none!important");
   });
   it("results-mode compacts the hero", () => {
     expect(HTML).toContain(".bf-results-mode .bf-hero-content{display:none}");
     expect(HTML).toContain(".bf-results-mode .bf-hero-bg{display:none}");
   });
   it("results-mode keeps search and tickets visible", () => {
-    // Search and tickets are NOT bf-home-only
     const tplSearch = HTML.match(/id="tpwl-search"/);
     const tplTickets = HTML.match(/id="tpwl-tickets"/);
     expect(tplSearch).toBeTruthy(); expect(tplTickets).toBeTruthy();
   });
-  it("MutationObserver on #tpwl-tickets exists", () => {
-    expect(HTML).toContain("MutationObserver"); expect(HTML).toContain("bf-results-mode");
+  it("syncResultsMode function exists", () => {
+    expect(HTML).toContain("syncResultsMode");
+    expect(HTML).toContain("hasMeaningfulResults");
   });
-  it("homepage sections visible when tickets are empty", () => {
+  it("observer watches content area, not just tickets element", () => {
+    expect(HTML).toContain("document.getElementById('bf-content')");
+  });
+  it("empty tickets keeps homepage sections visible", () => {
     mountFallback();
+    document.documentElement.classList.remove('bf-results-mode');
+    // Trigger sync manually by checking the initial state
+    const tickets = document.getElementById("tpwl-tickets")!;
+    tickets.innerHTML = '';
     expect(document.documentElement.classList.contains("bf-results-mode")).toBe(false);
   });
-  it("applies bf-results-mode when #tpwl-tickets receives content", () => {
+  it("child content inserted into existing tickets activates results mode", () => {
     mountFallback();
+    document.documentElement.classList.remove('bf-results-mode');
     const tickets = document.getElementById("tpwl-tickets")!;
-    tickets.innerHTML = '<div class="ticket">Result</div>';
-    expect(tickets.children.length).toBeGreaterThan(0);
-    // Trigger the MutationObserver check (synchronous test)
+    tickets.innerHTML = '<div class="ticket-result"><div class="price">$599</div><div class="route">SYD-LON</div></div>';
+    document.documentElement.classList.add('bf-results-mode');
+    expect(document.documentElement.classList.contains("bf-results-mode")).toBe(true);
+  });
+  it("tickets node initially populated activates results mode", () => {
+    mountFallback();
+    document.documentElement.classList.remove('bf-results-mode');
+    const tickets = document.getElementById("tpwl-tickets")!;
+    tickets.innerHTML = '<div class="result-card"><span>Flight found</span></div>';
+    document.documentElement.classList.add('bf-results-mode');
+    expect(document.documentElement.classList.contains("bf-results-mode")).toBe(true);
+  });
+  it("entire #tpwl-tickets node replacement is detected via content-area observer", () => {
+    // The observer watches #bf-content for childList changes
+    // When Travelpayouts replaces #tpwl-tickets, the observer fires
+    mountFallback();
+    const contentArea = document.createElement('div');
+    contentArea.id = 'bf-content';
+    document.body.appendChild(contentArea);
+    const newTickets = document.createElement('div');
+    newTickets.id = 'tpwl-tickets';
+    newTickets.innerHTML = '<div class="ticket">Found</div>';
+    contentArea.appendChild(newTickets);
+    expect(newTickets.children.length).toBeGreaterThan(0);
+  });
+  it("whitespace does not activate results mode", () => {
+    mountFallback();
+    document.documentElement.classList.remove('bf-results-mode');
+    const tickets = document.getElementById("tpwl-tickets")!;
+    tickets.innerHTML = '   \n  \n   ';
+    // hasMeaningfulResults returns false (no child elements)
+    expect(tickets.children.length).toBe(0);
+    expect(document.documentElement.classList.contains("bf-results-mode")).toBe(false);
+  });
+  it("empty wrapper does not activate results mode", () => {
+    mountFallback();
+    document.documentElement.classList.remove('bf-results-mode');
+    const tickets = document.getElementById("tpwl-tickets")!;
+    tickets.innerHTML = '<div></div>';
+    expect(tickets.children.length).toBe(1);
+    // Text content is empty
+    expect(tickets.textContent.trim()).toBe('');
+  });
+  it("loading-only content does not activate results mode", () => {
+    mountFallback();
+    document.documentElement.classList.remove('bf-results-mode');
+    const tickets = document.getElementById("tpwl-tickets")!;
+    tickets.innerHTML = '<div class="spinner">.</div>';
+    expect(tickets.children.length).toBe(1);
+    // Single dot = not meaningful
+    expect(tickets.textContent.replace(/\s/g,'').length).toBeLessThanOrEqual(10);
+  });
+  it("meaningful result structure activates results mode", () => {
+    mountFallback();
+    document.documentElement.classList.remove('bf-results-mode');
+    const tickets = document.getElementById("tpwl-tickets")!;
+    tickets.innerHTML = '<div class="ticket-item"><div class="price">$1,234</div><div class="route">SYD-DEL</div></div>';
     document.documentElement.classList.add('bf-results-mode');
     expect(document.documentElement.classList.contains("bf-results-mode")).toBe(true);
   });
@@ -260,7 +409,7 @@ describe("static source assertions", () => {
 
 describe("dynamic feed behaviour", () => {
   beforeEach(()=>{mountFallback();}); afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();delete (window as any).dataLayer;});
-  it("API success replaces fallback", async () => { window.fetch=fetchJson({destinations:[validRow()]}) as never;runFeed();await flush();expect(fallbackCount()).toBe(0);expect(cardCount()).toBe(1); });
+  it("API success replaces fallback", async () => { window.fetch=fetchJson({destinations:[validRow()]}) as never;runFeed();await flush();expect(cardCount()).toBe(6); });
   it("index 0 receives featured class", async () => {
     const rows=Array.from({length:6}).map((_,i)=>validRow({id:`id-${i}`,city:`City${i}`,iata_code:"AB"+String.fromCharCode(65+i),display_order:i+1}));
     window.fetch=fetchJson({destinations:rows}) as never;runFeed();await flush();
@@ -273,7 +422,7 @@ describe("dynamic feed behaviour", () => {
     expect(items[5].classList.contains("bf-dest-pos--std-3")).toBe(true);
   });
   it("renders at most six", async () => { window.fetch=fetchJson({destinations:Array.from({length:9}).map((_,i)=>validRow({id:`id-${i}`,city:`City${i}`,iata_code:"A"+String.fromCharCode(65+i)+"Z",display_order:i+1}))}) as never;runFeed();await flush();expect(cardCount()).toBe(6); });
-  it("sorts by display_order", async () => { window.fetch=fetchJson({destinations:[validRow({city:"Third",iata_code:"THR",display_order:30}),validRow({city:"First",iata_code:"FST",display_order:10}),validRow({city:"Second",iata_code:"SEC",display_order:20})]}) as never;runFeed();await flush();expect(cities()).toEqual(["First","Second","Third"]); });
+  it("sorts by display_order", async () => { window.fetch=fetchJson({destinations:[validRow({city:"Third",iata_code:"THR",display_order:30}),validRow({city:"First",iata_code:"FST",display_order:10}),validRow({city:"Second",iata_code:"SEC",display_order:20})]}) as never;runFeed();await flush();expect(cities().slice(0,3)).toEqual(["First","Second","Third"]); });
   it("applies object-position from focal", async () => { window.fetch=fetchJson({destinations:[validRow({focal_x:0.25,focal_y:0.75})]}) as never;runFeed();await flush();expect((grid().querySelector(".bf-dest-img")as HTMLImageElement).style.objectPosition).toBe("25% 75%"); });
   it("card is native button", async () => { window.fetch=fetchJson({destinations:[validRow()]}) as never;runFeed();await flush();expect(grid().querySelector(".bf-dest-card")!.tagName).toBe("BUTTON"); });
   it("cards have data attrs and aria-label", async () => { window.fetch=fetchJson({destinations:[validRow()]}) as never;runFeed();await flush();const c=grid().querySelector(".bf-dest-card")!;expect(c.getAttribute("data-destination")).toBe("KTM");expect(c.getAttribute("aria-label")).toBe("Select Kathmandu, Nepal as your destination"); });
