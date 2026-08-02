@@ -59,6 +59,44 @@ describe("placeholders and structure", () => {
     expect(HTML).toContain('/wl/hero/flights-hero-mobile.webp');
   });
   it("no uncontrolled third-party scripts", () => { expect(HTML).not.toMatch(/<script[^>]*src=["'][^"']+["'][^>]*>/); });
+
+
+  it("no #tpwl-search > div structural styling exists", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    expect(s).not.toMatch(/\.bf-search-shell\s+#tpwl-search\s*>\s*div\s*\{/);
+  });
+  it("no flex-basis or assumed field widths on search descendants", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    const rules = s.match(/[^{}]*\{[^}]*\}/g) || [];
+    const searchRules = rules.filter(r => r.includes('bf-search-shell') && r.includes('tpwl-search'));
+    searchRules.forEach(rule => {
+      expect(rule).not.toMatch(/flex-basis/);
+      expect(rule).not.toMatch(/min-width:\s*190px/);
+    });
+  });
+  it("no nth-child search-field positioning", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    expect(s).not.toMatch(/\.bf-search-shell.*nth-child/);
+  });
+  it("no structural grid/flex forced on Travelpayouts wrappers", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    // #tpwl-search must NOT have display:flex or display:grid
+    expect(s).not.toMatch(/#tpwl-search\s*\{[^}]*display\s*:\s*flex/);
+    expect(s).not.toMatch(/#tpwl-search\s*\{[^}]*display\s*:\s*grid/);
+  });
+  it("outer BookingsFinder search shell remains styled", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    expect(s).toContain(".bf-search-shell");
+    expect(s).toContain(".bf-search-panel");
+  });
+  it("Travelpayouts controls internal search layout", () => {
+    const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+    // Verify we are NOT setting flex-wrap, gap, align-items on #tpwl-search children
+    expect(s).not.toMatch(/\.bf-search-shell\s+#tpwl-search\s*\{[^}]*flex-wrap/);
+    expect(s).not.toMatch(/\.bf-search-shell\s+#tpwl-search\s*\{[^}]*align-items/);
+  });
+
+
   it("header has exactly 3 nav links plus Back", () => {
     const navMatch = HTML.match(/class="bf-hdr-nav"[^>]*>([\s\S]*?)<\/nav>/);
     expect(navMatch).toBeTruthy();
