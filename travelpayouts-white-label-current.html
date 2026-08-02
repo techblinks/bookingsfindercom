@@ -69,6 +69,16 @@
     #tpwl-tickets{scroll-margin-top:88px}
     @media(max-width:768px){#tpwl-search{scroll-margin-top:72px}#tpwl-tickets{scroll-margin-top:72px}}
 
+    /* Dashboard-managed logo */
+    .bf-brand-logo-wrap{display:inline-flex;align-items:center;padding:6px 10px;background:rgba(255,255,255,0.12);border-radius:10px}
+    .bf-header.scrolled .bf-brand-logo-wrap{background:rgba(255,255,255,0)}
+    .bf-brand-logo{display:block;max-width:200px;max-height:44px;width:auto;height:auto;object-fit:contain}
+    .bf-brand-logo-fallback{font-size:18px;font-weight:750;color:#fff;transition:color 0.3s;white-space:nowrap}
+    .bf-header.scrolled .bf-brand-logo-fallback{color:var(--bf-ink)}
+    .bf-brand-logo-fallback strong{color:var(--bf-coral)}
+    .bf-brand-logo-fallback[hidden],.bf-brand-logo[hidden]{display:none!important}
+    @media(max-width:768px){.bf-brand-logo{max-width:160px;max-height:38px}.bf-brand-logo-fallback{font-size:16px}.bf-brand-logo-wrap{padding:4px 8px}}
+
     /* Hero */
     .bf-hero{position:relative;display:flex;align-items:flex-end;min-height:520px;overflow:hidden;background:#1a2740}
     .bf-hero-bg{position:absolute;inset:0;z-index:0}
@@ -81,11 +91,11 @@
     .bf-hero p{margin:14px 0 0;max-width:540px;color:rgba(255,255,255,0.75);font-size:17px;line-height:1.55}
 
     .bf-hero-search{width:100%;margin-top:0;padding-bottom:80px}
-    .bf-search-shell{border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
+    .bf-search-shell{border-radius:14px;overflow:hidden;border:1px solid rgba(148,163,184,.35);box-shadow:0 16px 40px rgba(3,18,38,.20)}
     .bf-search-tabs{display:flex;background:rgba(15,23,42,0.85);padding:0;gap:0}
     .bf-search-tab{padding:14px 24px;font-size:14px;font-weight:650;color:rgba(255,255,255,0.55);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:color 0.2s,border-color 0.2s}
     .bf-search-tab.active{color:#fff;border-bottom-color:var(--bf-coral)}
-    .bf-search-panel{background:#fff;padding:20px 24px}
+    .bf-search-panel{background:#F3F6F9;padding:16px 20px}
     .bf-search-panel .bf-search-instruction{display:none;font-size:14px;color:var(--bf-muted);margin-bottom:14px}
     .bf-search-panel .bf-dest-pill{display:none;align-items:center;gap:10px;padding:7px 16px;margin-bottom:12px;background:rgba(11,93,99,0.07);border:1px solid rgba(11,93,99,0.18);border-radius:100px;font-size:14px;font-weight:600;color:var(--bf-teal)}
     .bf-search-panel .bf-dest-pill.active{display:inline-flex}
@@ -102,6 +112,20 @@
     .bf-results-mode .bf-hero-search{padding-bottom:28px}
     .bf-results-mode .bf-home-only{display:none!important}
     @media(max-width:768px){.bf-results-mode .bf-hero{padding-top:68px}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /* Trust strip */
     .bf-trust-strip{background:#fff;border-bottom:1px solid var(--bf-border);padding:20px 0}
@@ -216,7 +240,7 @@
 
   <header class="bf-header" id="bf-header">
     <div class="bf-container">
-      <div class="bf-hdr-brand"><div class="bf-hdr-icon" aria-hidden="true">BF</div><span>Bookings<strong>Finder</strong> Flights</span></div>
+      <a class="bf-hdr-brand" href="https://bookingsfinder.com" target="_self" aria-label="BookingsFinder homepage"><span class="bf-brand-logo-wrap"><img class="bf-brand-logo" src="" alt="BookingsFinder" width="200" height="44" loading="eager" decoding="async" hidden></span><span class="bf-brand-logo-fallback">Bookings<strong>Finder</strong> Flights</span></a>
       <nav class="bf-hdr-nav" aria-label="Main navigation">
         <a href="#bf-main" class="active">Flights</a>
         <a href="https://bookingsfinder.com/hotels">Stays</a>
@@ -270,12 +294,12 @@
       <div class="bf-container">
         <div class="bf-section-heading"><h2 id="bf-dest-heading">Popular destinations</h2><p>Explore popular destinations and start your flight search.</p></div>
         <ul id="bf-dest-grid" class="bf-dest-grid">
-          <li class="bf-dest-item bf-dest-pos--featured"><button type="button" class="bf-dest-card" data-destination="KTM" data-city="Kathmandu" aria-label="Select Kathmandu, Nepal as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.avif 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.webp 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/kathmandu-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Kathmandu, Nepal — temple rooftops beneath the Himalaya" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">KTM</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Kathmandu</span><span class="bf-dest-country">Nepal</span><span class="bf-dest-desc">Gateway to the Himalaya</span></span></button></li>
-          <li class="bf-dest-item bf-dest-pos--stack-1"><button type="button" class="bf-dest-card" data-destination="DEL" data-city="New Delhi" aria-label="Select New Delhi, India as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.avif 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.webp 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/new-delhi-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="New Delhi, India — a historic sandstone monument at golden hour" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">DEL</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">New Delhi</span><span class="bf-dest-country">India</span><span class="bf-dest-desc">History meets modern India</span></span></button></li>
-          <li class="bf-dest-item bf-dest-pos--stack-2"><button type="button" class="bf-dest-card" data-destination="DXB" data-city="Dubai" aria-label="Select Dubai, United Arab Emirates as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/dubai-480.avif 480w, https://bookingsfinder.com/wl/destinations/dubai-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/dubai-480.webp 480w, https://bookingsfinder.com/wl/destinations/dubai-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/dubai-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Dubai, United Arab Emirates — a modern skyline against a hazy warm sky" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">DXB</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Dubai</span><span class="bf-dest-country">United Arab Emirates</span><span class="bf-dest-desc">A skyline in the desert</span></span></button></li>
-          <li class="bf-dest-item bf-dest-pos--std-1"><button type="button" class="bf-dest-card" data-destination="LON" data-city="London" aria-label="Select London, United Kingdom as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/london-480.avif 480w, https://bookingsfinder.com/wl/destinations/london-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/london-480.webp 480w, https://bookingsfinder.com/wl/destinations/london-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/london-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="London, United Kingdom — a classic bridge over a calm river" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">LON</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">London</span><span class="bf-dest-country">United Kingdom</span><span class="bf-dest-desc">Timeless landmarks and lanes</span></span></button></li>
-          <li class="bf-dest-item bf-dest-pos--std-2"><button type="button" class="bf-dest-card" data-destination="SIN" data-city="Singapore" aria-label="Select Singapore, Singapore as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/singapore-480.avif 480w, https://bookingsfinder.com/wl/destinations/singapore-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/singapore-480.webp 480w, https://bookingsfinder.com/wl/destinations/singapore-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/singapore-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Singapore, Singapore — a green city skyline with lush foreground trees" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">SIN</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Singapore</span><span class="bf-dest-country">Singapore</span><span class="bf-dest-desc">A lush garden city</span></span></button></li>
-          <li class="bf-dest-item bf-dest-pos--std-3"><button type="button" class="bf-dest-card" data-destination="SYD" data-city="Sydney" aria-label="Select Sydney, Australia as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/sydney-480.avif 480w, https://bookingsfinder.com/wl/destinations/sydney-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/sydney-480.webp 480w, https://bookingsfinder.com/wl/destinations/sydney-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/sydney-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Sydney, Australia — a harbour view with sailboats and blue water" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">SYD</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Sydney</span><span class="bf-dest-country">Australia</span><span class="bf-dest-desc">Harbour city and beaches</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--featured"><button type="button" class="bf-dest-card" data-destination="KTM" data-city="Kathmandu" aria-label="Select Kathmandu, Nepal as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.avif 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.webp 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/kathmandu-800.jpg" width="800" height="600" loading="lazy" decoding="async" onerror="this.style.display='none';this.style.visibility='hidden'" alt="Kathmandu, Nepal — temple rooftops beneath the Himalaya" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">KTM</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Kathmandu</span><span class="bf-dest-country">Nepal</span><span class="bf-dest-desc">Gateway to the Himalaya</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--stack-1"><button type="button" class="bf-dest-card" data-destination="DEL" data-city="New Delhi" aria-label="Select New Delhi, India as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.avif 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.webp 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/new-delhi-800.jpg" width="800" height="600" loading="lazy" decoding="async" onerror="this.style.display='none';this.style.visibility='hidden'" alt="New Delhi, India — a historic sandstone monument at golden hour" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">DEL</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">New Delhi</span><span class="bf-dest-country">India</span><span class="bf-dest-desc">History meets modern India</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--stack-2"><button type="button" class="bf-dest-card" data-destination="DXB" data-city="Dubai" aria-label="Select Dubai, United Arab Emirates as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/dubai-480.avif 480w, https://bookingsfinder.com/wl/destinations/dubai-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/dubai-480.webp 480w, https://bookingsfinder.com/wl/destinations/dubai-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/dubai-800.jpg" width="800" height="600" loading="lazy" decoding="async" onerror="this.style.display='none';this.style.visibility='hidden'" alt="Dubai, United Arab Emirates — a modern skyline against a hazy warm sky" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">DXB</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Dubai</span><span class="bf-dest-country">United Arab Emirates</span><span class="bf-dest-desc">A skyline in the desert</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--std-1"><button type="button" class="bf-dest-card" data-destination="LON" data-city="London" aria-label="Select London, United Kingdom as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/london-480.avif 480w, https://bookingsfinder.com/wl/destinations/london-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/london-480.webp 480w, https://bookingsfinder.com/wl/destinations/london-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/london-800.jpg" width="800" height="600" loading="lazy" decoding="async" onerror="this.style.display='none';this.style.visibility='hidden'" alt="London, United Kingdom — a classic bridge over a calm river" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">LON</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">London</span><span class="bf-dest-country">United Kingdom</span><span class="bf-dest-desc">Timeless landmarks and lanes</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--std-2"><button type="button" class="bf-dest-card" data-destination="SIN" data-city="Singapore" aria-label="Select Singapore, Singapore as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/singapore-480.avif 480w, https://bookingsfinder.com/wl/destinations/singapore-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/singapore-480.webp 480w, https://bookingsfinder.com/wl/destinations/singapore-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/singapore-800.jpg" width="800" height="600" loading="lazy" decoding="async" onerror="this.style.display='none';this.style.visibility='hidden'" alt="Singapore, Singapore — a green city skyline with lush foreground trees" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">SIN</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Singapore</span><span class="bf-dest-country">Singapore</span><span class="bf-dest-desc">A lush garden city</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--std-3"><button type="button" class="bf-dest-card" data-destination="SYD" data-city="Sydney" aria-label="Select Sydney, Australia as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/sydney-480.avif 480w, https://bookingsfinder.com/wl/destinations/sydney-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/sydney-480.webp 480w, https://bookingsfinder.com/wl/destinations/sydney-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/sydney-800.jpg" width="800" height="600" loading="lazy" decoding="async" onerror="this.style.display='none';this.style.visibility='hidden'" alt="Sydney, Australia — a harbour view with sailboats and blue water" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">SYD</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Sydney</span><span class="bf-dest-country">Australia</span><span class="bf-dest-desc">Harbour city and beaches</span></span></button></li>
         </ul>
       </div>
     </section>
@@ -372,26 +396,233 @@
     // FAQ accordion
     (function(){var btns=document.querySelectorAll('.bf-faq-btn');for(var i=0;i<btns.length;i++){btns[i].addEventListener('click',function(){var open=this.getAttribute('aria-expanded')==='true';this.setAttribute('aria-expanded',String(!open));var dd=document.getElementById(this.getAttribute('aria-controls')||'');if(dd){dd.classList.toggle('open',!open);}});}})();
 
-    // Results-mode observer on #tpwl-tickets
-    (function(){var tickets=document.getElementById('tpwl-tickets');if(!tickets||typeof MutationObserver==='undefined')return;
-    var observer=new MutationObserver(function(){var hasContent=tickets.children.length>0&&tickets.textContent.trim().length>0;document.documentElement.classList.toggle('bf-results-mode',hasContent);});
-    observer.observe(tickets,{childList:true,subtree:true,characterData:true});
-    // Initial check
-    if(tickets.children.length>0&&tickets.textContent.trim().length>0){document.documentElement.classList.add('bf-results-mode');}
+    // Results-mode detection — syncs bf-results-mode based on real ticket content.
+    // Handles: initial content, dynamic additions, and #tpwl-tickets node replacement.
+    (function(){
+      var TICKETS_ID = 'tpwl-tickets';
+      if (typeof MutationObserver === 'undefined') return;
+
+      function hasMeaningfulResults(node) {
+        if (!node) return false;
+        if (node.children.length === 0) return false;
+        var text = node.textContent.replace(/\s/g, '');
+        return text.length > 10;
+      }
+
+      function syncResultsMode() {
+        var tickets = document.getElementById(TICKETS_ID);
+        document.documentElement.classList.toggle('bf-results-mode', hasMeaningfulResults(tickets));
+      }
+
+      // Initial check
+      syncResultsMode();
+
+      // Observe content area for tickets node replacement + content changes
+      var contentArea = document.getElementById('bf-content') || document.body;
+      var observer = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+          var m = mutations[i];
+          if (m.type === 'childList') {
+            for (var j = 0; j < m.addedNodes.length; j++) {
+              var node = m.addedNodes[j];
+              if (node.id === TICKETS_ID || (node.querySelector && node.querySelector('#' + TICKETS_ID))) {
+                syncResultsMode(); return;
+              }
+            }
+            for (var k = 0; k < m.removedNodes.length; k++) {
+              if (m.removedNodes[k].id === TICKETS_ID) {
+                syncResultsMode(); return;
+              }
+            }
+          }
+          if (m.target.id === TICKETS_ID || (m.target.querySelector && m.target.querySelector('#' + TICKETS_ID))) {
+            syncResultsMode(); return;
+          }
+        }
+        syncResultsMode();
+      });
+
+      observer.observe(contentArea, { childList: true, subtree: true, characterData: true });
     })();
   </script>
 
   <script>
-    (function(){'use strict';var GRID_ID='bf-dest-grid';var ENDPOINT='https://pjehrnhmjrxrlrhuhqgf.supabase.co/functions/v1/flight-destinations';var TIMEOUT_MS=4000;var MAX_CARDS=6;var SVG_NS='http://www.w3.org/2000/svg';var IATA_RE=/^[A-Z]{3}$/;var HTTPS_RE=/^https:\/\/[^\s]+$/i;var grid=document.getElementById(GRID_ID);if(!grid||typeof window.fetch!=='function')return;
+    (function(){'use strict';
+    var GRID_ID='bf-dest-grid';
+    var ENDPOINT='https://pjehrnhmjrxrlrhuhqgf.supabase.co/functions/v1/flight-destinations';
+    var TIMEOUT_MS=4000;
+    var MAX_CARDS=6;
+    var SVG_NS='http://www.w3.org/2000/svg';
+    var IATA_RE=/^[A-Z]{3}$/;
+    var HTTPS_RE=/^https:\/\/[^\s]+$/i;
+
+    function initDestinationFeed(){
+      var grid=document.getElementById(GRID_ID);
+      if(!grid||typeof window.fetch!=='function'){setGridState('missing-grid');return;}
+      if(grid.hasAttribute('data-bf-dest-init'))return;
+      grid.setAttribute('data-bf-dest-init','1');
+      setGridState('loading');
+
+      var controller=('AbortController' in window)?new AbortController():null;
+      var timer=window.setTimeout(function(){if(controller)controller.abort();},TIMEOUT_MS);
+      var opts={headers:{'Accept':'application/json'}};
+      if(controller)opts.signal=controller.signal;
+
+      window.fetch(ENDPOINT,opts).then(function(res){
+        if(!res||!res.ok)throw new Error('bad-status');
+        return res.json();
+      }).then(function(payload){
+        window.clearTimeout(timer);
+        if(!payload||!Array.isArray(payload.destinations)){
+          setGridState('invalid-payload');
+          return;
+        }
+        var models=[];
+        for(var i=0;i<payload.destinations.length;i++){
+          var m=normalise(payload.destinations[i]);
+          if(m)models.push(m);
+        }
+        if(models.length===0){
+          setGridState('no-valid-models');
+          return;
+        }
+        models.sort(function(a,b){return a.order-b.order;});
+        if(models.length>MAX_CARDS)models=models.slice(0,MAX_CARDS);
+        render(models);
+        setGridState('loaded');
+      }).catch(function(err){
+        window.clearTimeout(timer);
+        setGridState('error');
+      });
+    }
+
+    function setGridState(state){
+      var grid=document.getElementById(GRID_ID);
+      if(grid)grid.setAttribute('data-bf-dest-state',state);
+    }
+
     function isNonEmptyString(v){return typeof v==='string'&&v.trim().length>0;}
+
     function clampFocal(n){var num=typeof n==='number'?n:Number(n);if(!isFinite(num))return 0.5;if(num<0)return 0;if(num>1)return 1;return num;}
-    function normalise(raw){if(!raw||typeof raw!=='object')return null;if(!isNonEmptyString(raw.city))return null;if(!isNonEmptyString(raw.country))return null;var iata=isNonEmptyString(raw.iata_code)?raw.iata_code.trim().toUpperCase():'';if(!IATA_RE.test(iata))return null;if(!isNonEmptyString(raw.image_url)||!HTTPS_RE.test(raw.image_url.trim()))return null;var order=Number(raw.display_order);if(!isFinite(order))order=Number.MAX_SAFE_INTEGER;return{city:raw.city.trim(),country:raw.country.trim(),iata:iata,slug:isNonEmptyString(raw.slug)?raw.slug.trim():'',description:isNonEmptyString(raw.description)?raw.description.trim():'',altText:isNonEmptyString(raw.alt_text)?raw.alt_text.trim():'',imageUrl:raw.image_url.trim(),focalX:clampFocal(raw.focal_x),focalY:clampFocal(raw.focal_y),order:order};}
+
+    function normalise(raw){
+      if(!raw||typeof raw!=='object')return null;
+      if(!isNonEmptyString(raw.city))return null;
+      if(!isNonEmptyString(raw.country))return null;
+      var iata=isNonEmptyString(raw.iata_code)?raw.iata_code.trim().toUpperCase():'';
+      if(!IATA_RE.test(iata))return null;
+      if(!isNonEmptyString(raw.image_url)||!HTTPS_RE.test(raw.image_url.trim()))return null;
+      var order=Number(raw.display_order);if(!isFinite(order))order=Number.MAX_SAFE_INTEGER;
+      return{
+        city:raw.city.trim(),
+        country:raw.country.trim(),
+        iata:iata,
+        slug:isNonEmptyString(raw.slug)?raw.slug.trim():'',
+        description:isNonEmptyString(raw.description)?raw.description.trim():'',
+        altText:isNonEmptyString(raw.alt_text)?raw.alt_text.trim():'',
+        imageUrl:raw.image_url.trim(),
+        focalX:clampFocal(raw.focal_x),
+        focalY:clampFocal(raw.focal_y),
+        order:order
+      };
+    }
+
     function buildCardArrowSvg(){var svg=document.createElementNS(SVG_NS,'svg');svg.setAttribute('width','16');svg.setAttribute('height','16');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','#0F172A');svg.setAttribute('stroke-width','2.5');svg.setAttribute('stroke-linecap','round');var p=document.createElementNS(SVG_NS,'path');p.setAttribute('d','M5 12h14M12 5l7 7-7 7');svg.appendChild(p);return svg;}
+
     function getLayoutClass(index){if(index===0)return'bf-dest-pos--featured';if(index===1)return'bf-dest-pos--stack-1';if(index===2)return'bf-dest-pos--stack-2';if(index===3)return'bf-dest-pos--std-1';if(index===4)return'bf-dest-pos--std-2';return'bf-dest-pos--std-3';}
-    function buildCard(d,index){var li=document.createElement('li');li.className='bf-dest-item '+getLayoutClass(index);var btn=document.createElement('button');btn.type='button';btn.className='bf-dest-card';btn.setAttribute('data-destination',d.iata);btn.setAttribute('data-city',d.city);if(d.slug)btn.setAttribute('data-slug',d.slug);btn.setAttribute('aria-label','Select '+d.city+', '+d.country+' as your destination');var img=document.createElement('img');img.className='bf-dest-img';img.setAttribute('src',d.imageUrl);img.setAttribute('loading','lazy');img.setAttribute('decoding','async');img.setAttribute('width','800');img.setAttribute('height','600');img.setAttribute('alt',d.altText||(d.city+', '+d.country));img.style.objectPosition=(d.focalX*100)+'% '+(d.focalY*100)+'%';btn.appendChild(img);var scrim=document.createElement('span');scrim.className='bf-dest-scrim';scrim.setAttribute('aria-hidden','true');btn.appendChild(scrim);var badge=document.createElement('span');badge.className='bf-dest-badge';badge.setAttribute('aria-hidden','true');badge.textContent=d.iata;btn.appendChild(badge);var arrow=document.createElement('span');arrow.className='bf-dest-arrow';arrow.setAttribute('aria-hidden','true');arrow.appendChild(buildCardArrowSvg());btn.appendChild(arrow);var body=document.createElement('span');body.className='bf-dest-content';var cityEl=document.createElement('span');cityEl.className='bf-dest-city';cityEl.textContent=d.city;body.appendChild(cityEl);var countryEl=document.createElement('span');countryEl.className='bf-dest-country';countryEl.textContent=d.country;body.appendChild(countryEl);if(d.description){var desc=document.createElement('span');desc.className='bf-dest-desc';desc.textContent=d.description;body.appendChild(desc);}btn.appendChild(body);li.appendChild(btn);return li;}
-    function render(models){var frag=document.createDocumentFragment();for(var i=0;i<models.length;i++){frag.appendChild(buildCard(models[i],i));}while(grid.firstChild)grid.removeChild(grid.firstChild);grid.appendChild(frag);}
-    var controller=('AbortController' in window)?new AbortController():null;var timer=window.setTimeout(function(){if(controller)controller.abort();},TIMEOUT_MS);var opts={headers:{'Accept':'application/json'}};if(controller)opts.signal=controller.signal;
-    window.fetch(ENDPOINT,opts).then(function(res){if(!res||!res.ok)throw new Error('bad-status');return res.json();}).then(function(payload){window.clearTimeout(timer);if(!payload||!Array.isArray(payload.destinations))return;var models=[];for(var i=0;i<payload.destinations.length;i++){var m=normalise(payload.destinations[i]);if(m)models.push(m);}if(models.length===0)return;models.sort(function(a,b){return a.order-b.order;});if(models.length>MAX_CARDS)models=models.slice(0,MAX_CARDS);render(models);}).catch(function(){window.clearTimeout(timer);});})();
+
+    function buildCard(d,index){
+      var li=document.createElement('li');li.className='bf-dest-item '+getLayoutClass(index);
+      var btn=document.createElement('button');btn.type='button';btn.className='bf-dest-card';
+      btn.setAttribute('data-destination',d.iata);btn.setAttribute('data-city',d.city);
+      if(d.slug)btn.setAttribute('data-slug',d.slug);
+      btn.setAttribute('aria-label','Select '+d.city+', '+d.country+' as your destination');
+      var img=document.createElement('img');img.className='bf-dest-img';
+      img.setAttribute('src',d.imageUrl);img.setAttribute('loading','lazy');img.setAttribute('decoding','async');
+      img.setAttribute('width','800');img.setAttribute('height','600');
+      img.setAttribute('alt',d.altText||(d.city+', '+d.country));
+      img.style.objectPosition=(d.focalX*100)+'% '+(d.focalY*100)+'%';
+      // Per-image error handler: hide broken image, preserve card
+      img.addEventListener('error',function(){this.style.display='none';this.style.visibility='hidden';});
+      btn.appendChild(img);
+      var scrim=document.createElement('span');scrim.className='bf-dest-scrim';scrim.setAttribute('aria-hidden','true');btn.appendChild(scrim);
+      var badge=document.createElement('span');badge.className='bf-dest-badge';badge.setAttribute('aria-hidden','true');badge.textContent=d.iata;btn.appendChild(badge);
+      var arrow=document.createElement('span');arrow.className='bf-dest-arrow';arrow.setAttribute('aria-hidden','true');arrow.appendChild(buildCardArrowSvg());btn.appendChild(arrow);
+      var body=document.createElement('span');body.className='bf-dest-content';
+      var cityEl=document.createElement('span');cityEl.className='bf-dest-city';cityEl.textContent=d.city;body.appendChild(cityEl);
+      var countryEl=document.createElement('span');countryEl.className='bf-dest-country';countryEl.textContent=d.country;body.appendChild(countryEl);
+      if(d.description){var desc=document.createElement('span');desc.className='bf-dest-desc';desc.textContent=d.description;body.appendChild(desc);}
+      btn.appendChild(body);li.appendChild(btn);return li;
+    }
+
+    // Fill remaining positions with safe fallback cards
+    function getFallbackModels(count){
+      var fallbacks=[
+        {city:'Kathmandu',country:'Nepal',iata:'KTM',desc:'Gateway to the Himalaya',img:'https://bookingsfinder.com/wl/destinations/kathmandu-800.jpg',fx:0.5,fy:0.28},
+        {city:'New Delhi',country:'India',iata:'DEL',desc:'History meets modern India',img:'https://bookingsfinder.com/wl/destinations/new-delhi-800.jpg',fx:0.5,fy:0.35},
+        {city:'Dubai',country:'United Arab Emirates',iata:'DXB',desc:'A skyline in the desert',img:'https://bookingsfinder.com/wl/destinations/dubai-800.jpg',fx:0.5,fy:0.30},
+        {city:'London',country:'United Kingdom',iata:'LON',desc:'Timeless landmarks and lanes',img:'https://bookingsfinder.com/wl/destinations/london-800.jpg',fx:0.5,fy:0.40},
+        {city:'Singapore',country:'Singapore',iata:'SIN',desc:'A lush garden city',img:'https://bookingsfinder.com/wl/destinations/singapore-800.jpg',fx:0.5,fy:0.45},
+        {city:'Sydney',country:'Australia',iata:'SYD',desc:'Harbour city and beaches',img:'https://bookingsfinder.com/wl/destinations/sydney-800.jpg',fx:0.5,fy:0.35}
+      ];
+      var used=new Set();
+      for(var i=0;i<arguments.length;i++)used.add(arguments[i].iata);
+      var result=[];
+      for(var j=0;j<fallbacks.length&&result.length<count;j++){
+        if(!used.has(fallbacks[j].iata)){result.push({city:fallbacks[j].city,country:fallbacks[j].country,iata:fallbacks[j].iata,slug:'',description:fallbacks[j].desc,altText:'',imageUrl:fallbacks[j].img,focalX:fallbacks[j].fx,focalY:fallbacks[j].fy,order:999});used.add(fallbacks[j].iata);}
+      }
+      return result;
+    }
+
+    function render(models){
+      if(models.length<MAX_CARDS){
+        var fill=getFallbackModels(MAX_CARDS-models.length,models);
+        models=models.concat(fill);
+      }
+      var grid=document.getElementById(GRID_ID);
+      if(!grid)return;
+      var frag=document.createDocumentFragment();
+      for(var i=0;i<Math.min(models.length,MAX_CARDS);i++){
+        try{frag.appendChild(buildCard(models[i],i));}catch(e){/* skip one bad card */}
+      }
+      while(grid.firstChild)grid.removeChild(grid.firstChild);
+      grid.appendChild(frag);
+    }
+
+    // ── Init ──
+    if(document.getElementById(GRID_ID)){
+      initDestinationFeed();
+    }else{
+      document.addEventListener('DOMContentLoaded',initDestinationFeed,{once:true});
+    }
+  })();
+  </script>
+  <!-- Dashboard-managed logo loader -->
+  <script>
+    (function(){
+      var logo=document.querySelector('.bf-brand-logo');
+      var fallback=document.querySelector('.bf-brand-logo-fallback');
+      if(!logo||!fallback)return;
+
+      function showLogo(){logo.hidden=false;fallback.hidden=true;}
+      function showFallback(){logo.hidden=true;fallback.hidden=false;}
+
+      logo.addEventListener('load',showLogo);
+      logo.addEventListener('error',showFallback);
+      // Handle already-cached image
+      if(logo.complete&&logo.naturalWidth>0){showLogo();return;}
+      if(logo.complete&&logo.naturalWidth===0){showFallback();}
+
+      var SUPABASE_URL='https://pjehrnhmjrxrlrhuhqgf.supabase.co';
+      var ANON_KEY='sb_publishable_r4XPmHIf17kPabHjR_xcAg_HC3uHEH5';
+      var endpoint=SUPABASE_URL+'/rest/v1/site_branding?id=eq.default&select=logo_url';
+      var controller=new AbortController();
+      var timer=setTimeout(function(){controller.abort();},3000);
+      fetch(endpoint,{headers:{'apikey':ANON_KEY},signal:controller.signal})
+        .then(function(r){if(!r.ok)throw new Error('bad-status');return r.json();})
+        .then(function(data){clearTimeout(timer);var row=Array.isArray(data)?data[0]:data;if(row&&row.logo_url){var u=row.logo_url;if(u.indexOf('https://')===0&&u.indexOf(SUPABASE_URL+'/storage/')===0){logo.src=u;}}})
+        .catch(function(){clearTimeout(timer);showFallback();});
+    })();
   </script>
 </body>
 </html>
