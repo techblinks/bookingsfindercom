@@ -16,387 +16,195 @@
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   <title>Compare Flights | BookingsFinder[:route_info:]</title>
 
+  <!--
+    HERO IMAGE: BookingsFinder self-hosted WebP.
+    If the image fails to load (e.g. file not yet uploaded), the
+    .bf-hero-bg CSS gradient provides a safe dark-navy fallback.
+    Required files (must be uploaded before production deployment):
+      /wl/hero/flights-hero-desktop.webp  (1400x600)
+      /wl/hero/flights-hero-mobile.webp   (750x460)
+  -->
   <style>
     :root {
-      --bf-ink: #0F172A;
-      --bf-teal: #0B5D63;
-      --bf-teal-dark: #084B50;
-      --bf-coral: #D64A2A;
-      --bf-coral-hover: #B83D22;
-      --bf-warm: #FCFBF8;
-      --bf-pale: #F2F6F7;
-      --bf-border: rgba(15, 23, 42, 0.10);
-      --bf-border-strong: rgba(15, 23, 42, 0.16);
-      --bf-text: #334155;
-      --bf-heading: #0F172A;
-      --bf-muted: #64748B;
-      --bf-page: var(--bf-warm);
-      --bf-card: #FFFFFF;
-      --bf-radius: 20px;
-      --bf-radius-sm: 12px;
-      --bf-max: 1240px;
-      --tpwl-main-text: var(--bf-text);
-      --tpwl-headline-text: var(--bf-heading);
-      --tpwl-links: var(--bf-teal);
+      --bf-ink: #0F172A; --bf-teal: #0B5D63; --bf-teal-dark: #084B50;
+      --bf-coral: #D64A2A; --bf-warm: #FCFBF8; --bf-pale: #F2F6F7;
+      --bf-border: rgba(15,23,42,0.10); --bf-border-strong: rgba(15,23,42,0.16);
+      --bf-text: #334155; --bf-heading: #0F172A; --bf-muted: #64748B;
+      --bf-page: var(--bf-warm); --bf-card: #FFFFFF;
+      --bf-radius: 16px; --bf-radius-sm: 12px; --bf-max: 1240px;
       --tpwl-font-family: "Inter", system-ui, -apple-system, sans-serif;
+      --tpwl-main-text: var(--bf-text); --tpwl-headline-text: var(--bf-heading);
+      --tpwl-links: var(--bf-teal);
       --tpwl-search-form-background: #fff;
       --tpwl-search-result-background: var(--bf-pale);
     }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;width:100%;min-width:0;overflow-x:hidden;color:var(--tpwl-main-text);font-family:var(--tpwl-font-family);-webkit-font-smoothing:antialiased}
+    .bf-container{width:min(100%,var(--bf-max));margin:0 auto;padding-inline:24px}
 
-    * { box-sizing: border-box; }
+    /* Header — 72px fixed */
+    .bf-header{position:fixed;top:0;left:0;right:0;z-index:200;height:72px;display:flex;align-items:center;transition:background 0.3s,box-shadow 0.3s}
+    .bf-header::before{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(10px);transition:background 0.3s}
+    .bf-header.scrolled::before{background:rgba(255,255,255,0.96);backdrop-filter:blur(14px)}
+    .bf-header>*{position:relative;z-index:1}
+    .bf-header .bf-container{display:flex;align-items:center;gap:28px;height:100%}
+    .bf-hdr-brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:750;color:#fff;white-space:nowrap;transition:color 0.3s}
+    .bf-header.scrolled .bf-hdr-brand{color:var(--bf-ink)}
+    .bf-hdr-brand strong{color:var(--bf-coral)}
+    .bf-hdr-icon{flex-shrink:0;width:38px;height:38px;border-radius:50%;background:var(--bf-teal);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:800}
+    .bf-hdr-nav{display:flex;gap:2px}
+    .bf-hdr-nav a{padding:10px 16px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.8);border-radius:8px;text-decoration:none;transition:color 0.2s,background 0.2s}
+    .bf-header.scrolled .bf-hdr-nav a{color:var(--bf-muted)}
+    .bf-hdr-nav a:hover,.bf-hdr-nav a:focus,.bf-hdr-nav a.active{color:#fff;background:rgba(255,255,255,0.12)}
+    .bf-header.scrolled .bf-hdr-nav a:hover,.bf-header.scrolled .bf-hdr-nav a:focus,.bf-header.scrolled .bf-hdr-nav a.active{color:var(--bf-ink);background:var(--bf-pale)}
+    .bf-hdr-back{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-size:14px;font-weight:600;color:#fff;border:1.5px solid rgba(255,255,255,0.5);border-radius:10px;background:none;cursor:pointer;text-decoration:none;white-space:nowrap;transition:all 0.2s}
+    .bf-header.scrolled .bf-hdr-back{color:var(--bf-teal);border-color:var(--bf-teal)}
+    .bf-hdr-back:hover{background:#fff;color:var(--bf-ink);border-color:#fff}
+    .bf-header.scrolled .bf-hdr-back:hover{background:var(--bf-teal);color:#fff}
+    .bf-hdr-back-mobile{display:none!important;margin-left:auto;padding:8px 16px;font-size:13px;font-weight:600;color:#fff;border:1.5px solid rgba(255,255,255,0.5);border-radius:8px;text-decoration:none;white-space:nowrap}
+    @media(max-width:768px){.bf-header{height:60px}.bf-hdr-nav,.bf-hdr-back{display:none!important}.bf-hdr-back-mobile{display:inline-flex!important}.bf-hdr-brand{font-size:16px}.bf-hdr-icon{width:32px;height:32px;font-size:11px}}
 
-    html, body {
-      margin: 0; padding: 0; width: 100%; min-width: 0; overflow-x: hidden;
-      color: var(--tpwl-main-text); background: #fff;
-      font-family: var(--tpwl-font-family); -webkit-font-smoothing: antialiased;
-    }
+    /* Scroll-margin for fixed header */
+    #tpwl-search{scroll-margin-top:88px}
+    #tpwl-tickets{scroll-margin-top:88px}
+    @media(max-width:768px){#tpwl-search{scroll-margin-top:72px}#tpwl-tickets{scroll-margin-top:72px}}
 
-    .bf-container { width: min(100%, var(--bf-max)); margin: 0 auto; padding-inline: 24px; }
+    /* Hero */
+    .bf-hero{position:relative;display:flex;align-items:flex-end;min-height:520px;overflow:hidden;background:#1a2740}
+    .bf-hero-bg{position:absolute;inset:0;z-index:0}
+    .bf-hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(170deg,rgba(15,23,42,0.75) 0%,rgba(15,23,42,0.65) 50%,rgba(8,75,80,0.75) 100%)}
+    .bf-hero-bg img{width:100%;height:100%;object-fit:cover}
+    .bf-hero>.bf-container{position:relative;z-index:1;width:100%;padding-bottom:0;display:flex;flex-direction:column;justify-content:flex-end;min-height:520px}
+    .bf-hero-content{padding-top:100px;padding-bottom:24px}
+    .bf-hero-eyebrow{display:inline-block;padding:5px 14px;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.1);border-radius:100px;margin-bottom:16px}
+    .bf-hero h1{margin:0;font-size:clamp(36px,5vw,52px);line-height:1.08;letter-spacing:-0.025em;color:#fff;max-width:660px;font-weight:750}
+    .bf-hero p{margin:14px 0 0;max-width:540px;color:rgba(255,255,255,0.75);font-size:17px;line-height:1.55}
 
-    /* ═══════════════════════════════════════════════════ HEADER ═══ */
-    .bf-header {
-      position: sticky; top: 0; z-index: 200;
-      height: 72px;
-      background: rgba(255,255,255,0.92);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--bf-border);
-      transition: box-shadow 0.3s;
-    }
-    .bf-header.shadow { box-shadow: 0 2px 16px rgba(15,23,42,0.06); }
-    .bf-header > .bf-container { display: flex; align-items: center; height: 100%; gap: 28px; }
+    .bf-hero-search{width:100%;margin-top:0;padding-bottom:80px}
+    .bf-search-shell{border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
+    .bf-search-tabs{display:flex;background:rgba(15,23,42,0.85);padding:0;gap:0}
+    .bf-search-tab{padding:14px 24px;font-size:14px;font-weight:650;color:rgba(255,255,255,0.55);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:color 0.2s,border-color 0.2s}
+    .bf-search-tab.active{color:#fff;border-bottom-color:var(--bf-coral)}
+    .bf-search-panel{background:#fff;padding:20px 24px}
+    .bf-search-panel .bf-search-instruction{display:none;font-size:14px;color:var(--bf-muted);margin-bottom:14px}
+    .bf-search-panel .bf-dest-pill{display:none;align-items:center;gap:10px;padding:7px 16px;margin-bottom:12px;background:rgba(11,93,99,0.07);border:1px solid rgba(11,93,99,0.18);border-radius:100px;font-size:14px;font-weight:600;color:var(--bf-teal)}
+    .bf-search-panel .bf-dest-pill.active{display:inline-flex}
+    .bf-search-panel .bf-dest-pill.active+.bf-search-instruction{display:block}
+    .bf-pill-close{background:none;border:none;padding:0 4px;cursor:pointer;color:inherit;font-size:18px;line-height:1;font-weight:400}
 
-    .bf-hdr-brand {
-      display: flex; align-items: center; gap: 12px;
-      font-size: 18px; font-weight: 750; color: var(--bf-ink); white-space: nowrap;
-      letter-spacing: -0.01em;
-    }
-    .bf-hdr-brand strong { color: var(--bf-coral); font-weight: 800; }
-    .bf-hdr-icon {
-      flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
-      background: var(--bf-teal); color: #fff;
-      display: grid; place-items: center; font-size: 13px; font-weight: 800;
-    }
+    @media(max-width:1023px){.bf-hero,.bf-hero>.bf-container{min-height:480px}.bf-hero-search{padding-bottom:60px}.bf-search-tab{padding:12px 18px;font-size:13px}.bf-search-panel{padding:16px}}
+    @media(max-width:639px){.bf-hero,.bf-hero>.bf-container{min-height:460px}.bf-hero-content{padding-top:80px}.bf-hero h1{font-size:34px}.bf-hero p{font-size:15px}.bf-search-panel{padding:12px}.bf-search-tab{padding:10px 14px;font-size:12px}.bf-hero-search{padding-bottom:48px}}
 
-    .bf-hdr-nav { display: flex; gap: 2px; }
-    .bf-hdr-nav a {
-      padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--bf-muted);
-      border-radius: 8px; text-decoration: none; transition: color 0.2s, background 0.2s;
-    }
-    .bf-hdr-nav a:hover, .bf-hdr-nav a:focus { color: var(--bf-ink); background: var(--bf-pale); }
+    /* Results mode — hide marketing sections, compact hero */
+    .bf-results-mode .bf-hero{min-height:auto;padding-top:88px;padding-bottom:0}
+    .bf-results-mode .bf-hero-content{display:none}
+    .bf-results-mode .bf-hero-bg{display:none}
+    .bf-results-mode .bf-hero-search{padding-bottom:28px}
+    .bf-results-mode .bf-home-only{display:none!important}
+    @media(max-width:768px){.bf-results-mode .bf-hero{padding-top:68px}}
 
-    .bf-hdr-back {
-      margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
-      padding: 10px 20px; font-size: 14px; font-weight: 600;
-      color: var(--bf-teal); border: 1.5px solid var(--bf-teal); border-radius: 10px;
-      background: none; cursor: pointer; text-decoration: none;
-      white-space: nowrap; transition: all 0.2s; height: 42px;
-    }
-    .bf-hdr-back:hover, .bf-hdr-back:focus { background: var(--bf-teal); color: #fff; }
+    /* Trust strip */
+    .bf-trust-strip{background:#fff;border-bottom:1px solid var(--bf-border);padding:20px 0}
+    .bf-trust-strip .bf-container{display:flex;justify-content:center;gap:36px;flex-wrap:wrap}
+    .bf-trust-strip span{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--bf-muted)}
+    .bf-trust-strip svg{flex-shrink:0;color:var(--bf-teal)}
+    @media(max-width:639px){.bf-trust-strip .bf-container{gap:16px 24px}.bf-trust-strip span{font-size:12px}}
 
-    .bf-hdr-back-mobile {
-      display: none !important; margin-left: auto;
-      padding: 8px 16px; font-size: 13px; font-weight: 600;
-      color: var(--bf-teal); border: 1.5px solid var(--bf-teal); border-radius: 8px;
-      background: none; cursor: pointer; text-decoration: none; white-space: nowrap;
-    }
+    /* Section shared */
+    .bf-section{padding:64px 0}
+    .bf-section-heading{text-align:center;margin-bottom:40px}
+    .bf-section-heading h2{font-size:clamp(28px,4vw,38px);font-weight:750;color:var(--bf-heading);margin:0 0 10px}
+    .bf-section-heading p{color:var(--bf-muted);font-size:16px;max-width:560px;margin:0 auto}
+    @media(max-width:639px){.bf-section{padding:44px 0}.bf-section-heading{margin-bottom:28px}}
 
-    @media (max-width: 768px) {
-      .bf-header { height: 60px; }
-      .bf-hdr-nav, .bf-hdr-back { display: none !important; }
-      .bf-hdr-back-mobile { display: inline-flex !important; }
-      .bf-hdr-brand { font-size: 16px; }
-      .bf-hdr-icon { width: 32px; height: 32px; font-size: 11px; }
-    }
+    .bf-dest-section{background:var(--bf-pale)}
+    .bf-dest-grid{list-style:none;margin:0;padding:0;display:grid;gap:16px;width:100%;min-width:0;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:minmax(0,250px) minmax(0,250px) minmax(0,300px);align-items:stretch}
+    .bf-dest-item{min-width:0;width:100%;height:100%;min-height:0;display:block}
+    .bf-dest-item.bf-dest-pos--featured{grid-column:1/span 7;grid-row:1/span 2}
+    .bf-dest-item.bf-dest-pos--stack-1{grid-column:8/-1;grid-row:1}
+    .bf-dest-item.bf-dest-pos--stack-2{grid-column:8/-1;grid-row:2}
+    .bf-dest-item.bf-dest-pos--std-1{grid-column:1/span 4;grid-row:3}
+    .bf-dest-item.bf-dest-pos--std-2{grid-column:5/span 4;grid-row:3}
+    .bf-dest-item.bf-dest-pos--std-3{grid-column:9/span 4;grid-row:3}
+    .bf-dest-card{width:100%;min-width:0;height:100%;min-height:0;overflow:hidden;display:block;position:relative;border:none;border-radius:20px;background:none;color:#fff;cursor:pointer;text-align:left;font:inherit;padding:0;box-shadow:0 2px 12px rgba(15,23,42,0.06);transition:box-shadow 0.25s ease,transform 0.25s ease;-webkit-appearance:none;appearance:none}
+    .bf-dest-card:hover{box-shadow:0 8px 28px rgba(15,23,42,0.12);transform:translateY(-3px)}
+    .bf-dest-card:focus-visible{outline:none;box-shadow:0 0 0 3px #fff,0 0 0 5px var(--bf-teal)}
+    .bf-dest-img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;transition:transform 0.5s ease}
+    .bf-dest-card:hover .bf-dest-img{transform:scale(1.03)}
+    .bf-dest-scrim{position:absolute;inset:auto 0 0 0;height:58%;pointer-events:none;background:linear-gradient(to top,rgba(15,23,42,0.55) 0%,rgba(11,93,99,0.20) 55%,transparent 100%)}
+    .bf-dest-badge{position:absolute;top:14px;left:14px;z-index:2;padding:5px 12px;font-size:12px;font-weight:700;color:#fff;background:rgba(15,23,42,0.60);border-radius:6px;letter-spacing:0.04em;pointer-events:none}
+    .bf-dest-arrow{position:absolute;bottom:14px;right:14px;z-index:3;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.94);display:grid;place-items:center;box-shadow:0 2px 8px rgba(15,23,42,0.12);pointer-events:none;transition:transform 0.25s ease,background 0.25s ease}
+    .bf-dest-card:hover .bf-dest-arrow{transform:translateX(3px);background:var(--bf-coral)}
+    .bf-dest-card:hover .bf-dest-arrow svg{stroke:#fff}
+    .bf-dest-content{position:absolute;left:18px;right:56px;bottom:16px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:3px;pointer-events:none}
+    .bf-dest-city{display:block;width:100%;font-size:22px;font-weight:750;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,0.25)}
+    .bf-dest-country{display:block;width:100%;font-size:13px;line-height:1.3;opacity:0.88;text-shadow:0 1px 3px rgba(0,0,0,0.20)}
+    .bf-dest-desc{display:block;width:100%;margin-top:2px;font-size:13px;line-height:1.35;opacity:0.9;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 3px rgba(0,0,0,0.15)}
+    .bf-dest-cta{display:none}
+    .bf-dest-item.bf-dest-pos--featured .bf-dest-city{font-size:26px}
+    .bf-dest-item.bf-dest-pos--featured .bf-dest-content{left:22px;right:56px;bottom:20px;gap:4px}
+    @media(max-width:1023px){.bf-dest-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:320px}.bf-dest-item.bf-dest-pos--featured,.bf-dest-item.bf-dest-pos--stack-1,.bf-dest-item.bf-dest-pos--stack-2,.bf-dest-item.bf-dest-pos--std-1,.bf-dest-item.bf-dest-pos--std-2,.bf-dest-item.bf-dest-pos--std-3{grid-column:span 1;grid-row:auto}.bf-dest-content{left:16px;right:52px;bottom:14px;gap:2px}.bf-dest-city{font-size:20px}.bf-dest-item.bf-dest-pos--featured .bf-dest-city{font-size:22px}.bf-dest-item.bf-dest-pos--featured .bf-dest-content{left:18px;right:52px;bottom:16px}.bf-dest-desc,.bf-dest-item.bf-dest-pos--featured .bf-dest-desc{display:none}}
+    @media(max-width:639px){.bf-dest-grid{display:grid;grid-auto-flow:column;grid-template-columns:none;grid-template-rows:440px;grid-auto-columns:min(84vw,360px);gap:14px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-inline:-14px;padding-inline:14px}.bf-dest-grid::-webkit-scrollbar{display:none}.bf-dest-grid>*{grid-column:auto;grid-row:auto;width:100%;height:100%;scroll-snap-align:start}.bf-dest-desc,.bf-dest-item.bf-dest-pos--featured .bf-dest-desc{display:none}.bf-dest-city{font-size:22px}.bf-dest-item.bf-dest-pos--featured .bf-dest-city{font-size:22px}.bf-dest-content{left:16px;right:52px;bottom:14px}}
+    @media(prefers-reduced-motion:reduce){.bf-dest-card,.bf-dest-img,.bf-dest-arrow{transition:none!important}.bf-dest-card:hover{transform:none}.bf-dest-card:hover .bf-dest-img{transform:none}}
 
-    /* ═══════════════════════════════════════════════════ HERO ═══ */
-    .bf-hero {
-      position: relative; overflow: hidden;
-      background: linear-gradient(170deg, #FCFBF8 0%, #EEF4F8 50%, #E8F0F4 100%);
-      padding: 48px 0 0; text-align: center;
-    }
-    .bf-hero-eyebrow {
-      display: inline-block; padding: 5px 14px; font-size: 12px; font-weight: 700;
-      letter-spacing: 0.12em; text-transform: uppercase; color: var(--bf-teal);
-      background: rgba(11,93,99,0.08); border-radius: 100px; margin-bottom: 16px;
-    }
-    .bf-hero h1 {
-      margin: 0; font-size: clamp(36px,5vw,54px); line-height: 1.08;
-      letter-spacing: -0.025em; color: var(--bf-heading); max-width: 700px;
-      margin-inline: auto; text-wrap: balance; font-weight: 750;
-    }
-    .bf-hero p {
-      margin: 14px auto 0; max-width: 580px; color: var(--bf-muted);
-      font-size: 17px; line-height: 1.55;
-    }
-    .bf-hero-trust {
-      display: flex; justify-content: center; gap: 36px; margin-top: 24px;
-      font-size: 13px; color: var(--bf-muted); flex-wrap: wrap;
-    }
-    .bf-hero-trust span { display: flex; align-items: center; gap: 6px; }
-    .bf-hero-trust svg { flex-shrink: 0; color: var(--bf-teal); }
+    .bf-benefits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+    .bf-benefit{text-align:center}
+    .bf-benefit-icon{width:56px;height:56px;border-radius:16px;margin:0 auto 16px;display:grid;place-items:center;background:rgba(11,93,99,0.08);color:var(--bf-teal)}
+    .bf-benefit h3{margin:0 0 8px;font-size:17px;color:var(--bf-heading);font-weight:700}
+    .bf-benefit p{margin:0;font-size:14px;color:var(--bf-muted);line-height:1.5}
+    @media(max-width:1023px){.bf-benefits{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}}
+    @media(max-width:639px){.bf-benefits{grid-template-columns:1fr 1fr;gap:24px 16px}.bf-benefit p{font-size:13px}}
 
-    .bf-route-lines { position: absolute; inset: 0; pointer-events: none; opacity: 0.07; }
-    @media (prefers-reduced-motion: reduce) { .bf-route-lines { display: none; } }
+    .bf-explore-section{background:var(--bf-pale)}
+    .bf-explore-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+    .bf-explore-card{display:flex;flex-direction:column;padding:28px 24px;border-radius:16px;background:#fff;border:1px solid var(--bf-border);text-decoration:none;color:inherit;transition:box-shadow 0.25s ease,border-color 0.25s ease}
+    .bf-explore-card:hover{border-color:rgba(11,93,99,0.3);box-shadow:0 4px 20px rgba(15,23,42,0.06);text-decoration:none}
+    .bf-explore-card h3{margin:0 0 6px;font-size:18px;color:var(--bf-heading);font-weight:700}
+    .bf-explore-card p{margin:0 0 16px;font-size:14px;color:var(--bf-muted);line-height:1.5}
+    .bf-explore-cta{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:650;color:var(--bf-teal);margin-top:auto}
+    @media(max-width:639px){.bf-explore-grid{grid-template-columns:1fr}}
 
-    /* ═══════════════════════════════════════════════════ SEARCH ═══ */
-    .bf-search-section { position: relative; z-index: 10; margin-top: -24px; padding: 0 0 36px; }
-    .bf-search-card {
-      width: 100%; background: #fff; border: 1px solid var(--bf-border-strong);
-      border-radius: var(--bf-radius); box-shadow: 0 4px 20px rgba(15,23,42,0.06); padding: 24px;
-    }
-    .bf-search-instruction { font-size: 15px; color: var(--bf-muted); margin-bottom: 18px; transition: color 0.2s; }
-    .bf-dest-pill {
-      display: none; align-items: center; gap: 10px;
-      padding: 10px 18px; margin-bottom: 16px;
-      background: rgba(11,93,99,0.07); border: 1px solid rgba(11,93,99,0.18);
-      border-radius: 100px; font-size: 14px; font-weight: 600; color: var(--bf-teal);
-    }
-    .bf-dest-pill.active { display: inline-flex; }
-    .bf-dest-pill .bf-pill-close {
-      background: none; border: none; padding: 0 4px; cursor: pointer;
-      color: inherit; font-size: 18px; line-height: 1; font-weight: 400;
-    }
+    .bf-promo{background:var(--bf-teal-dark);color:#fff;text-align:center}
+    .bf-promo h2{margin:0 0 14px;font-size:clamp(28px,4vw,36px);font-weight:750;color:#fff}
+    .bf-promo p{margin:0 auto 24px;max-width:560px;font-size:16px;line-height:1.55;opacity:0.85}
+    .bf-promo-actions{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+    .bf-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;font-weight:650;font-size:15px;border-radius:10px;cursor:pointer;text-decoration:none;transition:all 0.2s;border:none}
+    .bf-btn-primary{background:var(--bf-coral);color:#fff}
+    .bf-btn-primary:hover{background:#B83D22;color:#fff;text-decoration:none}
+    .bf-btn-outline{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,0.4)}
+    .bf-btn-outline:hover{background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.6);text-decoration:none}
 
-    /* ═══════════════════════════════════════════════════ TICKETS ═══ */
-    .bf-tickets-section { padding: 0; }
-    .bf-tickets-section #tpwl-tickets:not(:empty) { margin: 0 0 32px; }
-    #tpwl-search, #tpwl-tickets, #tpwl-search *, #tpwl-tickets * { max-width: 100%; }
-    #tpwl-search, #tpwl-tickets { min-width: 0 !important; width: 100% !important; }
+    .bf-faq-dl{max-width:760px;margin:0 auto}
+    .bf-faq-dt{margin-top:0}
+    .bf-faq-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 0;border:none;border-bottom:1px solid var(--bf-border);background:none;cursor:pointer;text-align:left;font:inherit;font-size:16px;font-weight:650;color:var(--bf-heading);transition:color 0.2s}
+    .bf-faq-btn:hover{color:var(--bf-teal)}
+    .bf-faq-btn:focus-visible{outline:2px solid var(--bf-teal);outline-offset:2px}
+    .bf-faq-icon{flex-shrink:0;transition:transform 0.25s ease}
+    .bf-faq-btn[aria-expanded="true"] .bf-faq-icon{transform:rotate(45deg)}
+    .bf-faq-dd{margin:0;overflow:hidden;max-height:0;transition:max-height 0.3s ease,padding 0.3s ease}
+    .bf-faq-dd.open{max-height:200px}
+    .bf-faq-dd p{padding:14px 0;margin:0;font-size:14px;color:var(--bf-muted);line-height:1.55}
 
-    /* ═══════════════════════════════════════════════════ DESTINATIONS ═══ */
-    .bf-dest-section { padding: 48px 0 48px; }
-    .bf-dest-section h2 {
-      margin: 0 0 8px; text-align: center; font-size: clamp(28px,4vw,38px);
-      line-height: 1.15; font-weight: 750; color: var(--bf-heading);
-    }
-    .bf-dest-section .bf-section-copy {
-      max-width: 560px; margin: 0 auto 28px; text-align: center;
-      color: var(--bf-muted); line-height: 1.55; font-size: 16px;
-    }
+    .bf-partners-section{background:#fff;text-align:center}
+    .bf-partners{display:flex;justify-content:center;align-items:center;gap:32px;flex-wrap:wrap}
+    .bf-partner-name{font-size:16px;font-weight:650;color:var(--bf-muted);opacity:0.6}
 
-    /* Grid — 12-column editorial, 3 fixed rows */
-    .bf-dest-grid {
-      list-style: none; margin: 0; padding: 0;
-      display: grid; gap: 16px; width: 100%; min-width: 0;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      grid-template-rows: minmax(0, 250px) minmax(0, 250px) minmax(0, 300px);
-      align-items: stretch;
-    }
-    .bf-dest-item { min-width: 0; width: 100%; height: 100%; min-height: 0; display: block; }
+    .bf-footer{background:var(--bf-teal-dark);color:rgba(255,255,255,0.85);padding:56px 0 0}
+    .bf-footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px}
+    .bf-footer-brand{font-size:20px;font-weight:800;color:#fff}
+    .bf-footer-desc{margin:10px 0 0;font-size:13px;line-height:1.5;opacity:0.7;max-width:320px}
+    .bf-footer h4{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#fff;margin:0 0 14px}
+    .bf-footer a{display:block;color:rgba(255,255,255,0.7);font-size:14px;padding:5px 0;text-decoration:none;transition:color 0.2s}
+    .bf-footer a:hover,.bf-footer a:focus{color:#fff}
+    .bf-footer-bottom{margin-top:40px;padding:20px 0 28px;border-top:1px solid rgba(255,255,255,0.12);text-align:center;font-size:12px;opacity:0.55;line-height:1.5;max-width:760px;margin-inline:auto}
+    @media(max-width:768px){.bf-footer{padding-top:44px}.bf-footer-grid{grid-template-columns:repeat(2,1fr);gap:28px}.bf-footer-bottom{max-width:100%}}
+    @media(max-width:480px){.bf-footer-grid{grid-template-columns:1fr}}
 
-    /* Index-based explicit positioning — class-driven, no nth-child */
-    .bf-dest-item.bf-dest-pos--featured { grid-column: 1 / span 7; grid-row: 1 / span 2; }
-    .bf-dest-item.bf-dest-pos--stack-1  { grid-column: 8 / -1; grid-row: 1; }
-    .bf-dest-item.bf-dest-pos--stack-2  { grid-column: 8 / -1; grid-row: 2; }
-    .bf-dest-item.bf-dest-pos--std-1    { grid-column: 1 / span 4; grid-row: 3; }
-    .bf-dest-item.bf-dest-pos--std-2    { grid-column: 5 / span 4; grid-row: 3; }
-    .bf-dest-item.bf-dest-pos--std-3    { grid-column: 9 / span 4; grid-row: 3; }
-
-    /* ── Card — full-bleed image tile, fills grid area ── */
-    .bf-dest-card {
-      width: 100%; min-width: 0; height: 100%; min-height: 0; overflow: hidden; display: block;
-      position: relative; border: none; border-radius: 20px;
-      background: none; color: #fff; cursor: pointer;
-      text-align: left; font: inherit; padding: 0;
-      box-shadow: 0 2px 12px rgba(15,23,42,0.06);
-      transition: box-shadow 0.25s ease, transform 0.25s ease;
-      -webkit-appearance: none; appearance: none;
-    }
-
-    .bf-dest-card:hover { box-shadow: 0 8px 28px rgba(15,23,42,0.12); transform: translateY(-3px); }
-    .bf-dest-card:focus-visible {
-      outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--bf-teal);
-    }
-
-    /* Image */
-    .bf-dest-img {
-      position: absolute; inset: 0; display: block;
-      width: 100%; height: 100%; object-fit: cover;
-      transition: transform 0.5s ease;
-    }
-    .bf-dest-card:hover .bf-dest-img { transform: scale(1.03); }
-
-    /* Gradient overlay — transparent top, dark teal bottom */
-    .bf-dest-scrim {
-      position: absolute; inset: auto 0 0 0; height: 58%; pointer-events: none;
-      background: linear-gradient(to top, rgba(15,23,42,0.55) 0%, rgba(11,93,99,0.20) 55%, transparent 100%);
-    }
-
-    /* IATA badge — top-left */
-    .bf-dest-badge {
-      position: absolute; top: 14px; left: 14px; z-index: 2;
-      padding: 5px 12px; font-size: 12px; font-weight: 700;
-      color: #fff; background: rgba(15,23,42,0.60);
-      border-radius: 6px; letter-spacing: 0.04em;
-      pointer-events: none;
-    }
-
-    /* Circular arrow — bottom-right */
-    .bf-dest-arrow {
-      position: absolute; bottom: 14px; right: 14px; z-index: 3;
-      width: 36px; height: 36px; border-radius: 50%;
-      background: rgba(255,255,255,0.94); display: grid; place-items: center;
-      box-shadow: 0 2px 8px rgba(15,23,42,0.12); pointer-events: none;
-      transition: transform 0.25s ease, background 0.25s ease;
-    }
-    .bf-dest-card:hover .bf-dest-arrow { transform: translateX(3px); background: var(--bf-coral); }
-    .bf-dest-card:hover .bf-dest-arrow svg { stroke: #fff; }
-
-    /* Text content — absolutely positioned at bottom, flex column */
-    .bf-dest-content {
-      position: absolute; left: 18px; right: 56px; bottom: 16px; z-index: 2;
-      display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
-      pointer-events: none;
-    }
-    .bf-dest-city {
-      display: block; width: 100%; font-size: 22px; font-weight: 750; line-height: 1.15;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.25);
-    }
-    .bf-dest-country {
-      display: block; width: 100%; font-size: 13px; line-height: 1.3; opacity: 0.88;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.20);
-    }
-    .bf-dest-desc {
-      display: block; width: 100%; margin-top: 2px; font-size: 13px; line-height: 1.35; opacity: 0.9;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.15);
-    }
-    .bf-dest-cta {
-      display: block; width: 100%; margin-top: 4px; font-size: 13px; line-height: 1.3; font-weight: 650;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.20);
-    }
-
-    /* Featured card refinements */
-    .bf-dest-item.bf-dest-pos--featured .bf-dest-city { font-size: 26px; }
-    .bf-dest-item.bf-dest-pos--featured .bf-dest-content { left: 22px; right: 56px; bottom: 20px; gap: 4px; }
-
-    /* Hide description on non-featured cards */
-    .bf-dest-item.bf-dest-pos--stack-1 .bf-dest-desc, .bf-dest-item.bf-dest-pos--stack-2 .bf-dest-desc, .bf-dest-item.bf-dest-pos--std-1 .bf-dest-desc, .bf-dest-item.bf-dest-pos--std-2 .bf-dest-desc, .bf-dest-item.bf-dest-pos--std-3 .bf-dest-desc { display: none; }
-
-    @media (prefers-reduced-motion: reduce) {
-      .bf-dest-card, .bf-dest-img, .bf-dest-arrow { transition: none !important; }
-      .bf-dest-card:hover { transform: none; }
-      .bf-dest-card:hover .bf-dest-img { transform: none; }
-    }
-
-    /* ── Section spacing ── */
-    .bf-dest-section { padding: 64px 0 48px; }
-
-    /* ── Tablet: 2 columns ── */
-    @media (max-width: 1023px) {
-      .bf-dest-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: none;
-        grid-auto-rows: 320px;
-        gap: 16px;
-      }
-      .bf-dest-item.bf-dest-pos--featured,
-      .bf-dest-item.bf-dest-pos--stack-1,
-      .bf-dest-item.bf-dest-pos--stack-2,
-      .bf-dest-item.bf-dest-pos--std-1,
-      .bf-dest-item.bf-dest-pos--std-2,
-      .bf-dest-item.bf-dest-pos--std-3 {
-        grid-column: span 1; grid-row: auto;
-      }
-      .bf-dest-content { left: 16px; right: 52px; bottom: 14px; gap: 2px; }
-      .bf-dest-city { font-size: 20px; }
-      .bf-dest-item.bf-dest-pos--featured .bf-dest-city { font-size: 22px; }
-      .bf-dest-item.bf-dest-pos--featured .bf-dest-content { left: 18px; right: 52px; bottom: 16px; }
-      .bf-dest-desc, .bf-dest-item.bf-dest-pos--featured .bf-dest-desc { display: none; }
-    }
-
-    /* ── Mobile: scroll-snap rail ── */
-    @media (max-width: 639px) {
-      .bf-dest-section { padding: 32px 0 32px; }
-      .bf-dest-section h2 { font-size: 26px; margin-bottom: 4px; }
-      .bf-dest-section .bf-section-copy { margin-bottom: 20px; font-size: 14px; }
-      .bf-dest-grid {
-        display: grid; grid-auto-flow: column; grid-template-columns: none;
-        grid-template-rows: 440px; grid-auto-columns: min(84vw, 360px); gap: 14px;
-        overflow-x: auto; overflow-y: hidden;
-        scroll-snap-type: x mandatory;
-        overscroll-behavior-inline: contain;
-        -webkit-overflow-scrolling: touch; scrollbar-width: none;
-        margin-inline: -14px; padding-inline: 14px;
-      }
-      .bf-dest-grid::-webkit-scrollbar { display: none; }
-      .bf-dest-grid > * {
-        grid-column: auto; grid-row: auto; width: 100%; height: 100%;
-        scroll-snap-align: start;
-      }
-      .bf-dest-desc, .bf-dest-item.bf-dest-pos--featured .bf-dest-desc { display: none; }
-      .bf-dest-city { font-size: 22px; }
-      .bf-dest-item.bf-dest-pos--featured .bf-dest-city { font-size: 22px; }
-      .bf-dest-content { left: 16px; right: 52px; bottom: 14px; }
-    }
-
-    /* ═══════════════════════════════════════════════════ HOW IT WORKS ═══ */
-    .bf-how-section {
-      padding: 60px 0; background: #fff; border-top: 1px solid var(--bf-border);
-    }
-    .bf-how-section h2 {
-      text-align: center; font-size: clamp(28px,3.5vw,34px); font-weight: 750;
-      color: var(--bf-heading); margin: 0 0 44px;
-    }
-    .bf-how-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; position: relative; }
-    .bf-how-line {
-      display: none;
-      position: absolute; top: 42px; left: calc(16.67% + 30px); right: calc(16.67% + 30px);
-      height: 1.5px; background: var(--bf-border-strong); z-index: 0;
-    }
-    @media (min-width: 769px) { .bf-how-line { display: block; } }
-
-    .bf-how-step { position: relative; z-index: 1; text-align: center; }
-    .bf-how-num {
-      width: 52px; height: 52px; margin: 0 auto 18px; border-radius: 50%;
-      background: var(--bf-pale); border: 2px solid var(--bf-teal);
-      display: grid; place-items: center; font-size: 22px; font-weight: 800; color: var(--bf-teal);
-    }
-    .bf-how-step h3 { margin: 0 0 8px; font-size: 18px; color: var(--bf-heading); font-weight: 750; }
-    .bf-how-step p { margin: 0; font-size: 15px; color: var(--bf-muted); line-height: 1.55; max-width: 240px; margin-inline: auto; }
-
-    @media (max-width: 768px) {
-      .bf-how-grid { grid-template-columns: 1fr; gap: 24px; }
-      .bf-how-step { display: flex; align-items: flex-start; gap: 16px; text-align: left; }
-      .bf-how-num { margin: 0; flex-shrink: 0; width: 44px; height: 44px; font-size: 18px; }
-    }
-
-    /* ═══════════════════════════════════════════════════ FOOTER ═══ */
-    .bf-footer { background: var(--bf-teal-dark); color: rgba(255,255,255,0.85); padding: 56px 0 0; }
-    .bf-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 40px; }
-    .bf-footer-brand { font-size: 22px; font-weight: 800; color: #fff; }
-    .bf-footer-desc { margin: 10px 0 0; font-size: 14px; line-height: 1.6; opacity: 0.7; max-width: 340px; }
-    .bf-footer h4 { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #fff; margin: 0 0 14px; }
-    .bf-footer a { display: block; color: rgba(255,255,255,0.7); font-size: 14px; padding: 5px 0; text-decoration: none; transition: color 0.2s; }
-    .bf-footer a:hover, .bf-footer a:focus { color: #fff; }
-
-    .bf-footer-bottom {
-      margin-top: 44px; padding: 22px 0 28px; border-top: 1px solid rgba(255,255,255,0.12);
-      text-align: center; font-size: 13px; opacity: 0.55; line-height: 1.6;
-    }
-
-    @media (max-width: 768px) {
-      .bf-footer { padding-top: 44px; }
-      .bf-footer-grid { grid-template-columns: 1fr; gap: 28px; }
-    }
-
-    /* ═══════════════════════════════════════════════════ COOKIE ═══ */
-    .tpwl-cookie-banner {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
-      display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
-      padding: 16px 24px; background: var(--bf-ink); color: #fff;
-      font-size: 13px; line-height: 1.5;
-    }
-    .tpwl-cookie-banner__accept {
-      padding: 9px 20px; background: var(--bf-coral); color: #fff; border: none;
-      border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;
-    }
-    .tpwl-cookie-banner__link { color: rgba(255,255,255,0.7); font-size: 13px; }
-
-    /* Breakpoint helpers */
-    @media (max-width: 768px) { .bf-container { padding-inline: 14px; } }
-    @media (max-width: 480px) { .bf-container { padding-inline: 10px; } .bf-hero-trust { gap: 14px; font-size: 12px; } }
+    #tpwl-search,#tpwl-tickets,#tpwl-search *,#tpwl-tickets *{max-width:100%}
+    #tpwl-search,#tpwl-tickets{min-width:0!important;width:100%!important}
+    .bf-tickets-section{padding:32px 0}
+    @media(max-width:768px){.bf-container{padding-inline:14px}}
+    @media(max-width:480px){.bf-container{padding-inline:10px}}
   </style>
 
   [:embed_script:]
@@ -406,455 +214,184 @@
 <body>
   <a href="#bf-main" style="position:absolute;top:-100px;left:12px;z-index:300;padding:10px 16px;background:var(--bf-ink);color:#fff;font-weight:600;border-radius:8px;font-size:14px;">Skip to main content</a>
 
-  <!-- ═══════════════════════════════════════════════ HEADER ═══ -->
   <header class="bf-header" id="bf-header">
     <div class="bf-container">
-      <div class="bf-hdr-brand">
-        <div class="bf-hdr-icon" aria-hidden="true">BF</div>
-        <span>Bookings<strong>Finder</strong> Flights</span>
-      </div>
-      <nav class="bf-hdr-nav" aria-label="Page navigation">
-        <a href="#bf-destinations">Destinations</a>
-        <a href="#bf-how">How it works</a>
+      <div class="bf-hdr-brand"><div class="bf-hdr-icon" aria-hidden="true">BF</div><span>Bookings<strong>Finder</strong> Flights</span></div>
+      <nav class="bf-hdr-nav" aria-label="Main navigation">
+        <a href="#bf-main" class="active">Flights</a>
+        <a href="https://bookingsfinder.com/hotels">Stays</a>
+        <a href="https://bookingsfinder.com/trip-cost">Travel Tools</a>
       </nav>
       <a class="bf-hdr-back" href="https://bookingsfinder.com" target="_self">Back to BookingsFinder</a>
       <a class="bf-hdr-back-mobile" href="https://bookingsfinder.com" target="_self">Back</a>
     </div>
   </header>
 
-  <!-- ═══════════════════════════════════════════════ HERO ═══ -->
+  <!-- HERO: replace Unsplash src with self-hosted WebP before deployment -->
   <section class="bf-hero" aria-labelledby="bf-hero-heading">
-    <svg class="bf-route-lines" aria-hidden="true" viewBox="0 0 1440 360" preserveAspectRatio="none">
-      <path d="M-20,180 Q200,80 440,200 T1440,120" fill="none" stroke="#0B5D63" stroke-width="1.5"/>
-      <path d="M-20,240 Q300,340 600,200 T1440,200" fill="none" stroke="#D64A2A" stroke-width="1" opacity="0.6"/>
-      <circle cx="200" cy="200" r="4" fill="#0B5D63" opacity="0.4"/>
-      <circle cx="440" cy="200" r="5" fill="#D64A2A" opacity="0.4"/>
-      <circle cx="900" cy="140" r="4" fill="#0B5D63" opacity="0.3"/>
-    </svg>
-
-    <div class="bf-container" style="position:relative;z-index:1;">
-      <div class="bf-hero-eyebrow">Compare flights</div>
-      <h1 id="bf-hero-heading">Find the right flight, without the noise.</h1>
-      <p>Compare routes across participating providers, see what is available, and continue securely to book. BookingsFinder is a comparison service — we do not sell tickets directly.</p>
-      <div class="bf-hero-trust">
-        <span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Compare providers</span>
-        <span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>No booking fee from us</span>
-        <span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure redirect</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════ SEARCH ═══ -->
-  <section class="bf-search-section" id="bf-main" aria-label="Flight search">
+    <div class="bf-hero-bg" aria-hidden="true"><img src="https://bookingsfinder.com/wl/hero/flights-hero-desktop.webp" alt=""
+      onerror="this.style.display='none'" /></div>
     <div class="bf-container">
-      <div class="bf-search-card">
-        <div id="bf-dest-pill" class="bf-dest-pill" aria-live="polite"></div>
-        <p id="bf-search-instruction" class="bf-search-instruction">Enter your origin and dates to compare available flights.</p>
-        <div id="tpwl-search"></div>
+      <div class="bf-hero-content">
+        <div class="bf-hero-eyebrow">Compare flights</div>
+        <h1 id="bf-hero-heading">Find a better way to fly.</h1>
+        <p>Compare available flights from participating travel providers and continue securely with the option that suits your trip.</p>
+      </div>
+      <div class="bf-hero-search" id="bf-main">
+        <div class="bf-search-shell">
+          <div class="bf-search-tabs">
+            <button class="bf-search-tab active">Flights</button>
+          </div>
+          <div class="bf-search-panel">
+            <div id="bf-dest-pill" class="bf-dest-pill" aria-live="polite"></div>
+            <p id="bf-search-instruction" class="bf-search-instruction">Enter your departure city and dates.</p>
+            <div id="tpwl-search"></div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
+
+  <!-- ═══ HOMEPAGE-ONLY SECTIONS (bf-home-only) ═══ -->
+
+  <div class="bf-trust-strip bf-home-only" aria-label="Why use BookingsFinder">
+    <div class="bf-container">
+      <span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Compare providers</span>
+      <span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>No booking fee from us</span>
+      <span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure provider redirect</span>
+      <span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Search in one place</span>
+    </div>
+  </div>
 
   <main id="bf-content">
-    <section class="bf-tickets-section">
-      <div class="bf-container"><div id="tpwl-tickets"></div></div>
-    </section>
+    <section class="bf-tickets-section"><div class="bf-container"><div id="tpwl-tickets"></div></div></section>
 
-    <!-- ══════════════════════════════════════════ DESTINATIONS ═══ -->
-    <section class="bf-dest-section" id="bf-destinations" aria-labelledby="bf-dest-heading">
+    <section class="bf-dest-section bf-section bf-home-only" id="bf-destinations" aria-labelledby="bf-dest-heading">
       <div class="bf-container">
-        <h2 id="bf-dest-heading">Popular destinations</h2>
-        <p class="bf-section-copy">Explore popular destinations and start your flight search.</p>
-
+        <div class="bf-section-heading"><h2 id="bf-dest-heading">Popular destinations</h2><p>Explore popular destinations and start your flight search.</p></div>
         <ul id="bf-dest-grid" class="bf-dest-grid">
-          <li class="bf-dest-item bf-dest-pos--featured">
-            <button type="button" class="bf-dest-card" data-destination="KTM" data-city="Kathmandu"
-                    aria-label="Search flights to Kathmandu, Nepal">
-              <picture>
-                <source type="image/avif" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.avif 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.avif 800w" />
-                <source type="image/webp" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.webp 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.webp 800w" />
-                <img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/kathmandu-800.jpg"
-                  width="800" height="600" loading="lazy" decoding="async" alt="Kathmandu, Nepal — temple rooftops beneath the Himalaya" />
-              </picture>
-              <span class="bf-dest-scrim" aria-hidden="true"></span>
-              <span class="bf-dest-badge" aria-hidden="true">KTM</span>
-              <span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
-              <span class="bf-dest-content">
-                <span class="bf-dest-city">Kathmandu</span>
-                <span class="bf-dest-country">Nepal</span>
-                <span class="bf-dest-desc">Gateway to the Himalaya</span>
-                <span class="bf-dest-cta">Search flights to Kathmandu <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-              </span>
-            </button>
-          </li>
-
-          <li class="bf-dest-item bf-dest-pos--stack-1">
-            <button type="button" class="bf-dest-card" data-destination="DEL" data-city="New Delhi"
-                    aria-label="Search flights to New Delhi, India">
-              <picture>
-                <source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.avif 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.avif 800w" />
-                <source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.webp 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.webp 800w" />
-                <img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/new-delhi-800.jpg"
-                  width="800" height="600" loading="lazy" decoding="async" alt="New Delhi, India — a historic sandstone monument at golden hour" />
-              </picture>
-              <span class="bf-dest-scrim" aria-hidden="true"></span>
-              <span class="bf-dest-badge" aria-hidden="true">DEL</span>
-              <span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
-              <span class="bf-dest-content">
-                <span class="bf-dest-city">New Delhi</span>
-                <span class="bf-dest-country">India</span>
-                <span class="bf-dest-desc">History meets modern India</span>
-                <span class="bf-dest-cta">Search flights to New Delhi <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-              </span>
-            </button>
-          </li>
-
-          <li class="bf-dest-item bf-dest-pos--stack-2">
-            <button type="button" class="bf-dest-card" data-destination="DXB" data-city="Dubai"
-                    aria-label="Search flights to Dubai, United Arab Emirates">
-              <picture>
-                <source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/dubai-480.avif 480w, https://bookingsfinder.com/wl/destinations/dubai-800.avif 800w" />
-                <source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/dubai-480.webp 480w, https://bookingsfinder.com/wl/destinations/dubai-800.webp 800w" />
-                <img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/dubai-800.jpg"
-                  width="800" height="600" loading="lazy" decoding="async" alt="Dubai, United Arab Emirates — a modern skyline against a hazy warm sky" />
-              </picture>
-              <span class="bf-dest-scrim" aria-hidden="true"></span>
-              <span class="bf-dest-badge" aria-hidden="true">DXB</span>
-              <span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
-              <span class="bf-dest-content">
-                <span class="bf-dest-city">Dubai</span>
-                <span class="bf-dest-country">United Arab Emirates</span>
-                <span class="bf-dest-desc">A skyline in the desert</span>
-                <span class="bf-dest-cta">Search flights to Dubai <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-              </span>
-            </button>
-          </li>
-
-          <li class="bf-dest-item bf-dest-pos--std-1">
-            <button type="button" class="bf-dest-card" data-destination="LON" data-city="London"
-                    aria-label="Search flights to London, United Kingdom">
-              <picture>
-                <source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/london-480.avif 480w, https://bookingsfinder.com/wl/destinations/london-800.avif 800w" />
-                <source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/london-480.webp 480w, https://bookingsfinder.com/wl/destinations/london-800.webp 800w" />
-                <img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/london-800.jpg"
-                  width="800" height="600" loading="lazy" decoding="async" alt="London, United Kingdom — a classic bridge over a calm river" />
-              </picture>
-              <span class="bf-dest-scrim" aria-hidden="true"></span>
-              <span class="bf-dest-badge" aria-hidden="true">LON</span>
-              <span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
-              <span class="bf-dest-content">
-                <span class="bf-dest-city">London</span>
-                <span class="bf-dest-country">United Kingdom</span>
-                <span class="bf-dest-desc">Timeless landmarks and lanes</span>
-                <span class="bf-dest-cta">Search flights to London <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-              </span>
-            </button>
-          </li>
-
-          <li class="bf-dest-item bf-dest-pos--std-2">
-            <button type="button" class="bf-dest-card" data-destination="SIN" data-city="Singapore"
-                    aria-label="Search flights to Singapore, Singapore">
-              <picture>
-                <source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/singapore-480.avif 480w, https://bookingsfinder.com/wl/destinations/singapore-800.avif 800w" />
-                <source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/singapore-480.webp 480w, https://bookingsfinder.com/wl/destinations/singapore-800.webp 800w" />
-                <img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/singapore-800.jpg"
-                  width="800" height="600" loading="lazy" decoding="async" alt="Singapore, Singapore — a green city skyline with lush foreground trees" />
-              </picture>
-              <span class="bf-dest-scrim" aria-hidden="true"></span>
-              <span class="bf-dest-badge" aria-hidden="true">SIN</span>
-              <span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
-              <span class="bf-dest-content">
-                <span class="bf-dest-city">Singapore</span>
-                <span class="bf-dest-country">Singapore</span>
-                <span class="bf-dest-desc">A lush garden city</span>
-                <span class="bf-dest-cta">Search flights to Singapore <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-              </span>
-            </button>
-          </li>
-
-          <li class="bf-dest-item bf-dest-pos--std-3">
-            <button type="button" class="bf-dest-card" data-destination="SYD" data-city="Sydney"
-                    aria-label="Search flights to Sydney, Australia">
-              <picture>
-                <source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/sydney-480.avif 480w, https://bookingsfinder.com/wl/destinations/sydney-800.avif 800w" />
-                <source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw"
-                  srcset="https://bookingsfinder.com/wl/destinations/sydney-480.webp 480w, https://bookingsfinder.com/wl/destinations/sydney-800.webp 800w" />
-                <img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/sydney-800.jpg"
-                  width="800" height="600" loading="lazy" decoding="async" alt="Sydney, Australia — a harbour view with sailboats and blue water" />
-              </picture>
-              <span class="bf-dest-scrim" aria-hidden="true"></span>
-              <span class="bf-dest-badge" aria-hidden="true">SYD</span>
-              <span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
-              <span class="bf-dest-content">
-                <span class="bf-dest-city">Sydney</span>
-                <span class="bf-dest-country">Australia</span>
-                <span class="bf-dest-desc">Harbour city and beaches</span>
-                <span class="bf-dest-cta">Search flights to Sydney <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-              </span>
-            </button>
-          </li>
+          <li class="bf-dest-item bf-dest-pos--featured"><button type="button" class="bf-dest-card" data-destination="KTM" data-city="Kathmandu" aria-label="Select Kathmandu, Nepal as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.avif 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 600px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/kathmandu-480.webp 480w, https://bookingsfinder.com/wl/destinations/kathmandu-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/kathmandu-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Kathmandu, Nepal — temple rooftops beneath the Himalaya" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">KTM</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Kathmandu</span><span class="bf-dest-country">Nepal</span><span class="bf-dest-desc">Gateway to the Himalaya</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--stack-1"><button type="button" class="bf-dest-card" data-destination="DEL" data-city="New Delhi" aria-label="Select New Delhi, India as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.avif 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/new-delhi-480.webp 480w, https://bookingsfinder.com/wl/destinations/new-delhi-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/new-delhi-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="New Delhi, India — a historic sandstone monument at golden hour" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">DEL</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">New Delhi</span><span class="bf-dest-country">India</span><span class="bf-dest-desc">History meets modern India</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--stack-2"><button type="button" class="bf-dest-card" data-destination="DXB" data-city="Dubai" aria-label="Select Dubai, United Arab Emirates as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/dubai-480.avif 480w, https://bookingsfinder.com/wl/destinations/dubai-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 300px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/dubai-480.webp 480w, https://bookingsfinder.com/wl/destinations/dubai-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/dubai-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Dubai, United Arab Emirates — a modern skyline against a hazy warm sky" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">DXB</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Dubai</span><span class="bf-dest-country">United Arab Emirates</span><span class="bf-dest-desc">A skyline in the desert</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--std-1"><button type="button" class="bf-dest-card" data-destination="LON" data-city="London" aria-label="Select London, United Kingdom as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/london-480.avif 480w, https://bookingsfinder.com/wl/destinations/london-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/london-480.webp 480w, https://bookingsfinder.com/wl/destinations/london-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/london-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="London, United Kingdom — a classic bridge over a calm river" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">LON</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">London</span><span class="bf-dest-country">United Kingdom</span><span class="bf-dest-desc">Timeless landmarks and lanes</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--std-2"><button type="button" class="bf-dest-card" data-destination="SIN" data-city="Singapore" aria-label="Select Singapore, Singapore as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/singapore-480.avif 480w, https://bookingsfinder.com/wl/destinations/singapore-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/singapore-480.webp 480w, https://bookingsfinder.com/wl/destinations/singapore-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/singapore-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Singapore, Singapore — a green city skyline with lush foreground trees" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">SIN</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Singapore</span><span class="bf-dest-country">Singapore</span><span class="bf-dest-desc">A lush garden city</span></span></button></li>
+          <li class="bf-dest-item bf-dest-pos--std-3"><button type="button" class="bf-dest-card" data-destination="SYD" data-city="Sydney" aria-label="Select Sydney, Australia as your destination"><picture><source type="image/avif" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/sydney-480.avif 480w, https://bookingsfinder.com/wl/destinations/sydney-800.avif 800w" /><source type="image/webp" sizes="(min-width:1024px) 380px,(min-width:640px) 45vw,92vw" srcset="https://bookingsfinder.com/wl/destinations/sydney-480.webp 480w, https://bookingsfinder.com/wl/destinations/sydney-800.webp 800w" /><img class="bf-dest-img" src="https://bookingsfinder.com/wl/destinations/sydney-800.jpg" width="800" height="600" loading="lazy" decoding="async" alt="Sydney, Australia — a harbour view with sailboats and blue water" /></picture><span class="bf-dest-scrim" aria-hidden="true"></span><span class="bf-dest-badge" aria-hidden="true">SYD</span><span class="bf-dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="bf-dest-content"><span class="bf-dest-city">Sydney</span><span class="bf-dest-country">Australia</span><span class="bf-dest-desc">Harbour city and beaches</span></span></button></li>
         </ul>
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════ HOW IT WORKS ═══ -->
-    <section class="bf-how-section" id="bf-how" aria-labelledby="bf-how-heading">
+    <section class="bf-section bf-home-only" aria-labelledby="bf-why-heading">
       <div class="bf-container">
-        <h2 id="bf-how-heading">How it works</h2>
-        <div class="bf-how-grid">
-          <div class="bf-how-line" aria-hidden="true"></div>
-          <div class="bf-how-step"><div class="bf-how-num" aria-hidden="true">01</div><div><h3>Search</h3><p>Enter your route and dates to find available flights.</p></div></div>
-          <div class="bf-how-step"><div class="bf-how-num" aria-hidden="true">02</div><div><h3>Compare</h3><p>Review providers, fares, and conditions in one place.</p></div></div>
-          <div class="bf-how-step"><div class="bf-how-num" aria-hidden="true">03</div><div><h3>Continue securely</h3><p>Complete your booking with the selected provider.</p></div></div>
+        <div class="bf-section-heading"><h2 id="bf-why-heading">Why BookingsFinder</h2><p>We bring together flight options from participating providers to help you compare and decide.</p></div>
+        <div class="bf-benefits">
+          <div class="bf-benefit"><div class="bf-benefit-icon"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><h3>Compare in one place</h3><p>Search available options from participating travel providers.</p></div>
+          <div class="bf-benefit"><div class="bf-benefit-icon"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>Choose with confidence</h3><p>Review routes, schedules and available fares before continuing.</p></div>
+          <div class="bf-benefit"><div class="bf-benefit-icon"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Continue securely</h3><p>Complete the booking with the selected travel provider.</p></div>
+          <div class="bf-benefit"><div class="bf-benefit-icon"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><h3>Useful travel tools</h3><p>Access trip-cost and planning tools from BookingsFinder.</p></div>
         </div>
+      </div>
+    </section>
+
+    <section class="bf-section bf-explore-section bf-home-only" aria-labelledby="bf-explore-heading">
+      <div class="bf-container">
+        <div class="bf-section-heading"><h2 id="bf-explore-heading">Explore more</h2><p>Discover other ways to plan your trip.</p></div>
+        <div class="bf-explore-grid">
+          <a class="bf-explore-card" href="https://bookingsfinder.com/hotels"><h3>Find stays</h3><p>Search and compare hotel options for your destination.</p><span class="bf-explore-cta">Search hotels <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+          <a class="bf-explore-card" href="https://bookingsfinder.com/trip-cost"><h3>Plan trip costs</h3><p>Estimate the total cost of your trip including flights, hotels and expenses.</p><span class="bf-explore-cta">Estimate costs <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+          <a class="bf-explore-card" href="https://bookingsfinder.com/optimizer"><h3>Optimize your trip</h3><p>Plan multi-city itineraries and find the best route.</p><span class="bf-explore-cta">Plan route <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="bf-section bf-promo bf-home-only">
+      <div class="bf-container">
+        <h2>Plan your whole trip with BookingsFinder</h2>
+        <p>Compare flights, estimate trip costs and explore useful travel tools from one place.</p>
+        <div class="bf-promo-actions">
+          <a class="bf-btn bf-btn-primary" href="https://bookingsfinder.com/trip-cost">Explore travel tools</a>
+          <a class="bf-btn bf-btn-outline" href="https://bookingsfinder.com">Visit BookingsFinder</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="bf-section bf-home-only" aria-labelledby="bf-faq-heading">
+      <div class="bf-container">
+        <div class="bf-section-heading"><h2 id="bf-faq-heading">Frequently asked questions</h2></div>
+        <dl class="bf-faq-dl">
+          <dt class="bf-faq-dt"><button class="bf-faq-btn" aria-expanded="false" aria-controls="faq-1"><span>Does BookingsFinder sell flight tickets?</span><svg class="bf-faq-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button></dt>
+          <dd class="bf-faq-dd" id="faq-1"><p>No. BookingsFinder is a travel comparison platform. We help you search for available flight options and direct you to the provider to complete your booking.</p></dd>
+          <dt class="bf-faq-dt"><button class="bf-faq-btn" aria-expanded="false" aria-controls="faq-2"><span>Where is my booking completed?</span><svg class="bf-faq-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button></dt>
+          <dd class="bf-faq-dd" id="faq-2"><p>When you choose a flight, you are directed to the travel provider to review final prices, baggage conditions and complete your booking on their website.</p></dd>
+          <dt class="bf-faq-dt"><button class="bf-faq-btn" aria-expanded="false" aria-controls="faq-3"><span>Does BookingsFinder charge a booking fee?</span><svg class="bf-faq-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button></dt>
+          <dd class="bf-faq-dd" id="faq-3"><p>No. We do not charge any booking fee. Our service is a search and comparison tool — you pay the provider directly when you book.</p></dd>
+          <dt class="bf-faq-dt"><button class="bf-faq-btn" aria-expanded="false" aria-controls="faq-4"><span>How do I change or cancel a booking?</span><svg class="bf-faq-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button></dt>
+          <dd class="bf-faq-dd" id="faq-4"><p>Since your booking is made with the travel provider, any changes or cancellations must be managed directly with that provider under their terms and conditions.</p></dd>
+          <dt class="bf-faq-dt"><button class="bf-faq-btn" aria-expanded="false" aria-controls="faq-5"><span>Why can flight prices change?</span><svg class="bf-faq-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button></dt>
+          <dd class="bf-faq-dd" id="faq-5"><p>Flight prices are updated by providers and can change based on demand, seat availability and fare-class inventory. The final price is always confirmed on the provider's booking page.</p></dd>
+          <dt class="bf-faq-dt"><button class="bf-faq-btn" aria-expanded="false" aria-controls="faq-6"><span>Who should I contact about an existing booking?</span><svg class="bf-faq-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button></dt>
+          <dd class="bf-faq-dd" id="faq-6"><p>Please contact the travel provider you booked with directly. BookingsFinder does not manage bookings, payments or travel documents.</p></dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="bf-section bf-partners-section bf-home-only" aria-labelledby="bf-partners-heading">
+      <div class="bf-container">
+        <div class="bf-section-heading"><h2 id="bf-partners-heading">Flight search technology by Travelpayouts</h2></div>
+        <div class="bf-partners"><span class="bf-partner-name">Travelpayouts</span></div>
       </div>
     </section>
   </main>
 
-  <!-- ═══════════════════════════════════════════════ FOOTER ═══ -->
   <footer class="bf-footer" role="contentinfo">
     <div class="bf-container">
       <div class="bf-footer-grid">
-        <div>
-          <div class="bf-footer-brand">BookingsFinder Flights</div>
-          <p class="bf-footer-desc">Compare flights from participating travel providers. BookingsFinder is a comparison platform, not an airline or travel agency.</p>
-        </div>
-        <div>
-          <h4>Explore</h4>
-          <a href="https://bookingsfinder.com" target="_self">Main website</a>
-          <a href="https://bookingsfinder.com/flights" target="_blank" rel="noopener">All destinations</a>
-          <a href="https://bookingsfinder.com/flight-deals-guide" target="_blank" rel="noopener">Flight deals guide</a>
-        </div>
-        <div>
-          <h4>Information</h4>
-          <a href="https://bookingsfinder.com/terms" target="_blank" rel="noopener">Terms</a>
-          <a href="https://bookingsfinder.com/privacy" target="_blank" rel="noopener">Privacy</a>
-          <a href="https://bookingsfinder.com/affiliate-disclosure" target="_blank" rel="noopener">Affiliate disclosure</a>
-        </div>
+        <div><div class="bf-footer-brand">BookingsFinder Flights</div><p class="bf-footer-desc">Compare available flight options and continue securely to participating travel providers.</p></div>
+        <div><h4>Explore</h4><a href="#bf-main">Search flights</a><a href="#bf-destinations">Destinations</a><a href="#bf-faq-heading">How it works</a></div>
+        <div><h4>Travel tools</h4><a href="https://bookingsfinder.com/trip-cost">Trip cost planner</a><a href="https://bookingsfinder.com/optimizer">Trip optimizer</a><a href="https://bookingsfinder.com/hotels">Find stays</a></div>
+        <div><h4>Information</h4><a href="https://bookingsfinder.com/terms" target="_blank" rel="noopener">Terms</a><a href="https://bookingsfinder.com/privacy" target="_blank" rel="noopener">Privacy</a><a href="https://bookingsfinder.com/affiliate-disclosure" target="_blank" rel="noopener">Affiliate disclosure</a></div>
       </div>
-      <div class="bf-footer-bottom">
-        &copy; [:current_year:] BookingsFinder. Flight search technology by Travelpayouts.<br>
-        BookingsFinder is a travel comparison platform, not an airline or travel agency. Prices and availability may change. Your booking is completed with the selected third-party provider, whose terms and conditions apply.
-      </div>
+      <div class="bf-footer-bottom">&copy; [:current_year:] BookingsFinder. Flight search technology by Travelpayouts.<br>BookingsFinder is a travel comparison platform, not an airline or travel agency. Prices and availability may change. Your booking is completed with the selected third-party provider, whose terms and conditions apply.</div>
     </div>
   </footer>
 
-  <!-- ═══════════════════════════════════════════════ COOKIE ═══ -->
-  <div class="tpwl-cookie-banner" id="tpwl-cookie-banner" role="alertdialog" aria-label="Cookie consent">
-    <div class="tpwl-cookie-banner__text">We use cookies to remember search preferences and improve your experience. By continuing, you agree to our use of cookies.</div>
-    <div class="tpwl-cookie-banner__actions">
-      <button class="tpwl-cookie-banner__accept" id="tpwl-accept-cookie-btn">Accept</button>
-      <a class="tpwl-cookie-banner__link" href="https://bookingsfinder.com/privacy" target="_blank" rel="noopener">Cookie policy</a>
-    </div>
-  </div>
-
   <!-- [:widget_domain:] -->
 
-  <!-- ═══════════════════════════════════════════════ INTERACTION ═══ -->
   <script>
-    (function () {
-      var grid = document.getElementById('bf-dest-grid');
-      if (!grid) return;
-      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-      var searchContainer = document.getElementById('tpwl-search');
-      var pill = document.getElementById('bf-dest-pill');
-      var instruction = document.getElementById('bf-search-instruction');
-      var SEARCH_REGION_ID = 'bf-main';
+    (function(){var grid=document.getElementById('bf-dest-grid');if(!grid)return;var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');var searchContainer=document.getElementById('tpwl-search');var pill=document.getElementById('bf-dest-pill');var instruction=document.getElementById('bf-search-instruction');
+    function firstUsableControl(root){var els=root.querySelectorAll('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');for(var i=0;i<els.length;i++){var el=els[i];if(el.disabled)continue;if(el.getAttribute('aria-hidden')==='true')continue;var s=window.getComputedStyle(el);if(s.visibility==='hidden'||s.display==='none')continue;var r=el.getBoundingClientRect();if(r.width===0&&r.height===0)continue;return el;}return null;}
+    function findDestinationControl(container){var inputs=container.querySelectorAll('input[type="text"]');if(inputs.length>=2&&!inputs[1].disabled)return inputs[1];for(var i=0;i<inputs.length;i++){if(!inputs[i].disabled)return inputs[i];}return firstUsableControl(container);}
+    function clearDestinationState(){if(pill){pill.innerHTML='';pill.classList.remove('active');}if(instruction){instruction.textContent='';}}
+    grid.addEventListener('click',function(event){var card=event.target.closest('.bf-dest-card');if(!card||card.tagName!=='BUTTON')return;var search=searchContainer;if(!search)return;var iata=card.getAttribute('data-destination')||'';var city=card.getAttribute('data-city')||'';try{if(Array.isArray(window.dataLayer)){window.dataLayer.push({event:'destination_card_click',destination_iata:iata,destination_city:city});}}catch(e){}
+    if(pill&&city&&iata){pill.innerHTML='Destination selected: <strong>'+city+'</strong> &middot; '+iata+' <button class="bf-pill-close" aria-label="Clear destination selection">&times;</button>';pill.classList.add('active');var closeBtn=pill.querySelector('.bf-pill-close');if(closeBtn){closeBtn.addEventListener('click',function(ev){ev.stopPropagation();clearDestinationState();});}}
+    if(instruction&&city){instruction.textContent='Enter your departure city and dates to search flights to '+city+'.';}
+    if(search){search.scrollIntoView({behavior:reduceMotion.matches?'auto':'smooth',block:'start'});}
+    setTimeout(function(){var dest=findDestinationControl(search);if(dest){try{dest.focus({preventScroll:true});}catch(e){}}else{document.getElementById('bf-main')?.focus?.();}},150);});})();
 
-      function firstUsableControl(root) {
-        var els = root.querySelectorAll('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
-        for (var i = 0; i < els.length; i++) {
-          var el = els[i]; if (el.disabled) continue;
-          if (el.getAttribute('aria-hidden') === 'true') continue;
-          var s = window.getComputedStyle(el);
-          if (s.visibility === 'hidden' || s.display === 'none') continue;
-          var r = el.getBoundingClientRect();
-          if (r.width === 0 && r.height === 0) continue;
-          return el;
-        }
-        return null;
-      }
+    (function(){var h=document.getElementById('bf-header');if(!h)return;window.addEventListener('scroll',function(){h.classList.toggle('scrolled',window.scrollY>60);},{passive:true});})();
 
-      function findDestinationControl(container) {
-        var inputs = container.querySelectorAll('input[type="text"]');
-        if (inputs.length >= 2 && !inputs[1].disabled) return inputs[1];
-        for (var i = 0; i < inputs.length; i++) { if (!inputs[i].disabled) return inputs[i]; }
-        return firstUsableControl(container);
-      }
+    // FAQ accordion
+    (function(){var btns=document.querySelectorAll('.bf-faq-btn');for(var i=0;i<btns.length;i++){btns[i].addEventListener('click',function(){var open=this.getAttribute('aria-expanded')==='true';this.setAttribute('aria-expanded',String(!open));var dd=document.getElementById(this.getAttribute('aria-controls')||'');if(dd){dd.classList.toggle('open',!open);}});}})();
 
-      function clearDestinationState() {
-        if (pill) { pill.innerHTML = ''; pill.classList.remove('active'); }
-        if (instruction) { instruction.textContent = 'Enter your origin and dates to compare available flights.'; }
-      }
-
-      // Event delegation on the grid — detects clicks on .bf-dest-card buttons
-      grid.addEventListener('click', function (event) {
-        var card = event.target.closest('.bf-dest-card');
-        if (!card || card.tagName !== 'BUTTON') return;
-        var search = searchContainer;
-        if (!search) return;
-
-        var iata = card.getAttribute('data-destination') || '';
-        var city = card.getAttribute('data-city') || '';
-
-        // Analytics
-        try { if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'destination_card_click', destination_iata: iata, destination_city: city }); } } catch (e) {}
-
-        // Pill
-        if (pill && city && iata) {
-          pill.innerHTML = 'Destination selected: <strong>' + city + '</strong> &middot; ' + iata +
-            ' <button class="bf-pill-close" aria-label="Clear destination selection">&times;</button>';
-          pill.classList.add('active');
-          // Clear handler
-          var closeBtn = pill.querySelector('.bf-pill-close');
-          if (closeBtn) {
-            closeBtn.addEventListener('click', function (ev) { ev.stopPropagation(); clearDestinationState(); });
-          }
-        }
-
-        // Instruction
-        if (instruction && city) { instruction.textContent = 'Enter your departure city and dates to search flights to ' + city + '.'; }
-
-        // Scroll
-        if (search) {
-          search.scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start' });
-        }
-
-        // Focus destination control safely
-        setTimeout(function () {
-          var dest = findDestinationControl(search);
-          if (dest) { try { dest.focus({ preventScroll: true }); } catch (e) {} }
-          else { document.getElementById(SEARCH_REGION_ID)?.focus?.(); }
-        }, 150);
-      });
+    // Results-mode observer on #tpwl-tickets
+    (function(){var tickets=document.getElementById('tpwl-tickets');if(!tickets||typeof MutationObserver==='undefined')return;
+    var observer=new MutationObserver(function(){var hasContent=tickets.children.length>0&&tickets.textContent.trim().length>0;document.documentElement.classList.toggle('bf-results-mode',hasContent);});
+    observer.observe(tickets,{childList:true,subtree:true,characterData:true});
+    // Initial check
+    if(tickets.children.length>0&&tickets.textContent.trim().length>0){document.documentElement.classList.add('bf-results-mode');}
     })();
   </script>
 
-  <!-- ═══════════════════════════════════════════ DYNAMIC FEED ═══ -->
   <script>
-    (function () {
-      'use strict';
-      var GRID_ID = 'bf-dest-grid';
-      var ENDPOINT = 'https://pjehrnhmjrxrlrhuhqgf.supabase.co/functions/v1/flight-destinations';
-      var TIMEOUT_MS = 4000; var MAX_CARDS = 6;
-      var SVG_NS = 'http://www.w3.org/2000/svg';
-      var IATA_RE = /^[A-Z]{3}$/; var HTTPS_RE = /^https:\/\/[^\s]+$/i;
-      var grid = document.getElementById(GRID_ID);
-      if (!grid || typeof window.fetch !== 'function') return;
-
-      function isNonEmptyString(v) { return typeof v === 'string' && v.trim().length > 0; }
-      function clampFocal(n) { var num = typeof n === 'number' ? n : Number(n); if (!isFinite(num)) return 0.5; if (num < 0) return 0; if (num > 1) return 1; return num; }
-
-      function normalise(raw) {
-        if (!raw || typeof raw !== 'object') return null;
-        if (!isNonEmptyString(raw.city)) return null;
-        if (!isNonEmptyString(raw.country)) return null;
-        var iata = isNonEmptyString(raw.iata_code) ? raw.iata_code.trim().toUpperCase() : '';
-        if (!IATA_RE.test(iata)) return null;
-        if (!isNonEmptyString(raw.image_url) || !HTTPS_RE.test(raw.image_url.trim())) return null;
-        var order = Number(raw.display_order); if (!isFinite(order)) order = Number.MAX_SAFE_INTEGER;
-        return { city: raw.city.trim(), country: raw.country.trim(), iata: iata, slug: isNonEmptyString(raw.slug) ? raw.slug.trim() : '', description: isNonEmptyString(raw.description) ? raw.description.trim() : '', altText: isNonEmptyString(raw.alt_text) ? raw.alt_text.trim() : '', imageUrl: raw.image_url.trim(), focalX: clampFocal(raw.focal_x), focalY: clampFocal(raw.focal_y), order: order };
-      }
-
-      function buildArrowSvg() {
-        var svg = document.createElementNS(SVG_NS, 'svg'); svg.setAttribute('width', '16'); svg.setAttribute('height', '16'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
-        var p = document.createElementNS(SVG_NS, 'path'); p.setAttribute('d', 'M5 12h14M13 6l6 6-6 6'); svg.appendChild(p); return svg;
-      }
-
-      function buildCardArrowSvg() {
-        var svg = document.createElementNS(SVG_NS, 'svg'); svg.setAttribute('width', '16'); svg.setAttribute('height', '16'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', '#0F172A'); svg.setAttribute('stroke-width', '2.5'); svg.setAttribute('stroke-linecap', 'round');
-        var p = document.createElementNS(SVG_NS, 'path'); p.setAttribute('d', 'M5 12h14M12 5l7 7-7 7'); svg.appendChild(p); return svg;
-      }
-
-      function getLayoutClass(index) {
-        if (index === 0) return 'bf-dest-pos--featured';
-        if (index === 1) return 'bf-dest-pos--stack-1';
-        if (index === 2) return 'bf-dest-pos--stack-2';
-        if (index === 3) return 'bf-dest-pos--std-1';
-        if (index === 4) return 'bf-dest-pos--std-2';
-        return 'bf-dest-pos--std-3';
-      }
-
-      function buildCard(d, index) {
-        var li = document.createElement('li'); li.className = 'bf-dest-item ' + getLayoutClass(index);
-
-        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bf-dest-card';
-        btn.setAttribute('data-destination', d.iata); btn.setAttribute('data-city', d.city);
-        if (d.slug) btn.setAttribute('data-slug', d.slug);
-        btn.setAttribute('aria-label', 'Search flights to ' + d.city + ', ' + d.country);
-
-        var img = document.createElement('img'); img.className = 'bf-dest-img';
-        img.setAttribute('src', d.imageUrl); img.setAttribute('loading', 'lazy'); img.setAttribute('decoding', 'async');
-        img.setAttribute('width', '800'); img.setAttribute('height', '600');
-        img.setAttribute('alt', d.altText || (d.city + ', ' + d.country));
-        img.style.objectPosition = (d.focalX * 100) + '% ' + (d.focalY * 100) + '%';
-        btn.appendChild(img);
-
-        var scrim = document.createElement('span'); scrim.className = 'bf-dest-scrim'; scrim.setAttribute('aria-hidden', 'true'); btn.appendChild(scrim);
-        var badge = document.createElement('span'); badge.className = 'bf-dest-badge'; badge.setAttribute('aria-hidden', 'true'); badge.textContent = d.iata; btn.appendChild(badge);
-
-        var arrow = document.createElement('span'); arrow.className = 'bf-dest-arrow'; arrow.setAttribute('aria-hidden', 'true');
-        arrow.appendChild(buildCardArrowSvg()); btn.appendChild(arrow);
-
-        var body = document.createElement('span'); body.className = 'bf-dest-content';
-        var cityEl = document.createElement('span'); cityEl.className = 'bf-dest-city'; cityEl.textContent = d.city; body.appendChild(cityEl);
-        var countryEl = document.createElement('span'); countryEl.className = 'bf-dest-country'; countryEl.textContent = d.country; body.appendChild(countryEl);
-        if (d.description) { var desc = document.createElement('span'); desc.className = 'bf-dest-desc'; desc.textContent = d.description; body.appendChild(desc); }
-        var cta = document.createElement('span'); cta.className = 'bf-dest-cta';
-        cta.appendChild(document.createTextNode('Search flights to ' + d.city));
-        cta.appendChild(buildArrowSvg()); body.appendChild(cta);
-        btn.appendChild(body);
-        li.appendChild(btn);
-        return li;
-      }
-
-      function render(models) {
-        var frag = document.createDocumentFragment();
-        for (var i = 0; i < models.length; i++) { frag.appendChild(buildCard(models[i], i)); }
-        while (grid.firstChild) grid.removeChild(grid.firstChild);
-        grid.appendChild(frag);
-      }
-
-      var controller = ('AbortController' in window) ? new AbortController() : null;
-      var timer = window.setTimeout(function () { if (controller) controller.abort(); }, TIMEOUT_MS);
-      var opts = { headers: { 'Accept': 'application/json' } }; if (controller) opts.signal = controller.signal;
-
-      window.fetch(ENDPOINT, opts)
-        .then(function (res) { if (!res || !res.ok) throw new Error('bad-status'); return res.json(); })
-        .then(function (payload) {
-          window.clearTimeout(timer);
-          if (!payload || !Array.isArray(payload.destinations)) return;
-          var models = [];
-          for (var i = 0; i < payload.destinations.length; i++) { var m = normalise(payload.destinations[i]); if (m) models.push(m); }
-          if (models.length === 0) return;
-          models.sort(function (a, b) { return a.order - b.order; });
-          if (models.length > MAX_CARDS) models = models.slice(0, MAX_CARDS);
-          render(models);
-        })
-        .catch(function () { window.clearTimeout(timer); });
-    })();
-  </script>
-
-  <!-- Header shadow on scroll -->
-  <script>
-    (function () {
-      var header = document.getElementById('bf-header');
-      if (!header) return;
-      window.addEventListener('scroll', function () {
-        header.classList.toggle('shadow', window.scrollY > 10);
-      }, { passive: true });
-    })();
+    (function(){'use strict';var GRID_ID='bf-dest-grid';var ENDPOINT='https://pjehrnhmjrxrlrhuhqgf.supabase.co/functions/v1/flight-destinations';var TIMEOUT_MS=4000;var MAX_CARDS=6;var SVG_NS='http://www.w3.org/2000/svg';var IATA_RE=/^[A-Z]{3}$/;var HTTPS_RE=/^https:\/\/[^\s]+$/i;var grid=document.getElementById(GRID_ID);if(!grid||typeof window.fetch!=='function')return;
+    function isNonEmptyString(v){return typeof v==='string'&&v.trim().length>0;}
+    function clampFocal(n){var num=typeof n==='number'?n:Number(n);if(!isFinite(num))return 0.5;if(num<0)return 0;if(num>1)return 1;return num;}
+    function normalise(raw){if(!raw||typeof raw!=='object')return null;if(!isNonEmptyString(raw.city))return null;if(!isNonEmptyString(raw.country))return null;var iata=isNonEmptyString(raw.iata_code)?raw.iata_code.trim().toUpperCase():'';if(!IATA_RE.test(iata))return null;if(!isNonEmptyString(raw.image_url)||!HTTPS_RE.test(raw.image_url.trim()))return null;var order=Number(raw.display_order);if(!isFinite(order))order=Number.MAX_SAFE_INTEGER;return{city:raw.city.trim(),country:raw.country.trim(),iata:iata,slug:isNonEmptyString(raw.slug)?raw.slug.trim():'',description:isNonEmptyString(raw.description)?raw.description.trim():'',altText:isNonEmptyString(raw.alt_text)?raw.alt_text.trim():'',imageUrl:raw.image_url.trim(),focalX:clampFocal(raw.focal_x),focalY:clampFocal(raw.focal_y),order:order};}
+    function buildCardArrowSvg(){var svg=document.createElementNS(SVG_NS,'svg');svg.setAttribute('width','16');svg.setAttribute('height','16');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','#0F172A');svg.setAttribute('stroke-width','2.5');svg.setAttribute('stroke-linecap','round');var p=document.createElementNS(SVG_NS,'path');p.setAttribute('d','M5 12h14M12 5l7 7-7 7');svg.appendChild(p);return svg;}
+    function getLayoutClass(index){if(index===0)return'bf-dest-pos--featured';if(index===1)return'bf-dest-pos--stack-1';if(index===2)return'bf-dest-pos--stack-2';if(index===3)return'bf-dest-pos--std-1';if(index===4)return'bf-dest-pos--std-2';return'bf-dest-pos--std-3';}
+    function buildCard(d,index){var li=document.createElement('li');li.className='bf-dest-item '+getLayoutClass(index);var btn=document.createElement('button');btn.type='button';btn.className='bf-dest-card';btn.setAttribute('data-destination',d.iata);btn.setAttribute('data-city',d.city);if(d.slug)btn.setAttribute('data-slug',d.slug);btn.setAttribute('aria-label','Select '+d.city+', '+d.country+' as your destination');var img=document.createElement('img');img.className='bf-dest-img';img.setAttribute('src',d.imageUrl);img.setAttribute('loading','lazy');img.setAttribute('decoding','async');img.setAttribute('width','800');img.setAttribute('height','600');img.setAttribute('alt',d.altText||(d.city+', '+d.country));img.style.objectPosition=(d.focalX*100)+'% '+(d.focalY*100)+'%';btn.appendChild(img);var scrim=document.createElement('span');scrim.className='bf-dest-scrim';scrim.setAttribute('aria-hidden','true');btn.appendChild(scrim);var badge=document.createElement('span');badge.className='bf-dest-badge';badge.setAttribute('aria-hidden','true');badge.textContent=d.iata;btn.appendChild(badge);var arrow=document.createElement('span');arrow.className='bf-dest-arrow';arrow.setAttribute('aria-hidden','true');arrow.appendChild(buildCardArrowSvg());btn.appendChild(arrow);var body=document.createElement('span');body.className='bf-dest-content';var cityEl=document.createElement('span');cityEl.className='bf-dest-city';cityEl.textContent=d.city;body.appendChild(cityEl);var countryEl=document.createElement('span');countryEl.className='bf-dest-country';countryEl.textContent=d.country;body.appendChild(countryEl);if(d.description){var desc=document.createElement('span');desc.className='bf-dest-desc';desc.textContent=d.description;body.appendChild(desc);}btn.appendChild(body);li.appendChild(btn);return li;}
+    function render(models){var frag=document.createDocumentFragment();for(var i=0;i<models.length;i++){frag.appendChild(buildCard(models[i],i));}while(grid.firstChild)grid.removeChild(grid.firstChild);grid.appendChild(frag);}
+    var controller=('AbortController' in window)?new AbortController():null;var timer=window.setTimeout(function(){if(controller)controller.abort();},TIMEOUT_MS);var opts={headers:{'Accept':'application/json'}};if(controller)opts.signal=controller.signal;
+    window.fetch(ENDPOINT,opts).then(function(res){if(!res||!res.ok)throw new Error('bad-status');return res.json();}).then(function(payload){window.clearTimeout(timer);if(!payload||!Array.isArray(payload.destinations))return;var models=[];for(var i=0;i<payload.destinations.length;i++){var m=normalise(payload.destinations[i]);if(m)models.push(m);}if(models.length===0)return;models.sort(function(a,b){return a.order-b.order;});if(models.length>MAX_CARDS)models=models.slice(0,MAX_CARDS);render(models);}).catch(function(){window.clearTimeout(timer);});})();
   </script>
 </body>
 </html>
