@@ -217,6 +217,35 @@ function getUtmParams(): { source: string | null; medium: string | null; campaig
   };
 }
 
+// ── Internal navigation tracking (typed no-op placeholder) ──────
+
+export interface InternalNavigationEvent {
+  /** Human-readable label for the navigation target (e.g. "Flights", "hero_search") */
+  label: string;
+  /** The page or component that initiated the navigation */
+  source: "header" | "homepage" | "bottom-nav" | "footer";
+  /** The target route path */
+  href: string;
+}
+
+/**
+ * Track internal navigation / CTA clicks.
+ *
+ * This is a typed placeholder. It validates the payload shape and
+ * provides a single injection point for product analytics (PostHog,
+ * Plausible, GA4, etc.) when the implementation is ready.
+ *
+ * It MUST NOT:
+ * - call logAffiliateClick
+ * - insert records into click_events
+ * - fabricate affiliate partner rows
+ * - throw or block the caller
+ */
+export function logInternalNavigation(_event: InternalNavigationEvent): void {
+  // Product-analytics hook point — intentionally no-op for now.
+  // Example future:
+  //   posthog?.capture('internal_navigation', { ...event, path: getCurrentPath() });
+}
 // ── Logging functions (fire-and-forget) ──────────────────────────
 
 /**
