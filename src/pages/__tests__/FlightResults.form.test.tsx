@@ -23,7 +23,7 @@ vi.mock("@/hooks/useFlightSearch", () => ({
   formatDuration: () => "1h 30m",
 }));
 vi.mock("@/hooks/useAds", () => ({ useAds: () => ({ ads: {}, trackImpression: vi.fn(), trackClick: vi.fn() }) }));
-vi.mock("@/services/travelApi", () => ({ getRedirectUrl: vi.fn(), trackAffiliateEvent: vi.fn() }));
+vi.mock("@/services/travelApi", () => ({ getRedirectUrl: vi.fn() }));
 vi.mock("@/lib/analytics", () => ({ logAffiliateClick: vi.fn().mockResolvedValue(undefined), logSearch: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/whiteLabelUrl", () => ({ buildWhiteLabelFlightUrl: vi.fn().mockReturnValue({ success: false, url: null }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { getSession: () => Promise.resolve({ data: { session: null } }) }, functions: { invoke: vi.fn().mockResolvedValue({ data: [] }) } } }));

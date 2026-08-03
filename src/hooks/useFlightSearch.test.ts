@@ -28,7 +28,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   };
 }
 
-// ── calculateFilterRanges unit tests ──
+// â”€â”€ calculateFilterRanges unit tests â”€â”€
 
 describe("calculateFilterRanges", () => {
   it("returns empty object for empty flight array", () => {
@@ -60,7 +60,7 @@ describe("calculateFilterRanges", () => {
   });
 });
 
-// ── Regression: filter range staleness after repeated fetch ──
+// â”€â”€ Regression: filter range staleness after repeated fetch â”€â”€
 
 describe("useFlightSearch filter range staleness regression", () => {
   beforeEach(() => {
@@ -73,9 +73,7 @@ describe("useFlightSearch filter range staleness regression", () => {
         auth: { getSession: () => Promise.resolve({ data: { session: null } }) },
       },
     }));
-    // Mock trackAffiliateEvent
     vi.mock("@/services/travelApi", () => ({
-      trackAffiliateEvent: vi.fn(),
     }));
     // Mock getFunctionUrl
     vi.mock("@/lib/supabaseConfig", () => ({

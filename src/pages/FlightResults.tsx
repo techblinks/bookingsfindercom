@@ -22,7 +22,7 @@ import { AdSlot } from "@/components/ads/AdSlot";
 import { Button } from "@/components/ui/button";
 import { useFlightSearch, formatDuration } from "@/hooks/useFlightSearch";
 import { useAds } from "@/hooks/useAds";
-import { getRedirectUrl, trackAffiliateEvent } from "@/services/travelApi";
+import { getRedirectUrl } from "@/services/travelApi";
 import { logAffiliateClick } from "@/lib/analytics";
 import { buildWhiteLabelFlightUrl } from "@/lib/whiteLabelUrl";
 import { getWhiteLabelHost } from "@/lib/travelConfig";
@@ -183,7 +183,7 @@ const FlightResults = () => {
           outboundHost = new URL(result.redirectUrl).hostname;
         }
       } catch (err) {
-        // URL generation failed — do not track
+        // URL generation failed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â do not track
       }
     }
 
@@ -192,13 +192,6 @@ const FlightResults = () => {
       return;
     }
 
-    trackAffiliateEvent({
-      type: 'flight', action: 'click', origin, destination, departureDate,
-      returnDate: returnDate || undefined, airlineCode: flight.airline_code,
-      price: flight.price, currency: flight.currency,
-      sourcePage: 'flight_results', placement: 'flight_result_card',
-      outboundHost,
-    });
 
     // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
     void logAffiliateClick({
@@ -235,13 +228,13 @@ const FlightResults = () => {
     ? filteredFlights.reduce((best, f) => (f.deal_score || 0) > (best.deal_score || 0) ? f : best, filteredFlights[0])
     : null;
 
-  // ── Form mode — delegated to FlightLandingPage ──
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Form mode ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â delegated to FlightLandingPage ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
   if (!isResultsMode) {
     return <FlightLandingPage prefill={prefill} validationErrors={validationErrors} suppliedSearchParams={searchParams} />;
   }
 
-  // ── Results mode: fully validated search → show results ──
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Results mode: fully validated search ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ show results ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <FlightSearchSchema
@@ -272,8 +265,8 @@ const FlightResults = () => {
                 <p className="text-xs text-muted-foreground truncate">
                   {formatDate(departureDate)}
                   {returnDate && ` - ${formatDate(returnDate)}`}
-                  {" · "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
-                  {" · "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
+                  {" Ãƒâ€šÃ‚Â· "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
+                  {" Ãƒâ€šÃ‚Â· "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
                 </p>
               </div>
             </div>

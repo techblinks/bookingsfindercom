@@ -12,7 +12,6 @@ import { AdSlot } from "@/components/ads/AdSlot";
 import { Button } from "@/components/ui/button";
 import HotelQuickSelect from "@/components/hotels/HotelQuickSelect";
 import { HotelSearchForm } from "@/components/hotels/HotelSearchForm";
-import { trackAffiliateEvent } from "@/services/travelApi";
 import { logAffiliateClick } from "@/lib/analytics";
 import {
   Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious,
@@ -56,7 +55,6 @@ const HotelResults = () => {
     qs.set("checkOut", values.checkOut);
     qs.set("guests", String(values.adults));
     qs.set("rooms", String(values.rooms));
-    trackAffiliateEvent({ type: "hotel", action: "search", destination: values.destination.trim(), departureDate: values.checkIn, returnDate: values.checkOut, sourcePage: "hotel_results" });
     navigate(`/hotels?${qs.toString()}`);
   }, [navigate]);
 
@@ -88,18 +86,6 @@ const HotelResults = () => {
   const handleViewDeal = async (hotelId: string) => {
     const hotel = hotels.find(h => h.id === hotelId);
     if (!hotel) return;
-    trackAffiliateEvent({ type: "hotel", action: "click", destination, hotelId: hotel.hotelId?.toString(), price: hotel.price, currency: hotel.currency, sourcePage: "hotel_results", placement: "hotel_result_card" });
-
-    // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
-    void logAffiliateClick({
-      partner: "hotellook",
-      partnerType: "hotel",
-      route: destination,
-      price: hotel.price,
-      currency: hotel.currency,
-      outboundHost: hotel.link ? (() => { try { return new URL(hotel.link).hostname; } catch { return null; } })() : null,
-      landingPage: "/hotels",
-    }).catch(() => {});
 
     try {
       let affiliateUrl = hotel.link;
@@ -108,15 +94,30 @@ const HotelResults = () => {
         if (result.success && result.redirectUrl) affiliateUrl = result.redirectUrl;
         else { toast.error("Could not generate booking link"); return; }
       }
+
+      // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
+      // Only record when a valid outbound provider URL exists.
+      const outboundHost = (() => { try { return new URL(affiliateUrl).hostname; } catch { return null; } })();
+      void logAffiliateClick({
+        partner: "hotellook",
+        partnerType: "hotel",
+        route: destination,
+        price: hotel.price,
+        currency: hotel.currency,
+        outboundHost,
+        landingPage: "/hotels",
+      }).catch(() => {});
+
       window.location.href = `/redirect?url=${encodeURIComponent(affiliateUrl)}`;
     } catch (error) { console.error("Redirect error:", error); toast.error("An error occurred"); }
   };
+
 
   const totalResults = filteredHotels.length;
   const formatDate = (dateStr: string) => { if (!dateStr) return ""; return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
   const cheapestPrice = filteredHotels.length > 0 ? Math.min(...filteredHotels.map(h => h.price)) : undefined;
 
-  // ── Pre-search state ──
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Pre-search state ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   if (!hasSearchParams) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -138,7 +139,7 @@ const HotelResults = () => {
     );
   }
 
-  // ── Results state ──
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Results state ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <HotelSearchSchema destination={destination} checkIn={checkIn} checkOut={checkOut} guests={parseInt(guests)} rooms={parseInt(rooms)} lowestPrice={cheapestPrice} currency={currencyCode} totalResults={totalResults} />
@@ -150,7 +151,7 @@ const HotelResults = () => {
               <Link to="/hotels"><Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" /><span className="hidden sm:inline">Back</span></Button></Link>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">Hotels in {destination}</h1>
-                <p className="text-sm text-muted-foreground">{formatDate(checkIn)} - {formatDate(checkOut)} · {guests} {parseInt(guests) === 1 ? "Guest" : "Guests"} · {rooms} {parseInt(rooms) === 1 ? "Room" : "Rooms"}</p>
+                <p className="text-sm text-muted-foreground">{formatDate(checkIn)} - {formatDate(checkOut)} Ãƒâ€šÃ‚Â· {guests} {parseInt(guests) === 1 ? "Guest" : "Guests"} Ãƒâ€šÃ‚Â· {rooms} {parseInt(rooms) === 1 ? "Room" : "Rooms"}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -166,7 +167,7 @@ const HotelResults = () => {
       <main className="flex-1 container mx-auto px-4 py-6">
         <div className="flex gap-6">
           <aside className="hidden lg:block w-72 flex-shrink-0"><div className="sticky top-6"><HotelFilters priceRange={priceRange} onPriceChange={setPriceRange} selectedStars={selectedStars} onStarsChange={setSelectedStars} selectedAmenities={selectedAmenities} onAmenitiesChange={setSelectedAmenities} guestRating={guestRating} onGuestRatingChange={setGuestRating} /></div></aside>
-          <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex gap-2"><Button onClick={() => setShowMobileFilters(true)} className="shadow-lg gap-2"><SlidersHorizontal className="h-4 w-4" />Filters</Button><select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="h-10 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow-lg appearance-none cursor-pointer"><option value="recommended">Sort</option><option value="price-low">Price ↑</option><option value="price-high">Price ↓</option><option value="rating">Rating</option></select></div>
+          <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex gap-2"><Button onClick={() => setShowMobileFilters(true)} className="shadow-lg gap-2"><SlidersHorizontal className="h-4 w-4" />Filters</Button><select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="h-10 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow-lg appearance-none cursor-pointer"><option value="recommended">Sort</option><option value="price-low">Price ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Ëœ</option><option value="price-high">Price ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“</option><option value="rating">Rating</option></select></div>
           {showMobileFilters && (<div className="fixed inset-0 z-50 lg:hidden"><div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileFilters(false)} /><div className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-background overflow-y-auto"><div className="sticky top-0 bg-background border-b border-border p-4 flex items-center justify-between"><h2 className="font-semibold">Filters</h2><Button variant="ghost" size="icon" onClick={() => setShowMobileFilters(false)}><X className="h-5 w-5" /></Button></div><div className="p-4"><HotelFilters priceRange={priceRange} onPriceChange={setPriceRange} selectedStars={selectedStars} onStarsChange={setSelectedStars} selectedAmenities={selectedAmenities} onAmenitiesChange={setSelectedAmenities} guestRating={guestRating} onGuestRatingChange={setGuestRating} /></div><div className="sticky bottom-0 bg-background border-t border-border p-4 flex gap-3"><Button variant="outline" className="flex-1" onClick={clearFilters}>Clear All</Button><Button className="flex-1" onClick={() => setShowMobileFilters(false)}>Show Results</Button></div></div></div>)}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-4"><p className="text-sm text-muted-foreground">{isLoading ? "Searching for hotels..." : (<span><span className="font-semibold text-foreground">{totalResults}</span> properties found</span>)}</p></div>

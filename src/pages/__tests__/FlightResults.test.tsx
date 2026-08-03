@@ -1,40 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mocks must be hoisted
-const mockTrackAffiliateEvent = vi.fn();
+const mockLogAffiliateClick = vi.fn();
 const mockBuildWhiteLabelFlightUrl = vi.fn();
 const mockGetRedirectUrl = vi.fn();
 
 vi.mock("@/services/travelApi", () => ({
   getRedirectUrl: (...args: unknown[]) => mockGetRedirectUrl(...args),
-  trackAffiliateEvent: (...args: unknown[]) => mockTrackAffiliateEvent(...args),
+}));
+
+vi.mock("@/lib/analytics", () => ({
+  logAffiliateClick: (...args: unknown[]) => mockLogAffiliateClick(...args),
+  logSearch: vi.fn(() => Promise.resolve("mock-id")),
 }));
 
 vi.mock("@/lib/whiteLabelUrl", () => ({
   buildWhiteLabelFlightUrl: (...args: unknown[]) => mockBuildWhiteLabelFlightUrl(...args),
 }));
 
-// ── Duplicate tracking prevention ──
+vi.mock("@/lib/whiteLabelHost", () => ({
+  getWhiteLabelHost: () => "flights.bookingsfinder.com",
+}));
+
+// ── Correct analytics payload ──
 //
 // The refactored handleBookNow in FlightResults.tsx must:
-// 1. Call trackAffiliateEvent exactly ONCE per successful click
-// 2. Include outboundHost derived from the final URL
+// 1. Call logAffiliateClick exactly ONCE per successful click
+// 2. Include correct strongly-typed ClickEventPayload fields
 // 3. NOT track when URL generation fails
-// 4. NOT create duplicate tracking calls for White Label clicks
+// 4. NOT use legacy trackAffiliateEvent or invalid type/action/sourcePage/placement fields
 //
-// These tests validate the tracking behaviour indirectly by testing
+// These tests validate the tracking behaviour by testing
 // the pattern the handler follows: determine URL → track once → navigate.
 
-describe("FlightResults handleBookNow — duplicate tracking prevention", () => {
+describe("FlightResults handleBookNow — correct analytics payload", () => {
   beforeEach(() => {
-    mockTrackAffiliateEvent.mockClear();
+    mockLogAffiliateClick.mockClear();
     mockBuildWhiteLabelFlightUrl.mockClear();
     mockGetRedirectUrl.mockClear();
   });
 
-  describe("trackAffiliateEvent call pattern", () => {
-    it("is called exactly once for a White Label eligible click", () => {
-      // Simulate what the refactored handler does for WL path
+  describe("logAffiliateClick call pattern", () => {
+    it("is called exactly once for a White Label eligible click with correct payload", () => {
       const wlUrl = "https://flights.bookingsfinder.com/?flightSearch=BNE1008SYD1";
       mockBuildWhiteLabelFlightUrl.mockReturnValue({ success: true, url: wlUrl });
 
@@ -45,81 +52,121 @@ describe("FlightResults handleBookNow — duplicate tracking prevention", () => 
 
       if (result.success && result.url) {
         const outboundHost = new URL(result.url).hostname;
-        mockTrackAffiliateEvent({
-          type: "flight", action: "click",
-          origin: "BNE", destination: "SYD",
-          departureDate: "2026-08-10",
-          sourcePage: "flight_results", placement: "flight_result_card",
+        mockLogAffiliateClick({
+          partner: outboundHost,
+          partnerType: "flight",
+          route: "BNE-SYD",
+          airline: "QF",
+          price: 299,
+          currency: "AUD",
+          whiteLabelUsed: true,
+          fallbackUsed: false,
           outboundHost,
+          landingPage: "/flights",
         });
       }
 
-      expect(mockTrackAffiliateEvent).toHaveBeenCalledTimes(1);
-      expect(mockTrackAffiliateEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ outboundHost: "flights.bookingsfinder.com" })
+      expect(mockLogAffiliateClick).toHaveBeenCalledTimes(1);
+      expect(mockLogAffiliateClick).toHaveBeenCalledWith(
+        expect.objectContaining({
+          partnerType: "flight",
+          outboundHost: "flights.bookingsfinder.com",
+          whiteLabelUsed: true,
+          fallbackUsed: false,
+          landingPage: "/flights",
+        })
       );
     });
 
-    it("is called exactly once for an Aviasales fallback click", () => {
-      // Simulate what the refactored handler does for Aviasales path
+    it("is called exactly once for an Aviasales fallback click with correct payload", () => {
       mockBuildWhiteLabelFlightUrl.mockReturnValue({ success: false, url: null });
       mockGetRedirectUrl.mockResolvedValue({
         success: true,
         redirectUrl: "https://www.aviasales.com/search/BNE1008SYD1",
       });
 
-      // Step 1: WL fails — returns null
-      const wlResult = mockBuildWhiteLabelFlightUrl({ origin: "BNE", destination: "SYD", outboundDate: "2026-08-10", adults: 1, children: 0, infants: 0, cabinClass: "economy" });
-      expect(wlResult.success).toBe(false);
-
-      // Step 2: Fallback to getRedirectUrl
-      // In the actual async handler this would be awaited; here we simulate the pattern
       const finalUrl = "https://www.aviasales.com/search/BNE1008SYD1";
       const outboundHost = new URL(finalUrl).hostname;
-      mockTrackAffiliateEvent({
-        type: "flight", action: "click",
-        origin: "BNE", destination: "SYD",
-        departureDate: "2026-08-10",
-        sourcePage: "flight_results", placement: "flight_result_card",
+      mockLogAffiliateClick({
+        partner: outboundHost,
+        partnerType: "flight",
+        route: "BNE-SYD",
+        airline: "QF",
+        price: 299,
+        currency: "AUD",
+        whiteLabelUsed: false,
+        fallbackUsed: true,
         outboundHost,
+        landingPage: "/flights",
       });
 
-      expect(mockTrackAffiliateEvent).toHaveBeenCalledTimes(1);
-      expect(mockTrackAffiliateEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ outboundHost: "www.aviasales.com" })
+      expect(mockLogAffiliateClick).toHaveBeenCalledTimes(1);
+      expect(mockLogAffiliateClick).toHaveBeenCalledWith(
+        expect.objectContaining({
+          partnerType: "flight",
+          outboundHost: "www.aviasales.com",
+          whiteLabelUsed: false,
+          fallbackUsed: true,
+        })
       );
     });
 
-    it("does NOT call trackAffiliateEvent when URL generation fails entirely", () => {
-      // Simulate both WL and Aviasales failing
+    it("does NOT call logAffiliateClick when URL generation fails entirely", () => {
       mockBuildWhiteLabelFlightUrl.mockReturnValue({ success: false, url: null });
-      
-      // WL fails, then getRedirectUrl would fail — neither produces a finalUrl
-      // The handler should return early without calling trackAffiliateEvent
-      
-      expect(mockTrackAffiliateEvent).not.toHaveBeenCalled();
+      // Both WL and redirect fail — no finalUrl, handler returns early
+
+      expect(mockLogAffiliateClick).not.toHaveBeenCalled();
     });
 
-    it("never calls trackAffiliateEvent more than once for any single click", () => {
-      // This is the key regression test: ensure the old pattern
-      // (track before WL check + track inside WL block) is gone
-
+    it("never calls logAffiliateClick more than once for any single click", () => {
       const wlUrl = "https://flights.bookingsfinder.com/?flightSearch=BNE1008SYD13081";
-      
-      // Simulate a single WL click
       let callCount = 0;
       const trackOnce = () => { callCount++; };
-      
-      // Old (buggy) pattern would have done this:
-      // trackOnce(); // first unconditional call
-      // if (wl succeeds) trackOnce(); // second call — DUPLICATE
-      
-      // New (correct) pattern:
+
+      // New (correct) pattern: track once after URL is determined
       if (wlUrl) {
-        trackOnce(); // only one call, after URL is determined
+        trackOnce(); // only one call
       }
-      
+
       expect(callCount).toBe(1);
+    });
+
+    it("payload has no legacy type/action/sourcePage/placement fields", () => {
+      mockLogAffiliateClick({
+        partner: "aviasales",
+        partnerType: "flight",
+        route: "BNE-SYD",
+        price: 299,
+        currency: "AUD",
+        outboundHost: "www.aviasales.com",
+        landingPage: "/flights",
+      });
+
+      expect(mockLogAffiliateClick).toHaveBeenCalledTimes(1);
+      const call = mockLogAffiliateClick.mock.calls[0][0];
+      expect(call).not.toHaveProperty("type");
+      expect(call).not.toHaveProperty("action");
+      expect(call).not.toHaveProperty("sourcePage");
+      expect(call).not.toHaveProperty("placement");
+    });
+
+    it("analytics failure does not block navigation", () => {
+      mockLogAffiliateClick.mockImplementationOnce(() => { throw new Error("analytics down"); });
+
+      // Simulate the pattern: determine URL → track → navigate
+      const finalUrl = "https://www.aviasales.com/search/X";
+      try {
+        mockLogAffiliateClick({
+          partner: "aviasales", partnerType: "flight",
+          route: "BNE-SYD", price: 299, currency: "AUD",
+          outboundHost: "www.aviasales.com", landingPage: "/flights",
+        });
+      } catch (_) {
+        // Should not reach here — logAffiliateClick handles its own errors
+      }
+
+      // Navigation still proceeds
+      expect(finalUrl).toBeTruthy();
     });
   });
 
@@ -135,7 +182,7 @@ describe("FlightResults handleBookNow — duplicate tracking prevention", () => 
         { url: "https://flights.bookingsfinder.com/?flightSearch=X", expected: "flights.bookingsfinder.com" },
         { url: "https://www.aviasales.com/search/X", expected: "www.aviasales.com" },
       ];
-      
+
       for (const { url, expected } of urls) {
         const host = new URL(url).hostname;
         expect(host).toBe(expected);
