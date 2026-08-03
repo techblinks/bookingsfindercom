@@ -8,6 +8,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => { Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,writable:true,value:vi.fn()}); });
 
+afterEach(() => {
+  // Clean up mutation observers
+  if ((window as any)._bfResultsObserver) {
+    try { (window as any)._bfResultsObserver.disconnect(); } catch (_) {}
+    (window as any)._bfResultsObserver = null;
+  }
+  // Clean up any lingering timers
+  vi.clearAllTimers();
+});
+
 const HTML_PATH = resolve(__dirname, "../../travelpayouts-white-label-current.html");
 const HTML = readFileSync(HTML_PATH, "utf8");
 const ENDPOINT = "https://pjehrnhmjrxrlrhuhqgf.supabase.co/functions/v1/flight-destinations";
@@ -170,7 +180,7 @@ describe("placeholders and structure", () => {
     expect(count).toBeLessThanOrEqual(2); // footer brand + fallback max
   });
   it("active Flights navigation remains present", () => {
-    expect(HTML).toContain('class="active">Flights');
+    expect(HTML).toMatch(/<a[^>]*class="active"[^>]*>[\s\S]*?Flights<\/a>/);
   });
   it("[hidden] attribute CSS exists for both logo and fallback", () => {
     const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
@@ -178,10 +188,14 @@ describe("placeholders and structure", () => {
     expect(s).toContain('.bf-brand-logo[hidden]');
     expect(s).toContain('display:none!important');
   });
-  it("logo wrap has light backing for dark header contrast", () => {
+  it("logo wrap has no visible background, shadow, border or blur", () => {
     const s = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
-    expect(s).toContain('bf-brand-logo-wrap');
-    expect(s).toContain('rgba(255,255,255');
+    const wrapRule = s.match(/\.bf-brand-logo-wrap\{[^}]+\}/)?.[0] || "";
+    expect(wrapRule).not.toContain('background:rgba');
+    expect(wrapRule).not.toContain('box-shadow');
+    expect(wrapRule).not.toContain('border:');
+    expect(wrapRule).not.toContain('backdrop-filter');
+    expect(wrapRule).not.toContain('border-radius');
   });
 
 
@@ -199,6 +213,23 @@ describe("placeholders and structure", () => {
     expect(HTML).toContain('href="https://bookingsfinder.com" target="_self">Back to BookingsFinder');
   });
   it("no javascript: URLs anywhere", () => { expect(HTML).not.toContain("javascript:"); });
+
+  it("navigation icons use currentColor and aria-hidden", () => {
+    const navMatch = HTML.match(/class="bf-hdr-nav"[^>]*>([\s\S]*?)<\/nav>/);
+    expect(navMatch).toBeTruthy();
+    const navHTML = navMatch[1];
+    const svgs = navHTML.match(/<svg[^>]*>/g) || [];
+    expect(svgs.length).toBe(3);
+    svgs.forEach(svg => {
+      expect(svg).toContain('stroke="currentColor"');
+      expect(svg).toContain('aria-hidden="true"');
+    });
+  });
+  it("navigation icons preserve Flights, Stays and Travel Tools labels", () => {
+    expect(HTML).toMatch(/Flights<\/a>/);
+    expect(HTML).toMatch(/Stays<\/a>/);
+    expect(HTML).toMatch(/Travel Tools<\/a>/);
+  });
 });
 
 // ════════════════════ CLAIMS & SAFETY ════════════════════

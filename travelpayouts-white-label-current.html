@@ -53,7 +53,7 @@
     .bf-hdr-brand strong{color:var(--bf-coral)}
     .bf-hdr-icon{flex-shrink:0;width:38px;height:38px;border-radius:50%;background:var(--bf-teal);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:800}
     .bf-hdr-nav{display:flex;gap:2px}
-    .bf-hdr-nav a{padding:10px 16px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.8);border-radius:8px;text-decoration:none;transition:color 0.2s,background 0.2s}
+    .bf-hdr-nav a{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.8);border-radius:8px;text-decoration:none;transition:color 0.2s,background 0.2s}
     .bf-header.scrolled .bf-hdr-nav a{color:var(--bf-muted)}
     .bf-hdr-nav a:hover,.bf-hdr-nav a:focus,.bf-hdr-nav a.active{color:#fff;background:rgba(255,255,255,0.12)}
     .bf-header.scrolled .bf-hdr-nav a:hover,.bf-header.scrolled .bf-hdr-nav a:focus,.bf-header.scrolled .bf-hdr-nav a.active{color:var(--bf-ink);background:var(--bf-pale)}
@@ -70,7 +70,7 @@
     @media(max-width:768px){#tpwl-search{scroll-margin-top:72px}#tpwl-tickets{scroll-margin-top:72px}}
 
     /* Dashboard-managed logo */
-    .bf-brand-logo-wrap{display:inline-flex;align-items:center;padding:6px 10px;background:rgba(255,255,255,0.12);border-radius:10px}
+    .bf-brand-logo-wrap{display:inline-flex;align-items:center;padding:6px 10px}
     .bf-header.scrolled .bf-brand-logo-wrap{background:rgba(255,255,255,0)}
     .bf-brand-logo{display:block;max-width:200px;max-height:44px;width:auto;height:auto;object-fit:contain}
     .bf-brand-logo-fallback{font-size:18px;font-weight:750;color:#fff;transition:color 0.3s;white-space:nowrap}
@@ -91,19 +91,19 @@
     .bf-hero p{margin:14px 0 0;max-width:540px;color:rgba(255,255,255,0.75);font-size:17px;line-height:1.55}
 
     .bf-hero-search{width:100%;margin-top:0;padding-bottom:80px}
-    .bf-search-shell{border-radius:14px;overflow:hidden;border:1px solid rgba(148,163,184,.35);box-shadow:0 16px 40px rgba(3,18,38,.20)}
-    .bf-search-tabs{display:flex;background:rgba(15,23,42,0.85);padding:0;gap:0}
-    .bf-search-tab{padding:14px 24px;font-size:14px;font-weight:650;color:rgba(255,255,255,0.55);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:color 0.2s,border-color 0.2s}
+    .bf-search-shell{border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.25)}
+    .bf-search-tabs{display:flex;padding:0;gap:0}
+    .bf-search-tab{padding:12px 20px;font-size:14px;font-weight:650;color:rgba(255,255,255,0.55);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:color 0.2s,border-color 0.2s}
     .bf-search-tab.active{color:#fff;border-bottom-color:var(--bf-coral)}
-    .bf-search-panel{background:#F3F6F9;padding:16px 20px}
+    .bf-search-panel{padding:8px 12px}
     .bf-search-panel .bf-search-instruction{display:none;font-size:14px;color:var(--bf-muted);margin-bottom:14px}
     .bf-search-panel .bf-dest-pill{display:none;align-items:center;gap:10px;padding:7px 16px;margin-bottom:12px;background:rgba(11,93,99,0.07);border:1px solid rgba(11,93,99,0.18);border-radius:100px;font-size:14px;font-weight:600;color:var(--bf-teal)}
     .bf-search-panel .bf-dest-pill.active{display:inline-flex}
     .bf-search-panel .bf-dest-pill.active+.bf-search-instruction{display:block}
     .bf-pill-close{background:none;border:none;padding:0 4px;cursor:pointer;color:inherit;font-size:18px;line-height:1;font-weight:400}
 
-    @media(max-width:1023px){.bf-hero,.bf-hero>.bf-container{min-height:480px}.bf-hero-search{padding-bottom:60px}.bf-search-tab{padding:12px 18px;font-size:13px}.bf-search-panel{padding:16px}}
-    @media(max-width:639px){.bf-hero,.bf-hero>.bf-container{min-height:460px}.bf-hero-content{padding-top:80px}.bf-hero h1{font-size:34px}.bf-hero p{font-size:15px}.bf-search-panel{padding:12px}.bf-search-tab{padding:10px 14px;font-size:12px}.bf-hero-search{padding-bottom:48px}}
+    @media(max-width:1023px){.bf-hero,.bf-hero>.bf-container{min-height:480px}.bf-hero-search{padding-bottom:60px}.bf-search-tab{padding:12px 18px;font-size:13px}.bf-search-panel{padding:8px 12px}}
+    @media(max-width:639px){.bf-hero,.bf-hero>.bf-container{min-height:460px}.bf-hero-content{padding-top:80px}.bf-hero h1{font-size:34px}.bf-hero p{font-size:15px}.bf-search-panel{padding:6px 10px}.bf-search-tab{padding:10px 14px;font-size:12px}.bf-hero-search{padding-bottom:48px}}
 
     /* Results mode — hide marketing sections, compact hero */
     .bf-results-mode .bf-hero{min-height:auto;padding-top:88px;padding-bottom:0}
@@ -224,7 +224,7 @@
     @media(max-width:768px){.bf-footer{padding-top:44px}.bf-footer-grid{grid-template-columns:repeat(2,1fr);gap:28px}.bf-footer-bottom{max-width:100%}}
     @media(max-width:480px){.bf-footer-grid{grid-template-columns:1fr}}
 
-    #tpwl-search,#tpwl-tickets,#tpwl-search *,#tpwl-tickets *{max-width:100%}
+    #tpwl-search,#tpwl-tickets{max-width:100%}
     #tpwl-search,#tpwl-tickets{min-width:0!important;width:100%!important}
     .bf-tickets-section{padding:32px 0}
     @media(max-width:768px){.bf-container{padding-inline:14px}}
@@ -242,9 +242,9 @@
     <div class="bf-container">
       <a class="bf-hdr-brand" href="https://bookingsfinder.com" target="_self" aria-label="BookingsFinder homepage"><span class="bf-brand-logo-wrap"><img class="bf-brand-logo" src="" alt="BookingsFinder" width="200" height="44" loading="eager" decoding="async" hidden></span><span class="bf-brand-logo-fallback">Bookings<strong>Finder</strong> Flights</span></a>
       <nav class="bf-hdr-nav" aria-label="Main navigation">
-        <a href="#bf-main" class="active">Flights</a>
-        <a href="https://bookingsfinder.com/hotels">Stays</a>
-        <a href="https://bookingsfinder.com/trip-cost">Travel Tools</a>
+        <a href="#bf-main" class="active"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.2-1 .7L3 9.5c-.1.4.2.8.6.9l6.7 1.3-3.3 3.3-2.5-.7c-.4-.1-.8.1-.9.5l-.7 1.8c-.1.3.1.8.5.9l3.8.8.8 3.8c.1.4.6.6.9.5l1.8-.7c.4-.1.6-.5.5-.9l-.7-2.5 3.3-3.3 1.3 6.7c.1.4.5.7.9.6l2.8-.8c.5-.1.8-.5.7-1Z"/></svg>Flights</a>
+        <a href="https://bookingsfinder.com/hotels"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>Stays</a>
+        <a href="https://bookingsfinder.com/trip-cost"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Travel Tools</a>
       </nav>
       <a class="bf-hdr-back" href="https://bookingsfinder.com" target="_self">Back to BookingsFinder</a>
       <a class="bf-hdr-back-mobile" href="https://bookingsfinder.com" target="_self">Back</a>
@@ -400,7 +400,7 @@
     // Handles: initial content, dynamic additions, and #tpwl-tickets node replacement.
     (function(){
       var TICKETS_ID = 'tpwl-tickets';
-      if (typeof MutationObserver === 'undefined') return;
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
 
       function hasMeaningfulResults(node) {
         if (!node) return false;
@@ -410,8 +410,15 @@
       }
 
       function syncResultsMode() {
+        if (typeof document === 'undefined') return;
         var tickets = document.getElementById(TICKETS_ID);
+        if (!document.documentElement) return;
         document.documentElement.classList.toggle('bf-results-mode', hasMeaningfulResults(tickets));
+      }
+
+      // Stable reference: disconnect previous observer before creating new one
+      if (window._bfResultsObserver) {
+        try { window._bfResultsObserver.disconnect(); } catch (_) {}
       }
 
       // Initial check
@@ -420,6 +427,7 @@
       // Observe content area for tickets node replacement + content changes
       var contentArea = document.getElementById('bf-content') || document.body;
       var observer = new MutationObserver(function(mutations) {
+        if (typeof document === 'undefined') return;
         for (var i = 0; i < mutations.length; i++) {
           var m = mutations[i];
           if (m.type === 'childList') {
@@ -443,6 +451,17 @@
       });
 
       observer.observe(contentArea, { childList: true, subtree: true, characterData: true });
+      window._bfResultsObserver = observer;
+
+      // Disconnect during pagehide / beforeunload
+      function cleanup() {
+        if (window._bfResultsObserver) {
+          try { window._bfResultsObserver.disconnect(); } catch (_) {}
+          window._bfResultsObserver = null;
+        }
+      }
+      window.addEventListener('pagehide', cleanup, { once: true });
+      window.addEventListener('beforeunload', cleanup, { once: true });
     })();
   </script>
 
