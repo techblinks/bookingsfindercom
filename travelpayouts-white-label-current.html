@@ -72,65 +72,46 @@
     @media(max-width:768px){.bf-brand-logo{max-width:160px;max-height:38px}.bf-brand-logo-fallback{font-size:16px}.bf-brand-logo-wrap{padding:4px 8px}}
 
     /* Hero */
-    .bf-hero{position:relative;display:flex;align-items:center;overflow:visible;background:#F4F6F8;padding-inline:24px;padding-bottom:32px;padding-top:96px}
-    .bf-hero>.bf-container{position:relative;z-index:1;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:stretch;min-height:0;background:#F4F6F8;border-radius:28px;overflow:hidden;padding:28px 32px 0 32px}
-    .bf-hero-left{display:flex;flex-direction:column;gap:14px;min-width:0;padding-bottom:28px}
-    .bf-hero-content{padding-top:0;padding-bottom:0}
-    .bf-hero-eyebrow{display:inline-block;padding:5px 12px;font-size:11px;font-weight:750;letter-spacing:0.14em;text-transform:uppercase;color:var(--bf-orange);background:rgba(214,74,42,0.08);border-radius:100px;margin-bottom:10px}
-    .bf-hero h1{margin:0 0 10px;font-size:clamp(36px,4.5vw,50px);line-height:1.08;letter-spacing:-0.025em;color:var(--bf-ink);max-width:650px;font-weight:800}
-    .bf-hero p{margin:0 0 18px;max-width:580px;color:var(--bf-muted);font-size:16px;line-height:1.55}
+    .bf-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#01367F 0%,#001D45 100%);margin:96px 18px 0;border-radius:24px;padding:44px 32px 48px}
+    .bf-hero>.bf-container{position:relative;z-index:1;width:100%;max-width:1220px;margin:0 auto;padding:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+    .bf-hero-content{padding:0}
+    .bf-hero-eyebrow{display:inline-block;padding:5px 12px;font-size:11px;font-weight:750;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.85);background:rgba(255,255,255,0.10);border-radius:100px;margin-bottom:20px}
+    .bf-hero h1{margin:0 0 14px;font-size:clamp(34px,5vw,52px);line-height:1.08;letter-spacing:-0.025em;color:#fff;max-width:850px;font-weight:800}
+    .bf-hero p{margin:0 auto 28px;max-width:650px;color:rgba(255,255,255,0.75);font-size:17px;line-height:1.6}
 
-    /* Product shortcuts */
-    .bf-shortcuts{display:flex;gap:8px;margin-bottom:14px}
-    .bf-shortcut{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 14px;min-width:72px;background:#fff;border:1px solid #D8E0E7;border-radius:12px;cursor:pointer;text-decoration:none;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:all 0.2s;font:inherit;color:var(--bf-muted)}
-    .bf-shortcut:hover,.bf-shortcut:focus-visible{border-color:var(--bf-blue);box-shadow:0 2px 8px rgba(1,54,127,0.08)}
-    .bf-shortcut.active{background:var(--bf-orange-pale);border-color:var(--bf-orange);color:var(--bf-orange);box-shadow:0 2px 8px rgba(214,74,42,0.12)}
-    .bf-shortcut-icon{width:20px;height:20px;display:grid;place-items:center;flex-shrink:0}
-    .bf-shortcut-label{font-size:10px;font-weight:650;line-height:1;white-space:nowrap}
-
-    /* Search */
-    .bf-hero-search{width:100%;margin-top:0;padding-bottom:0}
-    .bf-search-shell{border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,0.05);border:1px solid #D8E0E7}
+    /* Search wrapper */
+    .bf-search-wrap{width:100%;max-width:1200px;margin:0 auto}
+    .bf-search-shell{border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.12);border:1px solid #D8E0E7}
     .bf-search-tabs{display:none}
     .bf-search-panel{padding:8px 14px 10px}
 
-    /* Visual collage */
-    .bf-visual-col{position:relative;display:flex;align-items:stretch;max-height:390px;max-width:360px}
-    .bf-visual-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1.1fr 1fr;gap:10px;width:100%;height:100%}
-    .bf-visual-card{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 3px 12px rgba(15,23,42,0.07)}
-    .bf-visual-card.wide{grid-column:1/span 2}
-    .bf-visual-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-    .bf-visual-ph.p1{background:linear-gradient(135deg,#C8D8E8 0%,#A0B8D0 100%)}
-    .bf-visual-ph.p2{background:linear-gradient(135deg,#E0D5C8 0%,#C8B8A0 100%)}
-    .bf-visual-ph.p3{background:linear-gradient(135deg,#B8CCD8 0%,#90A8B8 100%)}
-    .bf-visual-label{position:absolute;bottom:12px;left:14px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.08em}
-
     /* Results mode */
-    .bf-results-mode .bf-hero{min-height:auto;padding-top:88px;padding-bottom:0}
-    .bf-results-mode .bf-hero-content{display:none}.bf-results-mode .bf-visual-col{display:none}.bf-results-mode .bf-shortcuts{display:none}
-    .bf-results-mode .bf-hero>.bf-container{padding:0;background:transparent}
-    .bf-results-mode .bf-hero-search{padding-bottom:20px}
-    .bf-results-mode .bf-home-only{display:none!important}
-    @media(max-width:768px){.bf-results-mode .bf-hero{padding-top:72px}.bf-results-mode .bf-hero>.bf-container{padding:0}}
+    .bf-results-mode .bf-hero{margin-top:88px;padding:18px 24px 14px;background:transparent;border-radius:0;margin-left:0;margin-right:0}
+    .bf-results-mode .bf-hero-content{display:none}
+    
+    .bf-results-mode .bf-search-wrap{max-width:var(--bf-max)}
+    .bf-results-mode .bf-search-shell{box-shadow:0 2px 10px rgba(15,23,42,0.05)}
+    @media(max-width:768px){.bf-results-mode .bf-hero{margin-top:60px;padding:12px 8px 10px}}
 
     /* Tickets */
     .bf-tickets-section{padding:24px 0}
 
     /* Footer */
-    .bf-footer{background:var(--bf-blue-deep);color:rgba(255,255,255,0.85);padding:32px 0 0}
-    .bf-footer-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:20px}
-    .bf-footer-grid a{color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;text-decoration:none;transition:color 0.2s}
-    .bf-footer-grid a:hover,.bf-footer-grid a:focus{color:var(--bf-orange)}
-    .bf-footer-bottom{text-align:center;font-size:12px;opacity:0.55;line-height:1.5;max-width:760px;margin-inline:auto;padding:0 0 20px}
-    @media(max-width:480px){.bf-footer{padding-top:24px}.bf-footer-grid{gap:14px}}
+    .bf-footer{background:var(--bf-blue-deep);color:rgba(255,255,255,0.85);padding:0}
+    .bf-footer>.bf-container{padding:24px 24px 20px}
+    .bf-footer-nav{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:12px}
+    .bf-footer-nav a{color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;text-decoration:none;transition:color 0.2s}
+    .bf-footer-nav a:hover,.bf-footer-nav a:focus{color:var(--bf-orange)}
+    .bf-footer-text{text-align:center;font-size:12px;opacity:0.55;line-height:1.5;max-width:760px;margin:0 auto}
+    @media(max-width:480px){.bf-footer>.bf-container{padding:20px 14px 16px}.bf-footer-nav{gap:14px}}
 
     /* Travelpayouts */
     #tpwl-search,#tpwl-tickets{max-width:100%}
     #tpwl-search,#tpwl-tickets{min-width:0!important;width:100%!important}
 
-    /* Responsive */
-    @media(max-width:1023px){.bf-hero{padding-top:88px;padding-bottom:28px;padding-inline:16px}.bf-hero>.bf-container{grid-template-columns:1fr;padding:24px 20px 0 20px;gap:16px}.bf-visual-col{display:none}.bf-hero h1{font-size:34px}.bf-shortcuts{gap:8px}.bf-shortcut{padding:8px 12px;min-width:68px}}
-    @media(max-width:639px){.bf-hero{padding-top:76px;padding-bottom:20px;padding-inline:6px}.bf-hero>.bf-container{padding:18px 10px 0 10px;gap:12px;border-radius:18px}.bf-hero h1{font-size:28px}.bf-hero p{font-size:14px}.bf-shortcut{padding:6px 8px;min-width:56px}.bf-shortcut-icon{width:18px;height:18px}.bf-shortcut-label{font-size:10px}.bf-search-panel{padding:6px 10px}}
+    /* Responsive hero */
+    @media(max-width:1023px){.bf-hero{margin:88px 10px 0;padding:32px 20px 36px;border-radius:20px}.bf-hero h1{font-size:32px}}
+    @media(max-width:639px){.bf-hero{margin:76px 6px 0;padding:24px 12px 28px;border-radius:16px}.bf-hero h1{font-size:26px}.bf-hero p{font-size:15px;margin-bottom:20px}.bf-hero-eyebrow{margin-bottom:14px;font-size:10px}}
     @media(max-width:480px){.bf-container{padding-inline:10px}}
     @media(max-width:768px){.bf-container{padding-inline:14px}}
   </style>
@@ -168,47 +149,15 @@
 
   <section class="bf-hero" aria-labelledby="bf-hero-heading">
     <div class="bf-container">
-      <div class="bf-hero-left">
-        <div class="bf-hero-content">
-          <div class="bf-hero-eyebrow">COMPARE FLIGHTS</div>
-          <h1 id="bf-hero-heading">Find a better way to fly.</h1>
-          <p>Compare available flights from participating travel providers and continue securely with the option that suits your trip.</p>
-        </div>
-        <div class="bf-shortcuts" role="group" aria-label="Product shortcuts">
-          <button class="bf-shortcut active" aria-pressed="true">
-            <span class="bf-shortcut-icon"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.2-1 .7L3 9.5c-.1.4.2.8.6.9l6.7 1.3-3.3 3.3-2.5-.7c-.4-.1-.8.1-.9.5l-.7 1.8c-.1.3.1.8.5.9l3.8.8.8 3.8c.1.4.6.6.9.5l1.8-.7c.4-.1.6-.5.5-.9l-.7-2.5 3.3-3.3 1.3 6.7c.1.4.5.7.9.6l2.8-.8c.5-.1.8-.5.7-1Z"/></svg></span>
-            <span class="bf-shortcut-label">Flights</span>
-          </button>
-          <a class="bf-shortcut" href="https://bookingsfinder.com/hotels">
-            <span class="bf-shortcut-icon"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg></span>
-            <span class="bf-shortcut-label">Stays</span>
-          </a>
-          <a class="bf-shortcut" href="https://bookingsfinder.com/trip-cost">
-            <span class="bf-shortcut-icon"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
-            <span class="bf-shortcut-label">Travel Tools</span>
-          </a>
-        </div>
-        <div class="bf-hero-search" id="bf-main">
-          <div class="bf-search-shell">
-            <div class="bf-search-panel">
-              <div id="tpwl-search"></div>
-            </div>
-          </div>
-        </div>
+      <div class="bf-hero-content">
+        <div class="bf-hero-eyebrow">COMPARE FLIGHTS</div>
+        <h1 id="bf-hero-heading">Find the right flight for your next trip.</h1>
+        <p>Compare available flights from participating travel providers and continue securely with the option that suits your trip.</p>
       </div>
-      <div class="bf-visual-col" aria-hidden="true">
-        <div class="bf-visual-grid">
-          <div class="bf-visual-card wide">
-            <div class="bf-visual-ph p1"></div>
-            <span class="bf-visual-label">Explore destinations</span>
-          </div>
-          <div class="bf-visual-card">
-            <div class="bf-visual-ph p2"></div>
-            <span class="bf-visual-label">Discover places</span>
-          </div>
-          <div class="bf-visual-card">
-            <div class="bf-visual-ph p3"></div>
-            <span class="bf-visual-label">Plan your trip</span>
+      <div class="bf-search-wrap" id="bf-main">
+        <div class="bf-search-shell">
+          <div class="bf-search-panel">
+            <div id="tpwl-search"></div>
           </div>
         </div>
       </div>
@@ -221,13 +170,13 @@
 
   <footer class="bf-footer" role="contentinfo">
     <div class="bf-container">
-      <div class="bf-footer-grid">
+      <div class="bf-footer-nav">
         <a href="https://bookingsfinder.com/terms" target="_blank" rel="noopener">Terms</a>
         <a href="https://bookingsfinder.com/privacy" target="_blank" rel="noopener">Privacy</a>
         <a href="https://bookingsfinder.com/affiliate-disclosure" target="_blank" rel="noopener">Affiliate disclosure</a>
         <a href="https://bookingsfinder.com" target="_self">Back to BookingsFinder</a>
       </div>
-      <div class="bf-footer-bottom">
+      <div class="bf-footer-text">
         &copy; [:current_year:] BookingsFinder. Flight search powered by Travelpayouts.<br>
         BookingsFinder is a travel comparison platform, not an airline or travel agency. Prices and availability may change. Your booking is completed with the selected third-party provider, whose terms and conditions apply.
       </div>
