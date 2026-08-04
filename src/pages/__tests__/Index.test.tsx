@@ -1,6 +1,5 @@
 /**
- * Phase 7H-1D — Homepage tests: structure, routes, claims, analytics.
- * Phase 7H-1E — Internal navigation analytics boundary.
+ * Homepage tests: structure, routes, claims, analytics, new sections.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -163,8 +162,10 @@ describe("Analytics — internal navigation boundary", () => {
 
   it("hero 'Search flights' CTA fires logInternalNavigation with correct payload", () => {
     renderIndex();
-    const btn = screen.getByText("Search flights");
-    btn.click();
+    // Two "Search flights" buttons exist — the hero one links to #flight-search
+    const buttons = screen.getAllByText("Search flights");
+    const heroBtn = buttons.find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
+    heroBtn.click();
     expect(mockLogInternalNavigation).toHaveBeenCalledTimes(1);
     expect(mockLogInternalNavigation).toHaveBeenCalledWith({
       label: "hero_search",
@@ -218,14 +219,16 @@ describe("Analytics — internal navigation boundary", () => {
   it("does NOT call logAffiliateClick for homepage CTAs", async () => {
     const { logAffiliateClick } = await import("@/lib/analytics");
     renderIndex();
-    screen.getByText("Search flights").click();
+    const heroBtn = screen.getAllByText("Search flights").find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
+    heroBtn.click();
     screen.getByText("Explore tools").click();
     expect(logAffiliateClick).not.toHaveBeenCalled();
   });
 
   it("no type/action/sourcePage/placement fields sent to analytics", () => {
     renderIndex();
-    screen.getByText("Search flights").click();
+    const heroBtn = screen.getAllByText("Search flights").find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
+    heroBtn.click();
     expect(mockLogInternalNavigation).toHaveBeenCalledTimes(1);
     const call = mockLogInternalNavigation.mock.calls[0][0];
     expect(call).not.toHaveProperty("type");
@@ -237,14 +240,251 @@ describe("Analytics — internal navigation boundary", () => {
   it("analytics rejection does not block navigation", () => {
     mockLogInternalNavigation.mockImplementationOnce(() => { throw new Error("network down"); });
     renderIndex();
-    const btn = screen.getByText("Search flights");
-    expect(() => btn.click()).not.toThrow();
+    const heroBtn = screen.getAllByText("Search flights").find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
+    expect(() => heroBtn.click()).not.toThrow();
   });
 
   it("no unsafe Parameters<typeof ...> type assertion in source", () => {
-    // Verify the source file no longer contains the dangerous cast
     const fs = require("fs");
     const source = fs.readFileSync("src/pages/Index.tsx", "utf-8");
     expect(source).not.toMatch(/Parameters<typeof\s+logAffiliateClick>/);
+  });
+});
+
+// ── SECTION 1: How BookingsFinder Works ──────────────────────────
+
+describe("How BookingsFinder works section", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("renders the section heading", () => {
+    renderIndex();
+    expect(screen.getByText("How BookingsFinder works")).toBeTruthy();
+  });
+
+  it("renders supporting copy", () => {
+    renderIndex();
+    expect(screen.getByText("Search, plan and continue to trusted travel providers from one place.")).toBeTruthy();
+  });
+
+  it("renders all three steps", () => {
+    renderIndex();
+    expect(screen.getByText("Search and compare")).toBeTruthy();
+    expect(screen.getByText("Plan the full trip")).toBeTruthy();
+    expect(screen.getByText("Continue with the provider")).toBeTruthy();
+  });
+
+  it("renders step labels 1, 2, 3", () => {
+    renderIndex();
+    expect(screen.getByText("Step 1")).toBeTruthy();
+    expect(screen.getByText("Step 2")).toBeTruthy();
+    expect(screen.getByText("Step 3")).toBeTruthy();
+  });
+
+  it("renders step descriptions", () => {
+    renderIndex();
+    expect(screen.getByText(/Search available travel options/)).toBeTruthy();
+    // "Estimate trip costs" appears in product cards too — use getAllByText
+    const estimateEls = screen.getAllByText(/Estimate trip costs/);
+    expect(estimateEls.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Review current prices, availability and booking terms/)).toBeTruthy();
+  });
+
+  it("heading is an H2", () => {
+    renderIndex();
+    const heading = screen.getByText("How BookingsFinder works");
+    expect(heading.tagName).toBe("H2");
+  });
+
+  it("no stock images, no dummy image URLs", () => {
+    renderIndex();
+    // Only the BrandLogo image should exist (from mock)
+    const imgs = document.querySelectorAll("img");
+    const nonLogo = Array.from(imgs).filter(i => i.getAttribute("alt") !== "BookingsFinder");
+    // Sections 1-3 should not introduce any img elements
+    expect(nonLogo.length).toBe(0);
+  });
+});
+
+// ── SECTION 2: Trust and Transparency ────────────────────────────
+
+describe("Trust and transparency section", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("renders the trust section heading", () => {
+    renderIndex();
+    expect(screen.getByText("Trust and transparency")).toBeTruthy();
+  });
+
+  it("explains BookingsFinder does not directly sell inventory", () => {
+    renderIndex();
+    expect(screen.getByText(/BookingsFinder does not directly sell flights or accommodation/)).toBeTruthy();
+  });
+
+  it("explains prices and availability confirmed by providers", () => {
+    renderIndex();
+    expect(screen.getByText(/Current prices and availability are confirmed by providers/)).toBeTruthy();
+  });
+
+  it("explains affiliate link transparency", () => {
+    renderIndex();
+    expect(screen.getByText(/Some outbound links may be affiliate links/)).toBeTruthy();
+    expect(screen.getByText(/BookingsFinder may earn a commission at no additional cost to you/)).toBeTruthy();
+  });
+
+  it("explains provider handles booking conditions", () => {
+    renderIndex();
+    expect(screen.getByText(/Booking conditions, cancellations and payments are handled by the provider/)).toBeTruthy();
+  });
+
+  it("links to Affiliate Disclosure page", () => {
+    renderIndex();
+    const links = screen.getAllByText("Affiliate disclosure");
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    const disclosureLink = links.find(l => l.closest("a")?.getAttribute("href") === "/affiliate-disclosure");
+    expect(disclosureLink).toBeTruthy();
+  });
+
+  it("links to Privacy policy page", () => {
+    renderIndex();
+    const links = screen.getAllByText("Privacy policy");
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    const privacyLink = links.find(l => l.closest("a")?.getAttribute("href") === "/privacy");
+    expect(privacyLink).toBeTruthy();
+  });
+
+  it("links to Terms of service page", () => {
+    renderIndex();
+    const links = screen.getAllByText("Terms of service");
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    const termsLink = links.find(l => l.closest("a")?.getAttribute("href") === "/terms");
+    expect(termsLink).toBeTruthy();
+  });
+
+  it("trust heading is an H2", () => {
+    renderIndex();
+    const heading = screen.getByText("Trust and transparency");
+    expect(heading.tagName).toBe("H2");
+  });
+});
+
+// ── SECTION 3: Final CTA ────────────────────────────────────────
+
+describe("Final CTA section", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("renders the CTA heading", () => {
+    renderIndex();
+    expect(screen.getByText("Ready to start planning?")).toBeTruthy();
+  });
+
+  it("renders supporting CTA copy", () => {
+    renderIndex();
+    expect(screen.getByText("Search available flights or estimate the full cost of your next trip.")).toBeTruthy();
+  });
+
+  it("CTA 'Search flights' links to #flight-search", () => {
+    renderIndex();
+    const searchButtons = screen.getAllByText("Search flights");
+    const ctaButton = searchButtons.find(
+      b => b.closest("a")?.getAttribute("href") === "#flight-search"
+    );
+    expect(ctaButton).toBeTruthy();
+  });
+
+  it("CTA 'Plan trip costs' links to /trip-cost", () => {
+    renderIndex();
+    const planButtons = screen.getAllByText("Plan trip costs");
+    expect(planButtons.length).toBeGreaterThanOrEqual(1);
+    const planLink = planButtons.find(
+      b => b.closest("a")?.getAttribute("href") === "/trip-cost"
+    );
+    expect(planLink).toBeTruthy();
+  });
+
+  it("final CTA section has an H2", () => {
+    renderIndex();
+    const heading = screen.getByText("Ready to start planning?");
+    expect(heading.tagName).toBe("H2");
+  });
+
+  it("final CTA uses BookingsFinder brand colors", () => {
+    renderIndex();
+    // The CTA section uses the dark navy background bg-[#0A1F44]
+    const sections = document.querySelectorAll("section");
+    const ctaSection = Array.from(sections).find(s =>
+      s.textContent?.includes("Ready to start planning?")
+    );
+    expect(ctaSection).toBeTruthy();
+    expect(ctaSection!.className).toContain("0A1F44");
+  });
+});
+
+// ── Section ordering ─────────────────────────────────────────────
+
+describe("Homepage section order", () => {
+  it("How BookingsFinder works appears after product cards", () => {
+    renderIndex();
+    const allText = document.body.textContent || "";
+    const productsIdx = allText.indexOf("Everything you need to plan your trip");
+    const howIdx = allText.indexOf("How BookingsFinder works");
+    expect(productsIdx).toBeGreaterThan(0);
+    expect(howIdx).toBeGreaterThan(productsIdx);
+  });
+
+  it("Trust and transparency appears after How BookingsFinder works", () => {
+    renderIndex();
+    const allText = document.body.textContent || "";
+    const howIdx = allText.indexOf("How BookingsFinder works");
+    const trustIdx = allText.indexOf("Trust and transparency");
+    expect(trustIdx).toBeGreaterThan(howIdx);
+  });
+
+  it("Final CTA appears after Trust and transparency", () => {
+    renderIndex();
+    const allText = document.body.textContent || "";
+    const trustIdx = allText.indexOf("Trust and transparency");
+    const ctaIdx = allText.indexOf("Ready to start planning?");
+    expect(ctaIdx).toBeGreaterThan(trustIdx);
+  });
+});
+
+// ── No prohibited claims ─────────────────────────────────────────
+
+describe("Prohibited claims absent", () => {
+  it("no savings or discount claims", () => {
+    renderIndex();
+    const text = document.body.textContent || "";
+    expect(text).not.toMatch(/save up to|save \d+%|guaranteed savings|best price|lowest price/i);
+  });
+
+  it("no inventory fabrication claims", () => {
+    renderIndex();
+    const text = document.body.textContent || "";
+    expect(text).not.toMatch(/we have \d+ hotels|over \d+ flights|compare \d+ hotels/i);
+  });
+
+  it("no live hotel comparison claim while hotel provider is inactive", () => {
+    renderIndex();
+    const text = document.body.textContent || "";
+    // Should not claim live comparison of hotel prices
+    expect(text).not.toMatch(/compare hotel prices|live hotel.*compar/i);
+  });
+});
+
+// ── #flight-search anchor only ────────────────────────────────────
+
+describe("#flight-search anchor exclusivity", () => {
+  it("only #flight-search and #main-content are used as in-page anchors", () => {
+    renderIndex();
+    const anchors = Array.from(document.querySelectorAll("a[href^='#']"));
+    const hrefs = anchors.map(a => a.getAttribute("href"));
+    const allowed = new Set(["#flight-search", "#main-content"]);
+    for (const href of hrefs) {
+      if (href && href.startsWith("#")) {
+        expect(allowed.has(href)).toBe(true);
+      }
+    }
+    // At least one #flight-search anchor must exist
+    expect(hrefs.filter(h => h === "#flight-search").length).toBeGreaterThanOrEqual(1);
   });
 });

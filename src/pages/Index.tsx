@@ -1,9 +1,11 @@
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { Plane, Building2, Compass, MapPin, ArrowRight } from "lucide-react";
+import { Plane, Building2, Compass, MapPin, ArrowRight, Search, ClipboardCheck, ExternalLink, Shield, HeartHandshake, Library, Calculator } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
+import { SectionContainer } from "@/components/home-v2/SectionContainer";
+import { SectionHeading } from "@/components/home-v2/SectionHeading";
 import { logInternalNavigation } from "@/lib/analytics";
 
 const safeTrack = (label: string, href: string) => {
@@ -15,6 +17,20 @@ const PRODUCT_CARDS = [
   { title: "Find stays", desc: "Browse hotel options and compare accommodation for your trip.", href: "/hotels", icon: Building2 },
   { title: "Estimate trip costs", desc: "Plan your budget with our interactive trip cost planner.", href: "/trip-cost", icon: Compass },
   { title: "Optimize your itinerary", desc: "Plan multi-city routes and find the most efficient travel path.", href: "/optimizer", icon: MapPin },
+];
+
+const HOW_IT_WORKS_STEPS = [
+  { step: 1, title: "Search and compare", desc: "Search available travel options using BookingsFinder's supported tools and partners.", icon: Search },
+  { step: 2, title: "Plan the full trip", desc: "Estimate trip costs, organise travel details and refine your itinerary.", icon: ClipboardCheck },
+  { step: 3, title: "Continue with the provider", desc: "Review current prices, availability and booking terms on the provider's website.", icon: ExternalLink },
+];
+
+const TRUST_ITEMS = [
+  { icon: Shield, text: "BookingsFinder is a travel comparison and planning platform." },
+  { icon: Plane, text: "BookingsFinder does not directly sell flights or accommodation." },
+  { icon: HeartHandshake, text: "Current prices and availability are confirmed by providers." },
+  { icon: Library, text: "Some outbound links may be affiliate links. BookingsFinder may earn a commission at no additional cost to you." },
+  { icon: ClipboardCheck, text: "Booking conditions, cancellations and payments are handled by the provider." },
 ];
 
 const Index = () => (
@@ -40,6 +56,7 @@ const Index = () => (
       <Header />
 
       <main id="main-content" className="flex-1">
+        {/* ── Hero ── */}
         <section className="relative overflow-hidden bg-[#0A1F44]" aria-labelledby="hero-heading">
           <div className="absolute inset-0 opacity-[0.06]" aria-hidden="true">
             <svg width="100%" height="100%" viewBox="0 0 1440 700" preserveAspectRatio="none"><path d="M-100,400 Q200,200 500,380 T1440,200" fill="none" stroke="white" strokeWidth="1.5"/><path d="M-100,500 Q400,700 800,350 T1440,450" fill="none" stroke="white" strokeWidth="1" opacity="0.5"/><circle cx="300" cy="380" r="4" fill="white" opacity="0.3"/><circle cx="900" cy="300" r="5" fill="white" opacity="0.2"/></svg>
@@ -55,6 +72,7 @@ const Index = () => (
           </div>
         </section>
 
+        {/* ── Flight Search ── */}
         <section id="flight-search" className="bg-[#F2F6F9] py-10 sm:py-14" aria-labelledby="flight-search-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
@@ -67,6 +85,7 @@ const Index = () => (
           </div>
         </section>
 
+        {/* ── Trust Strip ── */}
         <div className="bg-white border-b border-[#DDE5EC]" aria-label="Why use BookingsFinder">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
             <div className="flex flex-wrap justify-center gap-x-10 gap-y-3 text-sm font-semibold text-[#475467]">
@@ -78,6 +97,7 @@ const Index = () => (
           </div>
         </div>
 
+        {/* ── Product Cards ── */}
         <section className="py-16 sm:py-20 bg-white" aria-labelledby="products-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 id="products-heading" className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#101828] text-center">Everything you need to plan your trip</h2>
@@ -92,6 +112,92 @@ const Index = () => (
                   <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#2878F0] group-hover:gap-2.5 transition-all">Learn more <ArrowRight className="w-4 h-4" /></span>
                 </Link>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── SECTION 1: How BookingsFinder Works ── */}
+        <SectionContainer className="bg-[#F2F6F9]" aria-labelledby="how-works-heading">
+          <SectionHeading
+            headline="How BookingsFinder works"
+            supporting="Search, plan and continue to trusted travel providers from one place."
+          />
+          <div className="max-w-5xl mx-auto mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {HOW_IT_WORKS_STEPS.map((step) => (
+                <div key={step.step} className="flex flex-col items-center text-center p-6">
+                  <div className="w-14 h-14 rounded-2xl bg-[#2878F0]/10 flex items-center justify-center mb-5" aria-hidden="true">
+                    <step.icon className="w-7 h-7 text-[#2878F0]" />
+                  </div>
+                  <div className="text-xs font-bold text-[#2878F0] uppercase tracking-[0.1em] mb-2">Step {step.step}</div>
+                  <h3 className="text-lg font-bold text-[#101828] mb-2">{step.title}</h3>
+                  <p className="text-sm text-[#475467] leading-relaxed">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SectionContainer>
+
+        {/* ── SECTION 2: Trust and Transparency ── */}
+        <SectionContainer className="bg-white" aria-labelledby="trust-heading">
+          <SectionHeading
+            headline="Trust and transparency"
+            supporting="We believe you should know how BookingsFinder works and how we support our service."
+          />
+          <div className="max-w-3xl mx-auto">
+            <div className="space-y-4">
+              {TRUST_ITEMS.map((item, i) => (
+                <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-[#F2F6F9] border border-[#DDE5EC]">
+                  <div className="w-9 h-9 rounded-lg bg-[#0B747A]/10 flex items-center justify-center shrink-0 mt-0.5" aria-hidden="true">
+                    <item.icon className="w-4.5 h-4.5 text-[#0B747A]" />
+                  </div>
+                  <p className="text-sm text-[#475467] leading-relaxed pt-1">{item.text}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-3 mt-8">
+              <Link to="/affiliate-disclosure" className="text-sm text-[#2878F0] underline underline-offset-2 hover:text-[#1A5FC0] transition-colors font-medium">
+                Affiliate disclosure
+              </Link>
+              <span className="text-[#DDE5EC] hidden sm:inline">·</span>
+              <Link to="/privacy" className="text-sm text-[#2878F0] underline underline-offset-2 hover:text-[#1A5FC0] transition-colors font-medium">
+                Privacy policy
+              </Link>
+              <span className="text-[#DDE5EC] hidden sm:inline">·</span>
+              <Link to="/terms" className="text-sm text-[#2878F0] underline underline-offset-2 hover:text-[#1A5FC0] transition-colors font-medium">
+                Terms of service
+              </Link>
+            </div>
+
+            <p className="text-xs text-[#475467] text-center max-w-xl mx-auto mt-6 leading-relaxed">
+              Travel requirements can change. Always confirm critical information with the relevant government, airline or provider before travelling.
+            </p>
+          </div>
+        </SectionContainer>
+
+        {/* ── SECTION 3: Final CTA ── */}
+        <section className="bg-[#0A1F44] py-14 sm:py-16" aria-labelledby="cta-heading">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 id="cta-heading" className="text-2xl sm:text-3xl font-bold text-white mb-3">Ready to start planning?</h2>
+            <p className="text-[#94A3B8] text-base max-w-xl mx-auto mb-8">Search available flights or estimate the full cost of your next trip.</p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <a
+                href="#flight-search"
+                onClick={() => safeTrack("cta_search_flights", "#flight-search")}
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#E6532F] hover:bg-[#CC4428] text-white font-semibold rounded-xl text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2878F0] shadow-lg shadow-[#E6532F]/25"
+              >
+                <Plane className="w-5 h-5" />
+                Search flights
+              </a>
+              <Link
+                to="/trip-cost"
+                onClick={() => safeTrack("cta_plan_costs", "/trip-cost")}
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-xl text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white border border-white/20"
+              >
+                <Calculator className="w-5 h-5" />
+                Plan trip costs
+              </Link>
             </div>
           </div>
         </section>
