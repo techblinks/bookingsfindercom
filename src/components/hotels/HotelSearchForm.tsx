@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Building2, Search, Users, Calendar } from "lucide-react";
+import { Search, Users, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AFFILIATE_DISCLOSURE } from "@/lib/travelConfig";
+import HotelDestinationCombobox from "@/components/hotels/HotelDestinationCombobox";
 
 interface HotelSearchFormValues {
   destination: string;
@@ -85,7 +86,6 @@ export function HotelSearchForm({
   const handleChange = (field: keyof HotelSearchFormValues, value: string | number) => {
     setValues(prev => {
       const next = { ...prev, [field]: value };
-      // Re-validate touched fields
       if (touched.size > 0) {
         const nextErrors = validate(next);
         const filtered: ValidationErrors = {};
@@ -98,6 +98,10 @@ export function HotelSearchForm({
       }
       return next;
     });
+  };
+
+  const handleDestinationChange = (value: string) => {
+    handleChange("destination", value);
   };
 
   const handleBlur = (field: keyof HotelSearchFormValues) => {
@@ -122,19 +126,12 @@ export function HotelSearchForm({
       {/* Destination */}
       <div>
         <Label htmlFor="hotelDest">Destination</Label>
-        <div className="relative">
-          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <Input
-            id="hotelDest"
-            value={values.destination}
-            onChange={e => handleChange("destination", e.target.value)}
-            onBlur={() => handleBlur("destination")}
-            placeholder="City or region"
-            aria-invalid={!!errors.destination}
-            aria-describedby={errors.destination ? "err-dest" : undefined}
-            className="h-12 rounded-xl pl-10"
-          />
-        </div>
+        <HotelDestinationCombobox
+          id="hotelDest"
+          value={values.destination}
+          onChange={handleDestinationChange}
+          placeholder="City or region"
+        />
         {errors.destination && <p id="err-dest" className="text-xs text-destructive mt-1">{errors.destination}</p>}
       </div>
 
