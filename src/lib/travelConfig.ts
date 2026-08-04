@@ -30,6 +30,8 @@ export interface TravelPartnerMeta {
   whiteLabelHost: string | null;
   /** Trust disclosure sentence for footer/handoff. */
   disclosure: string;
+  /** Whether the affiliate program is currently active and accepting traffic. */
+  active: boolean;
 }
 
 /** Validated flight search parameters. */
@@ -131,6 +133,7 @@ export const PARTNERS: Record<TravelPartnerId, TravelPartnerMeta> = {
     searchBaseUrl: "https://www.aviasales.com",
     // Lazy getter: re-evaluates on each access so tests can stub env vars
     get whiteLabelHost() { return getWhiteLabelHost(); },
+    active: true,
     disclosure: "Flights are searched via our travel partner Aviasales. Final prices and availability are confirmed on the partner site.",
   },
   hotellook: {
@@ -140,6 +143,7 @@ export const PARTNERS: Record<TravelPartnerId, TravelPartnerMeta> = {
     website: "https://search.hotellook.com",
     searchBaseUrl: "https://search.hotellook.com",
     whiteLabelHost: null, // Hotellook does not support White Label
+    active: false, // Hotellook affiliate program discontinued 20 October 2025
     disclosure: "Hotels are searched via our travel partner Hotellook. Final prices and availability are confirmed on the partner site.",
   },
 };
@@ -235,6 +239,146 @@ export function validateFlightParams(params: Partial<ValidatedFlightParams>): Va
   return { valid: errors.length === 0, errors };
 }
 
+// ── Hotel Search Params ──
+
+/** Validated hotel search parameters for provider handoff. */
+export interface ValidatedHotelParams {
+  destination: string;
+  checkIn: string;    // "YYYY-MM-DD"
+  checkOut: string;   // "YYYY-MM-DD"
+  adults: number;
+  rooms: number;
+}
+
+/** Validation error for a single field. */
+export interface HotelValidationFieldError {
+  field: string;
+  code: string;
+  message: string;
+}
+
+/** Result of validating hotel search parameters. */
+export interface HotelValidationResult {
+  valid: boolean;
+  errors: HotelValidationFieldError[];
+}
+
+/**
+ * Validate hotel search parameters.
+ * Returns structured errors — never throws.
+ */
+export function validateHotelParams(params: Partial<ValidatedHotelParams>): HotelValidationResult {
+  const errors: HotelValidationFieldError[] = [];
+  const addErr = (field: string, code: string, message: string) => errors.push({ field, code, message });
+
+  if (!params.destination || !params.destination.trim()) {
+    addErr("destination", "required", "Enter a destination");
+  }
+
+  if (!params.checkIn || !DATE_RE.test(params.checkIn)) {
+    addErr("checkIn", "invalid_date", "Enter a valid check-in date (YYYY-MM-DD)");
+  } else if (!isDateNotPast(params.checkIn)) {
+    addErr("checkIn", "date_past", "Check-in cannot be in the past");
+  }
+
+  if (!params.checkOut || !DATE_RE.test(params.checkOut)) {
+    addErr("checkOut", "invalid_date", "Enter a valid check-out date (YYYY-MM-DD)");
+  } else if (params.checkIn && DATE_RE.test(params.checkIn) && params.checkOut <= params.checkIn) {
+    addErr("checkOut", "before_checkin", "Check-out must be after check-in");
+  }
+
+  const adults = params.adults ?? 1;
+  if (!Number.isInteger(adults) || adults < 1) {
+    addErr("adults", "invalid_adults", "At least 1 adult");
+  } else if (adults > 10) {
+    addErr("adults", "too_many_adults", "Maximum 10 adults");
+  }
+
+  const rooms = params.rooms ?? 1;
+  if (!Number.isInteger(rooms) || rooms < 1) {
+    addErr("rooms", "invalid_rooms", "At least 1 room");
+  } else if (rooms > 5) {
+    addErr("rooms", "too_many_rooms", "Maximum 5 rooms");
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Build a hotel search URL for the configured provider.
+ *
+ * Checks that the hotel partner is active before generating a URL.
+ * When the partner has been discontinued (e.g. Hotellook, October 2025),
+ * this function returns failure with an appropriate reason.
+ *
+ * Returns a structured result — never throws.
+ */
+export function buildHotelSearchUrl(params: ValidatedHotelParams): UrlBuildResult {
+  const partner: TravelPartnerId = "hotellook";
+
+  // Validate first
+  const validation = validateHotelParams(params);
+  if (!validation.valid) {
+    return {
+      success: false,
+      url: null,
+      partner,
+      reason: "Validation failed",
+      errors: validation.errors.map(e => ({ field: e.field, code: e.code, message: e.message })),
+    };
+  }
+
+  const meta = PARTNERS[partner];
+  if (!meta?.active) {
+    return {
+      success: false,
+      url: null,
+      partner,
+      reason: "Hotel partner program is discontinued. Configuration is being updated.",
+    };
+  }
+
+  const base = meta.searchBaseUrl;
+  if (!base) {
+    return {
+      success: false,
+      url: null,
+      partner,
+      reason: "Partner configuration not available",
+    };
+  }
+
+  // Build query parameters safely
+  const qs = new URLSearchParams();
+  qs.set("destination", params.destination.trim());
+  qs.set("checkIn", params.checkIn);
+  qs.set("checkOut", params.checkOut);
+  qs.set("adults", String(params.adults));
+  qs.set("rooms", String(params.rooms));
+
+  // Construct full URL
+  const url = new URL("/hotels", base);
+  url.search = qs.toString();
+
+  const urlString = url.toString();
+
+  // Safety: verify host is approved
+  if (!isApprovedHost(urlString, partner)) {
+    return {
+      success: false,
+      url: null,
+      partner,
+      reason: "Generated URL resolves to an unapproved host",
+    };
+  }
+
+  return {
+    success: true,
+    url: urlString,
+    partner,
+  };
+}
+
 // ── URL Building ──
 
 /**
@@ -300,6 +444,16 @@ export function buildFlightSearchUrl(params: ValidatedFlightParams): UrlBuildRes
       partner,
       reason: "Validation failed",
       errors: validation.errors,
+    };
+  }
+
+  const meta = PARTNERS[partner];
+  if (!meta?.active) {
+    return {
+      success: false,
+      url: null,
+      partner,
+      reason: "Partner program is discontinued.",
     };
   }
 

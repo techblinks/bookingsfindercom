@@ -20,8 +20,6 @@ const AVIASALES_BASE = WHITE_LABEL_HOST
   ? `https://${WHITE_LABEL_HOST}`
   : "https://www.aviasales.com";
 
-const HOTELLOOK_BASE = "https://search.hotellook.com";
-
 // Zod schema for redirect query parameters
 const RedirectQuerySchema = z.object({
   id: z.string().min(1, "ID is required"),
@@ -75,17 +73,12 @@ Deno.serve(async (req) => {
       redirectUrl = `${AVIASALES_BASE}/search/${params.origin}${depDate}${params.destination}${retDate}1?${flightParams.toString()}`;
       partner = "Aviasales";
     } else if (params.type === "hotel" || params.id.startsWith("redir-ht")) {
-      // Build Hotellook search URL
-      const hotelParams = new URLSearchParams();
-      if (params.destination) hotelParams.append("destination", params.destination);
-      if (params.checkIn) hotelParams.append("checkIn", params.checkIn);
-      if (params.checkOut) hotelParams.append("checkOut", params.checkOut);
-      if (params.guests) hotelParams.append("adults", params.guests);
-      if (params.hotelId) hotelParams.append("hotelId", params.hotelId);
-      if (markerId) hotelParams.append("marker", markerId);
-
-      redirectUrl = `${HOTELLOOK_BASE}/hotels?${hotelParams.toString()}`;
-      partner = "Hotellook";
+      // Hotellook affiliate program was discontinued 20 October 2025.
+      // Reject hotel redirects until a new active provider is configured.
+      return errorResponse(
+        "Hotel partner program is discontinued. No active hotel affiliate provider is configured.",
+        410
+      );
     } else {
       return errorResponse("Unable to determine redirect type", 400);
     }
