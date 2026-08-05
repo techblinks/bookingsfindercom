@@ -295,13 +295,57 @@ describe("How BookingsFinder works section", () => {
     expect(heading.tagName).toBe("H2");
   });
 
-  it("no stock images, no dummy image URLs", () => {
+  it("every rendered img src physically exists on disk", () => {
+    // Use Node fs to verify every local image reference resolves to an existing file
+    const { existsSync } = require("fs");
+    const path = require("path");
+    const publicDir = path.resolve(process.cwd(), "public");
+
     renderIndex();
-    // Only the BrandLogo image should exist (from mock)
-    const imgs = document.querySelectorAll("img");
-    const nonLogo = Array.from(imgs).filter(i => i.getAttribute("alt") !== "BookingsFinder");
-    // Sections 1-3 should not introduce any img elements
-    expect(nonLogo.length).toBe(0);
+    const imgs = Array.from(document.querySelectorAll("img"));
+    const checked = [];
+
+    for (const img of imgs) {
+      const src = img.getAttribute("src") || "";
+      // Skip external, data URIs, and brand logos
+      if (!src.startsWith("/") || src.includes("logo") || src.includes("brand")) continue;
+
+      const filePath = path.resolve(publicDir, src.slice(1));
+      expect(existsSync(filePath)).toBe(true);
+      checked.push(src);
+
+      // Check srcSet candidates
+      const srcSet = img.getAttribute("srcset") || "";
+      if (!srcSet) continue;
+      // Parse "url descriptor, url descriptor" format
+      const candidates = srcSet.split(",").map(s => s.trim().split(/\s+/)[0]).filter(Boolean);
+      for (const candidate of candidates) {
+        if (!candidate.startsWith("/")) continue;
+        const candPath = path.resolve(publicDir, candidate.slice(1));
+        expect(existsSync(candPath)).toBe(true);
+      }
+    }
+
+    // Must have found at least one local image to validate
+    expect(checked.length).toBeGreaterThan(0);
+  });
+
+  it("no remote image URLs are rendered", () => {
+    renderIndex();
+    const imgs = Array.from(document.querySelectorAll("img"));
+    for (const img of imgs) {
+      const src = img.getAttribute("src") || "";
+      expect(src).not.toMatch(/^https?:\/\//);
+    }
+  });
+
+  it("no removed /images/home paths remain in rendered DOM", () => {
+    renderIndex();
+    const imgs = Array.from(document.querySelectorAll("img"));
+    for (const img of imgs) {
+      const src = img.getAttribute("src") || "";
+      expect(src).not.toContain("/images/home/");
+    }
   });
 });
 
@@ -415,7 +459,7 @@ describe("Final CTA section", () => {
       s.textContent?.includes("Ready to start planning?")
     );
     expect(ctaSection).toBeTruthy();
-    expect(ctaSection!.className).toContain("0A1F44");
+    expect(ctaSection!.className).toContain("001D45");
   });
 });
 

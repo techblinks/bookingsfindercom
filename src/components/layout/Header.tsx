@@ -66,7 +66,7 @@ const Header = () => {
             <Button variant="ghost" size="sm" className="rounded-full text-sm h-9" asChild>
               <Link to="/account">Sign In</Link>
             </Button>
-            <Button size="sm" className="rounded-full text-sm h-10 px-6 bg-accent hover:bg-accent/90 text-accent-foreground shadow-sm" asChild>
+            <Button variant="conversion" size="sm" className="rounded-full text-sm h-10 px-6" asChild>
               <Link to="/trip-cost">Plan a Trip</Link>
             </Button>
           </div>
@@ -142,7 +142,7 @@ const Header = () => {
                 <Button variant="outline" className="w-full h-12 rounded-xl text-[15px] font-semibold" asChild>
                   <Link to="/account" onClick={close}>Sign In</Link>
                 </Button>
-                <Button className="w-full h-12 rounded-xl text-[15px] font-semibold bg-accent hover:bg-accent/90 text-accent-foreground" asChild>
+                <Button variant="conversion" className="w-full h-12 rounded-xl text-[15px] font-semibold" asChild>
                   <Link to="/trip-cost" onClick={close}>Plan a Trip</Link>
                 </Button>
               </div>

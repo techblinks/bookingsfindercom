@@ -23,12 +23,15 @@ const buttonVariants = cva(
           "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 active:scale-[0.98] font-semibold px-8",
         pill:
           "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
+        conversion:
+          "bg-[#D64A2A] text-white shadow-sm hover:bg-[#B83D22] active:scale-[0.98] font-semibold",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3 text-xs",
         lg: "h-12 rounded-lg px-6 text-base",
         xl: "h-14 rounded-xl px-8 text-lg",
+        cta: "h-[50px] rounded-xl px-6 text-base min-w-[180px]",
         icon: "h-10 w-10",
       },
     },
@@ -54,3 +57,22 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export { Button, buttonVariants };
+
+/** Stable CTA button classes — shared across homepage and Stays hero/CTA sections */
+export const ctaBase =
+  "inline-flex items-center justify-center gap-2 font-semibold rounded-xl text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 h-[50px] px-6 min-w-[180px] [&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:pointer-events-none";
+
+export const ctaPrimary = cn(
+  ctaBase,
+  "bg-[#D64A2A] text-white hover:bg-[#B83D22] shadow-lg shadow-[#D64A2A]/25 focus-visible:outline-[#01367F]"
+);
+
+export const ctaSecondary = cn(
+  ctaBase,
+  "bg-white/10 text-white border border-white/20 hover:bg-white/15 focus-visible:outline-white"
+);
+
+export const ctaSecondaryLight = cn(
+  ctaBase,
+  "bg-[#01367F]/10 text-[#01367F] border border-[#01367F]/20 hover:bg-[#01367F]/15 focus-visible:outline-[#01367F]"
+);

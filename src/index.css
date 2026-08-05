@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* BookingsFinder V2 Design System — Trustworthy, Warm, Travel-Ready */
+/* BookingsFinder Brand Design System — Blue & Orange */
 
 /* Safe Area CSS Variables */
 :root {
@@ -14,90 +14,90 @@
 
 @layer base {
   :root {
-    /* Primary — Deep Teal #0D4F5C */
-    --primary: 187 75% 21%;
+    /* ── Brand Blue #01367F ── */
+    --primary: 215 98% 25%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 187 55% 28%;
+    --primary-hover: 215 98% 20%;
 
-    /* Background — White Sand #FAF8F5 */
-    --background: 36 33% 97%;
-    --foreground: 24 6% 17%;
+    /* ── Background ── */
+    --background: 210 100% 99%;
+    --foreground: 222 47% 11%;
 
-    /* Card surfaces — Warm Grey #F0EDE8 */
+    /* ── Card surfaces ── */
     --card: 0 0% 100%;
-    --card-foreground: 24 6% 17%;
-    --card-hover: 38 21% 97%;
+    --card-foreground: 222 47% 11%;
+    --card-hover: 212 71% 96%;
 
-    /* Muted surfaces */
-    --muted: 38 21% 93%;
-    --muted-foreground: 27 5% 40%;
+    /* ── Muted / pale blue panels ── */
+    --muted: 212 71% 94%;
+    --muted-foreground: 215 16% 47%;
 
-    /* Secondary */
-    --secondary: 38 21% 93%;
-    --secondary-foreground: 24 6% 17%;
+    /* ── Secondary ── */
+    --secondary: 212 71% 94%;
+    --secondary-foreground: 222 47% 11%;
 
-    /* Accent — Coral Sun #CC4D28 (darkened from #E8734A for 4.51:1 on white) */
-    --accent: 15 67% 48%;
+    /* ── Accent — Orange #D64A2A ── */
+    --accent: 15 68% 50%;
     --accent-foreground: 0 0% 100%;
 
-    /* Success — Muted Emerald #2E6B4A (darkened from #3B825D for 5.42:1 on warm grey) */
+    /* ── Success — Muted Emerald (semantic, not brand) ── */
     --success: 150 40% 30%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning — Warm Amber #A86228 (darkened from #C4823E for 4.73:1 on white) */
+    /* ── Warning — Warm Amber (semantic, not brand) ── */
     --warning: 33 58% 41%;
     --warning-foreground: 0 0% 100%;
 
-    /* Destructive — Accessible Red #C23B3B */
+    /* ── Destructive — Accessible Red (semantic, not brand) ── */
     --destructive: 0 53% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Popover */
+    /* ── Popover ── */
     --popover: 0 0% 100%;
-    --popover-foreground: 24 6% 17%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Border — Stone #C4BFB6 */
-    --border: 39 11% 82%;
-    --input: 39 11% 82%;
-    --ring: 187 75% 21%;
+    /* ── Border — #D8E0E7 ── */
+    --border: 212 24% 88%;
+    --input: 212 24% 88%;
+    --ring: 215 42% 50%;
 
-    /* Radius */
+    /* ── Radius ── */
     --radius: 0.75rem;
 
-    /* Shadows — softer warm shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(45 42 40 / 0.05);
-    --shadow-card: 0 1px 3px 0 rgb(45 42 40 / 0.08), 0 1px 2px -1px rgb(45 42 40 / 0.06);
-    --shadow-elevated: 0 4px 6px -1px rgb(45 42 40 / 0.08), 0 2px 4px -2px rgb(45 42 40 / 0.06);
-    --shadow-modal: 0 10px 15px -3px rgb(45 42 40 / 0.08), 0 4px 6px -4px rgb(45 42 40 / 0.06);
+    /* ── Shadows — subtle blue-tinted ── */
+    --shadow-sm: 0 1px 2px 0 rgb(1 54 127 / 0.04);
+    --shadow-card: 0 1px 3px 0 rgb(1 54 127 / 0.06), 0 1px 2px -1px rgb(1 54 127 / 0.04);
+    --shadow-elevated: 0 4px 6px -1px rgb(1 54 127 / 0.06), 0 2px 4px -2px rgb(1 54 127 / 0.04);
+    --shadow-modal: 0 10px 15px -3px rgb(1 54 127 / 0.06), 0 4px 6px -4px rgb(1 54 127 / 0.04);
 
-    /* Sidebar */
+    /* ── Sidebar ── */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 24 6% 17%;
-    --sidebar-primary: 187 75% 21%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 215 98% 25%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 38 21% 93%;
-    --sidebar-accent-foreground: 24 6% 17%;
-    --sidebar-border: 39 11% 82%;
-    --sidebar-ring: 187 75% 21%;
+    --sidebar-accent: 212 71% 94%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 212 24% 88%;
+    --sidebar-ring: 215 42% 50%;
   }
 
   .dark {
-    --primary: 187 45% 55%;
-    --primary-foreground: 24 6% 8%;
-    --primary-hover: 187 45% 50%;
+    --primary: 215 70% 55%;
+    --primary-foreground: 222 47% 8%;
+    --primary-hover: 215 70% 50%;
 
-    --background: 24 6% 8%;
-    --foreground: 36 33% 93%;
+    --background: 222 47% 6%;
+    --foreground: 210 40% 93%;
 
-    --card: 24 6% 12%;
-    --card-foreground: 36 33% 93%;
-    --card-hover: 24 6% 15%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 93%;
+    --card-hover: 222 47% 14%;
 
-    --muted: 24 6% 18%;
-    --muted-foreground: 38 15% 60%;
+    --muted: 222 47% 16%;
+    --muted-foreground: 215 20% 55%;
 
-    --secondary: 24 6% 15%;
-    --secondary-foreground: 36 33% 90%;
+    --secondary: 222 47% 14%;
+    --secondary-foreground: 210 40% 90%;
 
     --accent: 15 60% 50%;
     --accent-foreground: 0 0% 100%;
@@ -105,21 +105,21 @@
     --success: 150 35% 40%;
     --success-foreground: 0 0% 100%;
 
-    --popover: 24 6% 12%;
-    --popover-foreground: 36 33% 93%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 93%;
 
-    --border: 24 6% 22%;
-    --input: 24 6% 22%;
-    --ring: 187 45% 55%;
+    --border: 222 30% 20%;
+    --input: 222 30% 20%;
+    --ring: 215 42% 55%;
 
-    --sidebar-background: 24 6% 10%;
-    --sidebar-foreground: 36 33% 93%;
-    --sidebar-primary: 187 45% 55%;
-    --sidebar-primary-foreground: 24 6% 8%;
-    --sidebar-accent: 24 6% 18%;
-    --sidebar-accent-foreground: 36 33% 90%;
-    --sidebar-border: 24 6% 22%;
-    --sidebar-ring: 187 45% 55%;
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 93%;
+    --sidebar-primary: 215 70% 55%;
+    --sidebar-primary-foreground: 222 47% 8%;
+    --sidebar-accent: 222 47% 16%;
+    --sidebar-accent-foreground: 210 40% 90%;
+    --sidebar-border: 222 30% 20%;
+    --sidebar-ring: 215 42% 55%;
   }
 }
 
@@ -260,40 +260,8 @@
   }
 
   .bg-primary-gradient {
-    background: linear-gradient(135deg, hsl(187 75% 21%), hsl(187 55% 28%));
+    background: linear-gradient(135deg, hsl(215 98% 25%), hsl(215 98% 20%));
   }
-}
-
-/*
- * Page-scoped cool-neutral palette for the /flights landing page (Phase 1).
- *
- * Overrides ONLY the neutral tokens (background / surfaces / text / borders)
- * for descendants of `.flights-landing`. Brand tokens — primary (teal),
- * accent (coral), success (green), ring, destructive, warning — are left
- * untouched and inherit from :root, so the brand identity is preserved.
- *
- * Scoped to light mode via `:root:not(.dark)` so dark mode keeps the existing
- * global `.dark` tokens with zero regression. Global `:root` is not modified.
- */
-:root:not(.dark) .flights-landing {
-  --background: 210 40% 98%;        /* #F8FAFC — cool slate canvas */
-  --foreground: 215 25% 27%;        /* #1F2937 — body text */
-  --card: 0 0% 100%;                /* #FFFFFF — card surfaces */
-  --card-foreground: 215 25% 27%;   /* #1F2937 */
-  --card-hover: 210 40% 98%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 27%;
-  --muted: 210 40% 96%;             /* cool muted surface */
-  --muted-foreground: 215 16% 47%;  /* cool muted text */
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 215 25% 27%;
-  --border: 214 32% 91%;            /* cool hairline */
-  --input: 214 32% 91%;
-}
-
-/* Headings sit a shade darker than body text (#111827) within the scope. */
-:root:not(.dark) .flights-landing :is(h1, h2, h3, h4, h5, h6) {
-  color: hsl(221 39% 11%);
 }
 
 /* Respect user motion preferences */

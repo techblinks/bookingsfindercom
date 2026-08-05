@@ -673,6 +673,7 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
 
         {/* Search Button */}
         <Button
+          variant="conversion"
           onClick={handleSearch}
           className="w-full h-14 text-base font-semibold rounded-xl"
           size="lg"
@@ -871,6 +872,7 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
           {/* Search Button */}
           <div className="p-2 flex items-stretch">
             <Button
+              variant="conversion"
               onClick={handleSearch}
               size="lg"
               className="w-full h-full px-5 rounded-xl text-base font-semibold whitespace-nowrap flex items-center justify-center gap-2"

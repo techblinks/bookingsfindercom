@@ -212,6 +212,7 @@ const OptimizerForm = ({ onSubmit, error }: OptimizerFormProps) => {
         </div>
 
         <Button
+          variant="conversion"
           type="submit"
           size="lg"
           className="w-full"

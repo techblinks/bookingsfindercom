@@ -219,7 +219,7 @@ export function HotelSearchForm({
       </div>
 
       {/* Submit */}
-      <Button type="submit" size="lg" className="w-full h-12 text-base font-semibold rounded-xl gap-2">
+      <Button variant="conversion" type="submit" size="lg" className="w-full h-12 text-base font-semibold rounded-xl gap-2">
         <Search className="h-4 w-4" />
         Search hotels
       </Button>
