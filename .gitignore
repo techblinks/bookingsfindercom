@@ -29,3 +29,7 @@ dist-ssr
 supabase/.temp/
 
 .playwright-mcp/
+ 
+.wrangler/ 
+.dev.vars 
+.dev.vars.*
