@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trip.com mobile accommodation search</title>
+  <style>
+    html, body { margin:0; width:100%; min-height:100%; background:transparent; overflow-x:hidden; }
+  </style>
+</head>
+<body>
+  <script async
+    src="https://tpemb.com/content?trs=44922&shmarker=254734.hotel_mobile&lang=www&layout=S10409&powered_by=false&campaign_id=121&promo_id=4038"
+    charset="utf-8"></script>
+
+  <script>
+    (function(){
+      var MIN=200, MAX=2000, lastH=0;
+      function send(){
+        var h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,document.body.offsetHeight,document.documentElement.offsetHeight);
+        h=Math.max(MIN,Math.min(MAX,h));
+        if(h!==lastH){lastH=h;
+          try{window.parent.postMessage({type:"tripcom-widget-height",variant:"mobile",height:h},"*")}catch(_){}
+        }
+      }
+      setTimeout(send,800);setTimeout(send,2000);setTimeout(send,5000);
+      if(window.ResizeObserver){var ro=new ResizeObserver(function(){send()});ro.observe(document.body)}
+      setInterval(send,3000)
+    })()
+  </script>
+</body>
+</html>
