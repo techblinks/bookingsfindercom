@@ -677,8 +677,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.log_site_media_event() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.log_site_media_event() TO authenticated;
+REVOKE ALL ON FUNCTION public.log_site_media_event(text, text, integer, uuid, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.log_site_media_event(text, text, integer, uuid, text, text) TO authenticated;
 
 -- ═══════════════════════════════════════════════════════════════
 -- 11. REVOKE/GRANT — restrict all SECURITY DEFINER functions
