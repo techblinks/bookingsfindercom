@@ -661,3 +661,41 @@ describe("AdminSiteMedia — metadata editor", () => {
     expect(percentages.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// Storage-bucket regression tests (Phase 7H.1)
+// ═══════════════════════════════════════════════════════════════
+
+describe("AdminSiteMedia — storage_bucket behaviour", () => {
+  it("18. Published assets display with storage_bucket site-media", async () => {
+    H.publishedData = {
+      id: "pub-1", page_key: "home", version_number: 1, status: "published",
+      published_at: "2026-01-01", updated_at: "2026-01-01",
+      site_hero_assets: [
+        { id: "a1", slot_key: "main", storage_path: "hero/pub.webp", storage_bucket: "site-media", alt_text: null, is_decorative: false, focal_x: 50, focal_y: 50, mime_type: "image/webp", file_size_bytes: 1024, created_at: "", updated_at: "" },
+      ],
+    };
+    H.draftData = null;
+    renderPage();
+    await waitFor(() => { expect(screen.getByRole("tab", { name: "Homepage" })).toBeTruthy(); });
+    expect(screen.getByText(/Published: v1/)).toBeTruthy();
+  });
+
+  it("19. Mixed draft renders with both site-media and site-media-drafts assets", async () => {
+    H.publishedData = { id: "p1", page_key: "home", version_number: 1, status: "published", published_at: "2026-01-01", updated_at: "2026-01-01", site_hero_assets: [] };
+    H.draftData = {
+      id: "d1", page_key: "home", version_number: 2, status: "draft", created_at: "2026-01-02", updated_at: "2026-01-02",
+      site_hero_assets: [
+        { id: "d1-1", slot_key: "main", storage_path: "hero/main/priv.webp", storage_bucket: "site-media-drafts", alt_text: null, is_decorative: false, focal_x: 50, focal_y: 50, mime_type: "image/webp", file_size_bytes: 2048, created_at: "", updated_at: "" },
+        { id: "d1-2", slot_key: "support_1", storage_path: "hero/s1/pub.webp", storage_bucket: "site-media", alt_text: null, is_decorative: true, focal_x: 50, focal_y: 50, mime_type: "image/webp", file_size_bytes: 1024, created_at: "", updated_at: "" },
+        { id: "d1-3", slot_key: "support_2", storage_path: "hero/s2/pub.webp", storage_bucket: "site-media", alt_text: null, is_decorative: true, focal_x: 50, focal_y: 50, mime_type: "image/webp", file_size_bytes: 1024, created_at: "", updated_at: "" },
+        { id: "d1-4", slot_key: "mobile", storage_path: "hero/mob/priv.webp", storage_bucket: "site-media-drafts", alt_text: null, is_decorative: true, focal_x: 50, focal_y: 50, mime_type: "image/webp", file_size_bytes: 3072, created_at: "", updated_at: "" },
+      ],
+    };
+    renderPage();
+    await waitFor(() => { expect(screen.getByRole("tab", { name: "Homepage" })).toBeTruthy(); });
+    expect(screen.getByText("Hero main image")).toBeTruthy();
+    expect(screen.getAllByText(/Supporting image/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("Hero mobile image")).toBeTruthy();
+  });
+});

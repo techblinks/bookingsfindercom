@@ -10,26 +10,26 @@
  * 1. Authenticate caller via Supabase auth.
  * 2. Confirm admin role.
  * 3. Read draft set + assets from DB.
- * 4. Validate exactly 4 required slots.
- * 5. Copy all 4 files from site-media-drafts → site-media with
+ * 4. Validate exactly 4 required slots + storage_bucket per asset.
+ * 5. Copy all 4 files from their source bucket → site-media with
  *    immutable UUID paths.
- * 6. Update asset storage_path rows to the new public paths.
- * 7. Call publish_site_hero_set RPC.
+ * 6. Update asset storage_path + storage_bucket rows to the new public paths.
+ * 7. Call publish_site_hero_set RPC (adminClient, service-role).
  * 8. On failure at any step: clean up any already-copied files,
- *    report error, never leave a partially-published hero.
+ *    restore original storage_path + storage_bucket, report error,
+ *    never leave a partially-published hero.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const REQUIRED_SLOTS = ["main", "support_1", "support_2", "mobile"] as const;
-const DRAFT_BUCKET = "site-media-drafts";
-const PUBLIC_BUCKET = "site-media";
 
 interface AssetRow {
   id: string;
   slot_key: string;
   storage_path: string;
+  storage_bucket: string;
   alt_text: string | null;
   is_decorative: boolean;
   focal_x: number;
@@ -128,7 +128,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: assets, error: assetError } = await adminClient
       .from("site_hero_assets")
-      .select("id, slot_key, storage_path, alt_text, is_decorative, focal_x, focal_y, mime_type")
+      .select("id, slot_key, storage_path, storage_bucket, alt_text, is_decorative, focal_x, focal_y, mime_type")
       .eq("hero_set_id", draftSetId);
 
     if (assetError || !assets || assets.length < 4) {
@@ -141,7 +141,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ── 4. Validate exactly 4 required slots ──
+    // ── 4. Validate exactly 4 required slots + storage_bucket per asset ──
+    const VALID_BUCKETS = ["site-media", "site-media-drafts"];
     const bySlot: Record<string, AssetRow> = {};
     for (const a of assets) {
       if (!REQUIRED_SLOTS.includes(a.slot_key as typeof REQUIRED_SLOTS[number])) {
@@ -153,6 +154,12 @@ Deno.serve(async (req: Request) => {
       if (!a.storage_path || a.storage_path.trim().length === 0) {
         return new Response(
           JSON.stringify({ success: false, message: `Empty storage path for slot ${a.slot_key}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!VALID_BUCKETS.includes(a.storage_bucket)) {
+        return new Response(
+          JSON.stringify({ success: false, message: `Invalid storage_bucket: ${a.storage_bucket}` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -168,16 +175,16 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── 5. Copy all 4 files from drafts → public ──
-    const copier = adminClient.storage.from(DRAFT_BUCKET);
-    const publicStore = adminClient.storage.from(PUBLIC_BUCKET);
+    // ── 5. Copy all 4 files from source bucket → site-media ──
+    const publicStore = adminClient.storage.from("site-media");
 
     for (const slot of REQUIRED_SLOTS) {
       const asset = bySlot[slot];
       const sourcePath = asset.storage_path;
 
-      // Download from private bucket
-      const { data: fileData, error: dlError } = await copier.download(sourcePath);
+      // Download from the asset's actual storage bucket
+      const sourceBucket = adminClient.storage.from(asset.storage_bucket);
+      const { data: fileData, error: dlError } = await sourceBucket.download(sourcePath);
       if (dlError || !fileData) {
         await cleanupCopies(publicStore, newPublicPaths);
         return new Response(
@@ -214,12 +221,12 @@ Deno.serve(async (req: Request) => {
       newPublicPaths.push(destPath);
     }
 
-    // ── 6. Update asset rows with new public paths ──
+    // ── 6. Update asset rows with new public paths + bucket ──
     const updatePromises = REQUIRED_SLOTS.map((slot, idx) => {
       const asset = bySlot[slot];
       return adminClient
         .from("site_hero_assets")
-        .update({ storage_path: newPublicPaths[idx], updated_at: new Date().toISOString() })
+        .update({ storage_path: newPublicPaths[idx], storage_bucket: "site-media", updated_at: new Date().toISOString() })
         .eq("id", asset.id)
         .eq("hero_set_id", draftSetId);
     });
@@ -238,21 +245,21 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── 7. Call publish_site_hero_set RPC ──
-    const { data: publishResult, error: pubError } = await userClient.rpc(
+    // ── 7. Call publish_site_hero_set RPC (adminClient, service-role) ──
+    const { data: publishResult, error: pubError } = await adminClient.rpc(
       "publish_site_hero_set",
       { p_set_id: draftSetId }
     );
 
     if (pubError) {
-      // DB publish failed — clean up copied files and revert asset paths
+      // DB publish failed — clean up copied files and revert asset paths + bucket
       await cleanupCopies(publicStore, newPublicPaths);
-      // Revert asset paths back to original draft paths
+      // Revert asset paths + bucket back to original values
       const revertPromises = REQUIRED_SLOTS.map((slot) => {
         const asset = bySlot[slot];
         return adminClient
           .from("site_hero_assets")
-          .update({ storage_path: asset.storage_path, updated_at: new Date().toISOString() })
+          .update({ storage_path: asset.storage_path, storage_bucket: asset.storage_bucket, updated_at: new Date().toISOString() })
           .eq("id", asset.id)
           .eq("hero_set_id", draftSetId);
       });
@@ -274,7 +281,7 @@ Deno.serve(async (req: Request) => {
         const asset = bySlot[slot];
         return adminClient
           .from("site_hero_assets")
-          .update({ storage_path: asset.storage_path, updated_at: new Date().toISOString() })
+          .update({ storage_path: asset.storage_path, storage_bucket: asset.storage_bucket, updated_at: new Date().toISOString() })
           .eq("id", asset.id)
           .eq("hero_set_id", draftSetId);
       });
@@ -309,7 +316,7 @@ Deno.serve(async (req: Request) => {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const adminClient = createClient(supabaseUrl, serviceRoleKey);
-        await cleanupCopies(adminClient.storage.from(PUBLIC_BUCKET), newPublicPaths);
+        await cleanupCopies(adminClient.storage.from("site-media"), newPublicPaths);
       } catch {
         console.error("[publish-site-hero] Cleanup after crash also failed");
       }

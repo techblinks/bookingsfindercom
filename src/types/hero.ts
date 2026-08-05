@@ -26,11 +26,19 @@ export const HERO_EVENT_TYPES = [
 ] as const;
 export type HeroEventType = (typeof HERO_EVENT_TYPES)[number];
 
+export const HERO_STORAGE_BUCKETS = ["site-media", "site-media-drafts"] as const;
+export type HeroStorageBucket = (typeof HERO_STORAGE_BUCKETS)[number];
+
+export function isValidStorageBucket(v: unknown): v is HeroStorageBucket {
+  return typeof v === "string" && (HERO_STORAGE_BUCKETS as readonly string[]).includes(v);
+}
+
 export interface HeroAsset {
   id: string;
   hero_set_id: string;
   slot_key: HeroSlotKey;
   storage_path: string;
+  storage_bucket: HeroStorageBucket;
   alt_text: string | null;
   is_decorative: boolean;
   focal_x: number;
@@ -61,6 +69,7 @@ export interface HeroSet {
 
 export interface HeroMediaSlot {
   storagePath: string;
+  bucket: HeroStorageBucket;
   publicUrl: string;
   altText: string | null;
   isDecorative: boolean;

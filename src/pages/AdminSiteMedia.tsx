@@ -37,15 +37,26 @@ const PUBLIC_BUCKET = "site-media";
 const SIGNED_URL_EXPIRY = 300; // 5 minutes
 
 /**
- * Request a short-lived signed URL for a private draft file.
- * Never stored in database rows, never logged.
+ * Resolve a preview URL for a draft asset based on its storage_bucket.
+ * - site-media-drafts → short-lived signed URL (private bucket)
+ * - site-media        → public URL (cloned from a published set)
+ * - anything else     → null (skip the slot)
  */
-async function getSignedDraftUrl(storagePath: string): Promise<string | null> {
-  const { data, error } = await supabase.storage
-    .from(DRAFT_BUCKET)
-    .createSignedUrl(storagePath, SIGNED_URL_EXPIRY);
-  if (error || !data?.signedUrl) return null;
-  return data.signedUrl;
+async function resolveDraftPreviewUrl(asset: HeroAsset): Promise<string | null> {
+  if (asset.storage_bucket === "site-media-drafts") {
+    const { data, error } = await supabase.storage
+      .from("site-media-drafts")
+      .createSignedUrl(asset.storage_path, SIGNED_URL_EXPIRY);
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  }
+  if (asset.storage_bucket === "site-media") {
+    const { data } = supabase.storage
+      .from("site-media")
+      .getPublicUrl(asset.storage_path);
+    return data.publicUrl;
+  }
+  return null;
 }
 
 export default function AdminSiteMedia() {
@@ -88,7 +99,7 @@ export default function AdminSiteMedia() {
       for (const slot of HERO_SLOT_KEYS) {
         const asset = draftAssets[slot];
         if (asset?.storage_path) {
-          urls[slot] = await getSignedDraftUrl(asset.storage_path);
+          urls[slot] = await resolveDraftPreviewUrl(asset);
         }
       }
       setSignedUrls(urls);
@@ -107,16 +118,17 @@ export default function AdminSiteMedia() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: pub } = await supabase
+      const { data: rawPub } = await supabase
         .from("site_hero_sets")
         .select("*, site_hero_assets(*)")
         .eq("page_key", pageKey)
         .eq("status", "published")
         .limit(1)
         .maybeSingle();
+      const pub = rawPub ? { ...rawPub, assets: rawPub.site_hero_assets || [] } : null;
       setPublishedSet(pub as HeroSet | null);
 
-      const { data: draft } = await supabase
+      const { data: rawDraft } = await supabase
         .from("site_hero_sets")
         .select("*, site_hero_assets(*)")
         .eq("page_key", pageKey)
@@ -124,6 +136,7 @@ export default function AdminSiteMedia() {
         .order("version_number", { ascending: false })
         .limit(1)
         .maybeSingle();
+      const draft = rawDraft ? { ...rawDraft, assets: rawDraft.site_hero_assets || [] } : null;
       setDraftSet(draft as HeroSet | null);
 
       const assets: Record<string, HeroAsset | null> = {
@@ -180,9 +193,10 @@ export default function AdminSiteMedia() {
       return;
 
     // Clean up draft files from private bucket before discarding DB rows
+    // Only delete files that belong to the draft bucket (never touch inherited public files)
     for (const slot of HERO_SLOT_KEYS) {
       const asset = draftAssets[slot];
-      if (asset?.storage_path) {
+      if (asset?.storage_path && asset?.storage_bucket === "site-media-drafts") {
         const { error: rmErr } = await supabase.storage
           .from(DRAFT_BUCKET)
           .remove([asset.storage_path]);
@@ -238,6 +252,7 @@ export default function AdminSiteMedia() {
           .from("site_hero_assets")
           .update({
             storage_path: newPath,
+            storage_bucket: "site-media-drafts",
             mime_type: file.type,
             file_size_bytes: file.size,
             updated_at: new Date().toISOString(),
@@ -250,6 +265,7 @@ export default function AdminSiteMedia() {
             hero_set_id: draftSet.id,
             slot_key: slot,
             storage_path: newPath,
+            storage_bucket: "site-media-drafts",
             mime_type: file.type,
             file_size_bytes: file.size,
           }));
@@ -264,8 +280,8 @@ export default function AdminSiteMedia() {
         throw dbErr;
       }
 
-      // 3. Only now delete the previous draft file (new reference is safely saved)
-      if (existing?.storage_path) {
+      // 3. Only delete the previous file if it was in the draft bucket (never delete public files)
+      if (existing?.storage_path && existing?.storage_bucket === "site-media-drafts") {
         const { error: rmErr } = await supabase.storage
           .from(DRAFT_BUCKET)
           .remove([existing.storage_path]);
@@ -415,10 +431,10 @@ export default function AdminSiteMedia() {
     }
   };
 
-  // Build preview data for HeroMediaCollage from signed URLs
+  // Build preview data for HeroMediaCollage from resolved preview URLs
   const buildPreviewSet = (): HeroMediaSet | null => {
     const allFilled = HERO_SLOT_KEYS.every(
-      (s) => draftAssets[s] && signedUrls[s]
+      (s) => draftAssets[s]
     );
     if (!allFilled) return null;
 
