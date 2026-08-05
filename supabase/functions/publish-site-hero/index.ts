@@ -239,7 +239,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 7. Call publish_site_hero_set RPC ──
-    const { data: publishResult, error: pubError } = await adminClient.rpc(
+    const { data: publishResult, error: pubError } = await userClient.rpc(
       "publish_site_hero_set",
       { p_set_id: draftSetId }
     );
