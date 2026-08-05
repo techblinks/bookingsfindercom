@@ -9,6 +9,7 @@ import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { SectionContainer } from "@/components/home-v2/SectionContainer";
 import { SectionHeading } from "@/components/home-v2/SectionHeading";
 import { logInternalNavigation } from "@/lib/analytics";
+import HeroMediaCollage from "@/components/hero/HeroMediaCollage";
 
 const safeTrack = (label: string, href: string) => {
   try { logInternalNavigation({ label, source: "homepage", href }); } catch (_) {}
@@ -76,54 +77,7 @@ const Index = () => (
                   <Link to="/trip-cost" onClick={() => safeTrack("hero_explore_tools", "/trip-cost")} className={ctaSecondary}>Explore tools <ArrowRight className="w-[18px] h-[18px]" /></Link>
                 </div>
               </div>
-              {/* Hero image collage */}
-              <div className="hidden lg:grid grid-cols-2 gap-3 w-[420px] shrink-0" aria-hidden="true">
-                <div className="col-span-2 rounded-2xl overflow-hidden h-[200px] relative bg-[#0A2A5C]">
-                  <img
-                    src="/flights/hero/hero-1-480.webp"
-                    srcSet="/flights/hero/hero-1-480.webp 480w, /flights/hero/hero-1-240.webp 240w"
-                    sizes="420px"
-                    alt="Aircraft wing view above clouds during a scenic flight"
-                    className="w-full h-full object-cover"
-                    decoding="async"
-                    width="480" height="600"
-                  />
-                </div>
-                <div className="rounded-2xl overflow-hidden h-[140px] relative bg-[#1E4D8C]">
-                  <img
-                    src="/flights/hero/hero-2-320.webp"
-                    srcSet="/flights/hero/hero-2-320.webp 320w, /flights/hero/hero-2-160.webp 160w"
-                    sizes="200px"
-                    alt=""
-                    className="w-full h-full object-cover"
-                    decoding="async"
-                    width="320" height="280"
-                  />
-                </div>
-                <div className="rounded-2xl overflow-hidden h-[140px] relative bg-[#0D3466]">
-                  <img
-                    src="/flights/hero/hero-3-320.webp"
-                    srcSet="/flights/hero/hero-3-320.webp 320w, /flights/hero/hero-3-160.webp 160w"
-                    sizes="200px"
-                    alt="Mountain destination or modern city skyline at sunset"
-                    className="w-full h-full object-cover"
-                    decoding="async"
-                    width="320" height="280"
-                  />
-                </div>
-              </div>
-              {/* Mobile hero image */}
-              <div className="lg:hidden mt-6 rounded-2xl overflow-hidden aspect-[16/9] relative bg-[#0A2A5C]" aria-hidden="true">
-                <img
-                  src="/flights/hero/hero-wide-960.webp"
-                  srcSet="/flights/hero/hero-wide-960.webp 960w, /flights/hero/hero-wide-480.webp 480w"
-                  sizes="100vw"
-                  alt=""
-                  className="w-full h-full object-cover"
-                  fetchpriority="high"
-                  width="960" height="540"
-                />
-              </div>
+                            <HeroMediaCollage pageKey="home" />
             </div>
           </div>
         </section>

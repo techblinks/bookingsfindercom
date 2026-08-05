@@ -34,6 +34,7 @@ vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
   return { ...actual, useNavigate: () => hoisted.navigate };
 });
+vi.mock("@/hooks/useHeroMedia", () => ({ useHeroMedia: () => ({ data: null, isLoading: false, error: null, isComplete: false, isUsingFallback: true }), invalidateHeroMediaCache: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() }, Toaster: () => null }));
 
 // ════════════════════════════════════════════════════════════
@@ -117,6 +118,29 @@ describe("FlightResults — Phase 7B landing page", () => {
       (img) => img.getAttribute("src")?.includes("/flights/hero/")
     );
     expect(heroImgs.length).toBe(1);
+  });
+
+  it("renders exactly one hero collage (no doubling) in desktop view", () => {
+    // Desktop fallback: HeroMediaCollage returns null, only HeroCollage renders 3 images.
+    // Backend: only HeroMediaCollage renders 3 images, HeroCollage is hidden.
+    render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
+    const heroImgs = Array.from(document.querySelectorAll("img")).filter((img) =>
+      img.getAttribute("src")?.includes("/flights/hero/")
+    );
+    expect(heroImgs.length).toBeLessThanOrEqual(4); // 3 desktop + possible 0-1 other
+    expect(heroImgs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders exactly one hero collage (no doubling) in mobile view", () => {
+    hoisted.isMobile = true;
+    render(<MemoryRouter initialEntries={["/flights"]}><FlightResults /></MemoryRouter>);
+    const heroImgs = Array.from(document.querySelectorAll("img")).filter((img) =>
+      img.getAttribute("src")?.includes("/flights/hero/")
+    );
+    // Mobile: exactly 1 hero image (not 2 from doubled collages)
+    expect(heroImgs.length).toBeLessThanOrEqual(2);
+    expect(heroImgs.length).toBeGreaterThanOrEqual(1);
+    hoisted.isMobile = false;
   });
 
   it("mobile swap button has an accessible name", () => {

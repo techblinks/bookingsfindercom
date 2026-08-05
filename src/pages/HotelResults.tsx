@@ -8,6 +8,8 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import TripComHotelWidget from "@/components/hotels/TripComHotelWidget";
 import MobileStaysDialog from "@/components/hotels/MobileStaysDialog";
+import HeroMediaCollage from "@/components/hero/HeroMediaCollage";
+import { useHeroMedia } from "@/hooks/useHeroMedia";
 import { logInternalNavigation } from "@/lib/analytics";
 import { ctaPrimary, ctaSecondaryLight } from "@/components/ui/button";
 
@@ -51,6 +53,28 @@ const FAQ_ITEMS = [
   { q: "Can I add accommodation to my trip budget?", a: "Yes. Use the Trip Cost Planner to include accommodation alongside flights, transfers and daily expenses." },
 ];
 
+/** Conditionally renders backend hero or SVG/gradient fallback for Stays. */
+function StaysHeroImage() {
+  const { isUsingFallback } = useHeroMedia("stays");
+  if (!isUsingFallback) {
+    return <HeroMediaCollage pageKey="stays" />;
+  }
+  // SVG accommodation fallback
+  return (
+    <div className="hidden lg:grid grid-cols-2 gap-3 w-[420px] shrink-0" aria-hidden="true">
+      <div className="col-span-2 rounded-2xl overflow-hidden h-[200px] bg-gradient-to-br from-[#01367F] to-[#4C78B1] flex items-center justify-center">
+        <Building2 className="h-12 w-12 text-white/20" />
+      </div>
+      <div className="rounded-2xl overflow-hidden h-[140px] bg-gradient-to-br from-[#4C78B1] to-[#718096] flex items-center justify-center">
+        <Building2 className="h-8 w-8 text-white/20" />
+      </div>
+      <div className="rounded-2xl overflow-hidden h-[140px] bg-gradient-to-br from-[#01367F] to-[#001D45] flex items-center justify-center">
+        <Building2 className="h-8 w-8 text-white/20" />
+      </div>
+    </div>
+  );
+}
+
 const HotelResults = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
@@ -90,33 +114,7 @@ const HotelResults = () => {
                   </Link>
                 </div>
               </div>
-              {/* Image collage — SVG accommodation illustration */}
-              <div className="hidden lg:grid grid-cols-2 gap-3 w-[420px] shrink-0" aria-hidden="true">
-                <div className="col-span-2 rounded-2xl overflow-hidden bg-gradient-to-br from-[#001D45] via-[#01367F] to-[#4C78B1] h-[200px] flex items-center justify-center relative">
-                  <svg viewBox="0 0 400 200" className="absolute inset-0 w-full h-full opacity-20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="60" y="40" width="120" height="80" rx="8" stroke="white" strokeWidth="1" />
-                    <rect x="68" y="50" width="50" height="60" rx="4" fill="white" fillOpacity="0.15" />
-                    <rect x="128" y="50" width="8" height="40" rx="2" fill="white" fillOpacity="0.1" />
-                    <rect x="200" y="60" width="130" height="100" rx="6" stroke="white" strokeWidth="1" strokeDasharray="4 4" />
-                    <circle cx="265" cy="110" r="12" stroke="white" strokeWidth="1" fill="none" />
-                    <path d="M260 110h10M265 105v10" stroke="white" strokeWidth="1" />
-                  </svg>
-                </div>
-                <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#01367F] to-[#4C78B1] h-[140px] flex items-center justify-center">
-                  <svg viewBox="0 0 200 140" className="w-full h-full opacity-20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="20" y="60" width="160" height="60" rx="6" stroke="white" strokeWidth="1" />
-                    <rect x="30" y="70" width="50" height="40" rx="3" fill="white" fillOpacity="0.15" />
-                    <rect x="90" y="70" width="50" height="40" rx="3" fill="white" fillOpacity="0.1" />
-                    <path d="M40 60 L100 30 L160 60" stroke="white" strokeWidth="1" fill="none" />
-                  </svg>
-                </div>
-                <div className="rounded-2xl overflow-hidden bg-gradient-to-bl from-[#001D45] to-[#01367F] h-[140px] flex items-center justify-center">
-                  <svg viewBox="0 0 200 140" className="w-full h-full opacity-20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20 80 Q60 30 100 60 Q140 90 180 40" stroke="white" strokeWidth="1" fill="none" />
-                    <path d="M20 110 Q70 70 120 100 Q150 120 180 90" stroke="white" strokeWidth="0.6" fill="none" />
-                  </svg>
-                </div>
-              </div>
+              <StaysHeroImage />
             </div>
           </div>
         </section>

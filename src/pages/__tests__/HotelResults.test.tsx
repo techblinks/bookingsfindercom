@@ -17,6 +17,10 @@ vi.mock("@/lib/analytics", () => ({
 vi.mock("@/services/travelApi", () => ({ getRedirectUrl: vi.fn() }));
 vi.mock("@/components/layout/Header", () => ({ default: () => <div data-testid="mock-header" /> }));
 vi.mock("@/components/layout/Footer", () => ({ default: () => <div data-testid="mock-footer" /> }));
+vi.mock("@/hooks/useHeroMedia", () => ({
+  useHeroMedia: () => ({ data: null, isLoading: false, error: null, isComplete: false, isUsingFallback: true }),
+  invalidateHeroMediaCache: vi.fn(),
+}));
 
 function renderHotel(opts?: { mobile?: boolean }) {
   Object.defineProperty(window, "innerWidth", { value: opts?.mobile ? 768 : 1440, writable: true, configurable: true });

@@ -112,6 +112,14 @@ const adminFeatures = [
     bgColor: 'bg-emerald-500/10',
   },
   {
+    title: 'Site Media',
+    description: 'Manage hero images for homepage, flights, and stays pages',
+    icon: Palette,
+    href: '/admin/site-media',
+    color: 'text-violet-500',
+    bgColor: 'bg-violet-500/10',
+  },
+  {
     title: 'Branding',
     description: 'Upload logos, favicon, and manage brand colours',
     icon: Palette,

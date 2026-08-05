@@ -29,7 +29,28 @@ import type { ReactNode } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import type { FlightSearchFormValues } from "@/lib/flightSearchValidation";
+import HeroMediaCollage from "@/components/hero/HeroMediaCollage";
+import { useHeroMedia } from "@/hooks/useHeroMedia";
 import HeroCollage from "./HeroCollage";
+
+/**
+ * Conditionally renders backend hero or local HeroCollage for flights.
+ * Guarantees exactly ONE collage is rendered — never both simultaneously.
+ * No layout shift, no empty hero column, no image doubling.
+ */
+function FlightsHeroImage({ isMobile }: { isMobile: boolean }) {
+  const { isUsingFallback } = useHeroMedia("flights");
+
+  const className = isMobile
+    ? "mt-5"
+    : "mx-auto mt-8 max-w-[336px] xl:mx-0 xl:mt-0 xl:justify-self-center";
+
+  if (!isUsingFallback) {
+    return <HeroMediaCollage pageKey="flights" className={className} />;
+  }
+
+  return <HeroCollage className={className} />;
+}
 
 interface FlightHeroProps {
   /** Fully-composed H1 text (default or route-aware, computed by the caller). */
@@ -66,9 +87,6 @@ const FlightHero = ({ heading, prefill, hasPrefill, errorBanner }: FlightHeroPro
         <div className="mt-5 xl:grid xl:grid-cols-[minmax(720px,1fr)_336px] xl:items-start xl:gap-8">
           {/* Left: search card (dominant) + microcopy + mobile image. */}
           <div className="min-w-0">
-            {/* px-2 below xl gives the reused desktop search row its full
-                700px min-content width at the 768px breakpoint (avoids a 6px
-                overflow with a classic scrollbar); comfortable p-4 at xl. */}
             <div className="rounded-2xl border border-border bg-card px-2 py-4 shadow-elevated xl:p-4">
               <ModernFlightSearch prefill={hasPrefill ? prefill : undefined} hideMultiCity />
             </div>
@@ -76,14 +94,12 @@ const FlightHero = ({ heading, prefill, hasPrefill, errorBanner }: FlightHeroPro
               Independent travel comparison · you book with the provider
             </p>
 
-            {/* Mobile-only image: after the form in DOM + visual order. */}
-            {isMobile && <HeroCollage className="mt-5" />}
+            {/* Mobile-only image: backend hero when available, else local fallback. */}
+            {isMobile && <FlightsHeroImage isMobile />}
           </div>
 
-          {/* Right: collage — beside the card at xl, stacked below it under xl. */}
-          {!isMobile && (
-            <HeroCollage className="mx-auto mt-8 max-w-[336px] xl:mx-0 xl:mt-0 xl:justify-self-center" />
-          )}
+          {/* Right: backend hero when available, else local fallback. */}
+          {!isMobile && <FlightsHeroImage isMobile={false} />}
         </div>
       </div>
     </section>
