@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.flight-destinations]
 verify_jwt = false
+ 
+[functions.tiqets-catalog] 
+verify_jwt = false
