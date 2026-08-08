@@ -47,6 +47,12 @@ verify_jwt = false
 
 [functions.flight-destinations]
 verify_jwt = false
- 
-[functions.tiqets-catalog] 
+
+[functions.tiqets-catalog]
+verify_jwt = false
+[functions.viator-catalog]
+verify_jwt = false
+[functions.viator-public]
+verify_jwt = false
+[functions.tiqets-public]
 verify_jwt = false

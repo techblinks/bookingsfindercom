@@ -1,4 +1,4 @@
-import { Menu, X, Plane, Building2, Map, Wrench, HelpCircle, MessageCircle, FileQuestion, ChevronRight } from "lucide-react";
+import { Menu, X, Plane, Building2, Map, Wrench, HelpCircle, MessageCircle, FileQuestion, ChevronRight, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -15,6 +15,7 @@ const Header = () => {
   const navItems = [
     { label: "Flights", href: "/flights", icon: Plane },
     { label: "Stays", href: "/hotels", icon: Building2 },
+    { label: "Things to Do", href: "/things-to-do", icon: Ticket },
     { label: "Trip Cost", href: "/trip-cost", icon: Map },
     { label: "Optimizer", href: "/optimizer", icon: Wrench },
   ];

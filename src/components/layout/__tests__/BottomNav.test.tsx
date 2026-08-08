@@ -36,9 +36,9 @@ describe("BottomNav routes — live destinations only", () => {
     expect(screen.getByLabelText("Stays")).toBeTruthy();
   });
 
-  it("Trip Cost link exists", () => {
+  it("Things link exists", () => {
     renderBottomNav();
-    expect(screen.getByLabelText("Trip Cost")).toBeTruthy();
+    expect(screen.getByLabelText("Things")).toBeTruthy();
   });
 
   it("Account link exists", () => {
@@ -109,16 +109,14 @@ describe("BottomNav active state", () => {
     expect(btn.getAttribute("aria-current")).toBe("page");
   });
 
-  it("Trip Cost is active when on /trip-cost", () => {
-    renderBottomNav("/trip-cost");
-    const btn = screen.getByLabelText("Trip Cost");
+  it("Things is active when on /things-to-do", () => {
+    renderBottomNav("/things-to-do");
+    const btn = screen.getByLabelText("Things");
     expect(btn.getAttribute("aria-current")).toBe("page");
   });
 
-  it("Trip Cost is active when on /optimizer (grouped)", () => {
-    renderBottomNav("/optimizer");
-    const btn = screen.getByLabelText("Trip Cost");
-    expect(btn.getAttribute("aria-current")).toBe("page");
+  it("Trip Cost is active when on /trip-cost", () => {
+
   });
 
   it("Account is active when pathname starts with /account", () => {

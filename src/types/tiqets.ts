@@ -29,8 +29,26 @@ export type SupportedTiqetsLanguage =
 
 export type TiqetsSaleStatus = "on_sale" | "sold_out" | "cancelled";
 
+
+export interface TiqetsSearchFilters {
+  query?: string;
+  city_name?: string;
+  price_min?: number;
+  price_max?: number;
+  min_rating?: number;
+  skip_line?: boolean;
+  smartphone_ticket?: boolean;
+  instant_ticket_delivery?: boolean;
+  wheelchair_access?: boolean;
+  tag_ids?: number[];
+  sort?: "popularity_desc" | "price_asc" | "title_asc";
+  page?: number;
+  page_size?: number;
+}
+
 export interface TiqetsProductsRequest {
   action: "products";
+  filters?: TiqetsSearchFilters;
   language?: SupportedTiqetsLanguage;
   page?: number;
   page_size?: number;

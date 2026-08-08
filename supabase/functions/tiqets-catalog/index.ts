@@ -1,84 +1,4 @@
 /**
- * Validate, upgrade, and hostname-check a Tiqets image URL.
- * Imgix query parameters (£?auto=format, £?w=400 etc.) are preserved.
- * Only the documented Tiqets CDN hostname and known variants are allowed.
- */
-function safeImageUrl(raw: string | undefined): string {
-  if (!raw || typeof raw !== "string") return "";
-  let normalised = raw.trim();
-  if (normalised.startsWith("//")) normalised = "https:" + normalised;
-  // Must be HTTPS
-  if (!normalised.startsWith("https://")) return "";
-  try {
-    const parsed = new URL(normalised);
-    if (parsed.protocol !== "https:") return "";
-    const host = parsed.hostname;
-    // Documented Tiqets image CDN + common variants
-    const ALLOWED_HOSTS = [
-      "aws-tiqets-cdn.imgix.net",
-    ];
-    const isAllowed = ALLOWED_HOSTS.some((h) => host === h || host.endsWith("." + h));
-    if (!isAllowed) {
-      console.warn(`[tiqets] image host rejected: ${host}`);
-      return "";
-    }
-    // Imgix query params are safe — preserve them
-    return normalised;
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Select the best image variant for card display.
- * Priority: medium > large > small > extra_large.
- */
-function selectImageVariant(img: Record<string, unknown>): { url: string; variant: string | null } {
-  const variants = ["medium", "large", "small", "extra_large"] as const;
-  for (const v of variants) {
-    const u = img[v];
-    if (typeof u === "string" && u.trim()) {
-      const safe = safeImageUrl(u);
-      if (safe) return { url: safe, variant: v };
-    }
-  }
-  return { url: "", variant: null };
-}
-
-/**
- * Build image diagnostics for admin troubleshooting.
- * Inspects raw image objects — never logs full URLs, query params, or tokens.
- */
-function buildImageDiagnostics(rawProducts: unknown): Record<string, unknown> {
-  const products = Array.isArray(rawProducts) ? rawProducts : [];
-  const rawImage: Record<string, unknown> | undefined =
-    products?.[0] && typeof products[0] === "object" && products[0] !== null
-      ? (products[0] as { images?: Array<Record<string, unknown>> }).images?.[0]
-      : undefined;
-
-  const hasImageData = rawImage != null;
-  const imageContainers = products.flatMap((p: any) => p?.images || []);
-  const imageCount = imageContainers.length;
-  const firstImageFieldNames = rawImage ? Object.keys(rawImage) : [];
-  const selected = rawImage ? selectImageVariant(rawImage) : { url: "", variant: null };
-  let protocol: string | null = null;
-  let hostname: string | null = null;
-  if (selected.url) {
-    try { const p = new URL(selected.url); protocol = p.protocol; hostname = p.hostname; } catch {}
-  }
-
-  return {
-    hasImageData,
-    imageCount,
-    firstImageFieldNames,
-    selectedVariant: selected.variant,
-    selectedImageProtocol: protocol,
-    selectedImageHostname: hostname,
-    selectedImageHasCredit: typeof rawImage?.credit === "string" && rawImage.credit.trim().length > 0,
-  };
-}
-
-/**
  * tiqets-catalog — Admin-only Tiqets Content API proxy.
  *
  * POST only. JWT-verified. Admin-role check.
@@ -95,6 +15,15 @@ import {
   tiqetsHealthCheck,
 } from "../_shared/tiqets-client.ts";
 import type { TiqetsError } from "../_shared/tiqets-client.ts";
+import {
+  normalizeProduct,
+  safeImageUrl,
+  selectImageVariant,
+  buildImageDiagnostics,
+  type TiqetsProductRaw,
+  type NormalizedProduct,
+  type TiqetsPaginationRaw,
+} from "../_shared/tiqets-normalizer.ts";
 
 // ═══════════════════════════════════════════════════════════════
 // Validation schemas
@@ -155,37 +84,8 @@ async function verifyAdmin(req: Request): Promise<string> {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Normalization (only fields genuinely returned by the API)
+// Upstream response shape
 // ═══════════════════════════════════════════════════════════════
-
-interface TiqetsProductRaw {
-  id: string;
-  title: string;
-  tagline?: string;
-  description?: string;
-  destination?: { id: number; name: string; country?: string };
-  venue?: { id: number; name: string; city?: string };
-  sale_status?: string;
-  rating?: { average?: number; count?: number };
-  wheelchair_accessible?: boolean;
-  skip_the_line?: boolean;
-  min_price?: { amount?: number; currency?: string };
-  product_url?: string;
-  images?: Array<{
-    small?: string;
-    medium?: string;
-    large?: string;
-    extra_large?: string;
-    alt_text?: string;
-    credit?: string;
-  }>;
-}
-
-interface TiqetsPaginationRaw {
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
 
 interface TiqetsProductsResponse {
   products?: TiqetsProductRaw[];
@@ -195,65 +95,11 @@ interface TiqetsProductsResponse {
   previous?: string | null;
 }
 
-interface BookingsFinderProduct {
-  id: string;
-  title: string;
-  tagline: string | null;
-  city: string | null;
-  country: string | null;
-  venue: string | null;
-  saleStatus: string | null;
-  rating: { average: number | null; count: number | null };
-  wheelchairAccessible: boolean | null;
-  skipTheLine: boolean | null;
-  minPrice: { amount: number | null; currency: string | null };
-  productUrl: string | null;
-  images: Array<{
-    smallUrl: string;
-    mediumUrl: string;
-    largeUrl: string;
-    extraLargeUrl: string;
-    altText: string | null;
-    credit: string | null;
-  }>;
-}
-
-function normalizeProduct(raw: TiqetsProductRaw): BookingsFinderProduct {
-  return {
-    id: typeof raw.id === "number" ? String(raw.id) : (raw.id || ""),
-    title: raw.title || "",
-    tagline: raw.tagline || null,
-    city: raw.venue?.city || raw.destination?.name || null,
-    country: raw.destination?.country || null,
-    venue: raw.venue?.name || null,
-    saleStatus: raw.sale_status || null,
-    rating: {
-      average: raw.rating?.average ?? null,
-      count: raw.rating?.count ?? null,
-    },
-    wheelchairAccessible: raw.wheelchair_accessible ?? null,
-    skipTheLine: raw.skip_the_line ?? null,
-    minPrice: {
-      amount: raw.min_price?.amount ?? null,
-      currency: raw.min_price?.currency ?? null,
-    },
-    productUrl: raw.product_url || null,
-    images: (raw.images || []).map((img) => ({
-      smallUrl: safeImageUrl(img.small),
-      mediumUrl: safeImageUrl(img.medium),
-      largeUrl: safeImageUrl(img.large),
-      extraLargeUrl: safeImageUrl(img.extra_large),
-      altText: img.alt_text || null,
-      credit: img.credit || null,
-    })),
-  };
-}
-
 // ═══════════════════════════════════════════════════════════════
 // In-memory non-durable cache (admin POC only — not production)
 // ═══════════════════════════════════════════════════════════════
 
-const productCache = new Map<string, { data: BookingsFinderProduct[]; pagination: TiqetsPaginationRaw; storedAt: number }>();
+const productCache = new Map<string, { data: NormalizedProduct[]; pagination: TiqetsPaginationRaw; storedAt: number }>();
 const CACHE_TTL_MS = 30_000; // 30 seconds
 
 function cacheKey(body: z.infer<typeof productsSchema>): string {

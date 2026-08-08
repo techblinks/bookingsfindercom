@@ -2,7 +2,7 @@ import { Helmet } from "react-helmet-async";
 import { cn } from "@/lib/utils";
 import { buttonVariants, ctaPrimary, ctaSecondary } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Plane, Building2, Compass, MapPin, ArrowRight, Search, ClipboardCheck, ExternalLink, Shield, HeartHandshake, Library, Calculator } from "lucide-react";
+import { Plane, Building2, Compass, MapPin, ArrowRight, Search, ClipboardCheck, ExternalLink, Shield, HeartHandshake, Library, Calculator, Ticket } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
@@ -20,6 +20,7 @@ const PRODUCT_CARDS = [
   { title: "Find stays", desc: "Browse hotel options and compare accommodation for your trip.", href: "/hotels", icon: Building2 },
   { title: "Estimate trip costs", desc: "Plan your budget with our interactive trip cost planner.", href: "/trip-cost", icon: Compass },
   { title: "Optimize your itinerary", desc: "Plan multi-city routes and find the most efficient travel path.", href: "/optimizer", icon: MapPin },
+  { title: "Discover things to do", desc: "Explore attractions, museums, tours and experiences for your trip.", href: "/things-to-do", icon: Ticket },
 ];
 
 const HOW_IT_WORKS_STEPS = [

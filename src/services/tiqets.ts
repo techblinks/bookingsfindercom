@@ -6,6 +6,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type {
+  TiqetsSearchFilters,
   TiqetsHealthRequest,
   TiqetsHealthResponse,
   TiqetsProductsRequest,
@@ -82,5 +83,12 @@ export async function fetchTiqetsProducts(
   req: Omit<TiqetsProductsRequest, "action">
 ): Promise<TiqetsProductsResponse> {
   const body: TiqetsProductsRequest = { action: "products", ...req };
+  return invokeTiqets<TiqetsProductsResponse>(body);
+}
+
+export async function fetchTiqetsSearch(
+  filters: TiqetsSearchFilters
+): Promise<TiqetsProductsResponse> {
+  const body = { action: "search" as const, ...filters };
   return invokeTiqets<TiqetsProductsResponse>(body);
 }

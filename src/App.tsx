@@ -33,6 +33,8 @@ import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminFlightDestinations from "./pages/AdminFlightDestinations";
 import AdminSiteMedia from "./pages/AdminSiteMedia";
 import AdminTiqets from "./pages/AdminTiqets";
+import AdminViator from "./pages/AdminViator";
+import ThingsToDo from "./pages/ThingsToDo";
 import AboutUs from "./pages/AboutUs";
 import Careers from "./pages/Careers";
 import HelpCenter from "./pages/HelpCenter";
@@ -138,6 +140,8 @@ const AnimatedRoutes = () => {
           <Route path="/flight-deals-guide" element={<FlightDealsGuide />} />
           <Route path="/hotel-booking-guide" element={<HotelBookingGuide />} />
           <Route path="/admin/tiqets" element={<AdminTiqets />} />
+          <Route path="/admin/viator" element={<AdminViator />} />
+          <Route path="/things-to-do" element={<ThingsToDo />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>
