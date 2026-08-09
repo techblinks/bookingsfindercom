@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Plane, ChevronDown, AlertTriangle } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -32,7 +32,7 @@ import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { FlightLandingPage } from "@/pages/flight/FlightLandingPage";
-import { parseAndValidateFlightSearchParams } from "@/lib/flightSearchValidation";
+import { parseAndValidateFlightSearchParams, toISODateLocal } from "@/lib/flightSearchValidation";
 
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
@@ -55,10 +55,10 @@ const FlightResults = () => {
   const origin = validated?.origin ?? "";
   const destination = validated?.destination ?? "";
   const departureDate = validated?.departureDate
-    ? validated.departureDate.toISOString().split("T")[0]
+    ? toISODateLocal(validated.departureDate)
     : "";
   const returnDate = validated?.returnDate
-    ? validated.returnDate.toISOString().split("T")[0]
+    ? toISODateLocal(validated.returnDate)
     : "";
   const passengers = validated ? (validated.adults + validated.children + validated.infants) : 1;
   const cabinClass = validated?.cabinClass ?? "economy";
@@ -183,7 +183,7 @@ const FlightResults = () => {
           outboundHost = new URL(result.redirectUrl).hostname;
         }
       } catch (err) {
-        // URL generation failed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â do not track
+        // URL generation failed — do not track
       }
     }
 
@@ -228,13 +228,13 @@ const FlightResults = () => {
     ? filteredFlights.reduce((best, f) => (f.deal_score || 0) > (best.deal_score || 0) ? f : best, filteredFlights[0])
     : null;
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Form mode ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â delegated to FlightLandingPage ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // —— Form mode — delegated to FlightLandingPage ——
 
   if (!isResultsMode) {
     return <FlightLandingPage prefill={prefill} validationErrors={validationErrors} suppliedSearchParams={searchParams} />;
   }
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Results mode: fully validated search ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ show results ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // —— Results mode: fully validated search → show results ——
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <FlightSearchSchema
@@ -265,8 +265,8 @@ const FlightResults = () => {
                 <p className="text-xs text-muted-foreground truncate">
                   {formatDate(departureDate)}
                   {returnDate && ` - ${formatDate(returnDate)}`}
-                  {" Ãƒâ€šÃ‚Â· "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
-                  {" Ãƒâ€šÃ‚Â· "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
+                  {" · "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
+                  {" · "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
                 </p>
               </div>
             </div>
