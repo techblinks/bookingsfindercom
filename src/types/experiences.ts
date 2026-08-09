@@ -53,13 +53,20 @@ export interface ExperienceDestination {
   provider: ExperienceProvider;
   destinationId: string;
   name: string;
+  /** Tiqets destination fields */
+  country: string | null;
+  countryId: string | null;
+  countryCode: string | null;
+  slug: string;
+  productCount: number;
+  latitude: number | null;
+  longitude: number | null;
+  /** Viator taxonomy fixture fields (test-only) */
   type: string | null;
   parentDestinationId: string | null;
   lookupId: string | null;
   defaultCurrencyCode: string | null;
   timeZone: string | null;
-  latitude: number | null;
-  longitude: number | null;
 }
 
 export interface ExperienceTag {

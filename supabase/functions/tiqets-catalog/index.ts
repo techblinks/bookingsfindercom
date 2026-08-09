@@ -154,7 +154,125 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Health ──
-  if (action === "health") {
+
+  // ── Refresh Catalogue ── admin-only catalogue sync
+  if (action === "refresh-catalogue") {
+    try {
+      var maxPages = Math.min(parsed.data.max_pages || 5, 10);
+      var pageSize = 20;
+      var provider = "tiqets";
+
+      // Read checkpoint
+      var { data: syncState } = await supabaseAdmin.from("experience_catalog_sync_state").select("*").eq("provider", provider).maybeSingle();
+      var startPage = syncState?.next_page || 1;
+      var pagesProcessed = 0;
+      var productsObserved = 0;
+      var seenFingerprints = [];
+
+      // Update status to syncing
+      await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "syncing", started_at: new Date().toISOString() }, { onConflict: "provider" });
+
+      for (var page = startPage; page < startPage + maxPages; page++) {
+        pagesProcessed++;
+
+        var upstream = await tiqetsRequest({ endpoint: "/products", params: new URLSearchParams({ lang: "en", page: String(page), page_size: String(pageSize) }) });
+        var rawProducts = upstream.data.products || [];
+
+        if (!Array.isArray(rawProducts) || rawProducts.length === 0) {
+          // Stop: empty page → completed
+          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "completed", next_page: 1, pages_scanned: pagesProcessed, products_observed: productsObserved, completed_at: new Date().toISOString(), last_success_at: new Date().toISOString() }, { onConflict: "provider" });
+          break;
+        }
+
+        // Loop detection: check fingerprint of first 3 product IDs
+        var fp = rawProducts.slice(0, 3).map(function(p) { return p.id; }).join(",");
+        if (seenFingerprints.indexOf(fp) >= 0) {
+          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "loop_detected", next_page: page, pages_scanned: pagesProcessed, products_observed: productsObserved, last_success_at: new Date().toISOString() }, { onConflict: "provider" });
+          break;
+        }
+        seenFingerprints.push(fp);
+
+        // Normalize and upsert
+        var normalized = rawProducts.map(normalizeProduct);
+        var dbProducts = normalized.map(function(p) {
+          return {
+            provider: provider,
+            provider_product_id: p.id,
+            title: p.title || "",
+            city_id: p.cityId ? String(p.cityId) : null,
+            city_name: p.city || null,
+            country_id: p.countryId ? String(p.countryId) : null,
+            country_name: p.country || null,
+            tagline: p.tagline || null,
+            description: null,
+            venue_name: p.venue?.name || null,
+            rating: p.rating?.average || null,
+            review_count: p.rating?.count || null,
+            price_amount: p.minPrice?.amount || null,
+            price_currency: p.minPrice?.currency || null,
+            image_url: p.image?.url || null,
+            images: JSON.stringify(p.images || []),
+            tag_ids: JSON.stringify(p.tagIds || []),
+            wheelchair_accessible: p.wheelchairAccessible,
+            skip_the_line: p.skipTheLine,
+            product_url: p.productUrl || null,
+            sale_status: p.saleStatus || null,
+            last_seen_at: new Date().toISOString(),
+          };
+        });
+
+        var { error: upsertErr } = await supabaseAdmin.rpc("upsert_experience_products", { p_provider: provider, p_products: dbProducts });
+        if (upsertErr) console.error("[refresh-catalogue] upsert error:", upsertErr);
+
+        // Derive destinations
+        var destMap = {};
+        for (var d = 0; d < normalized.length; d++) {
+          var p = normalized[d];
+          if (!p.cityId || !p.city) continue;
+          var key = String(p.cityId);
+          if (!destMap[key]) {
+            destMap[key] = {
+              provider: provider,
+              destination_id: key,
+              name: p.city,
+              country_id: p.countryId ? String(p.countryId) : null,
+              country: p.country || null,
+              country_code: null,
+              slug: (p.country ? p.country.toLowerCase().replace(/\s+/g,"-") : "") + "/" + p.city.toLowerCase().replace(/\s+/g,"-"),
+              last_seen_at: new Date().toISOString(),
+            };
+          }
+        }
+        var destArray = Object.values(destMap);
+        if (destArray.length > 0) {
+          for (var dt = 0; dt < destArray.length; dt++) {
+            await supabaseAdmin.from("experience_destinations").upsert(destArray[dt], { onConflict: "provider, destination_id" });
+          }
+        }
+
+        productsObserved += rawProducts.length;
+
+        // Short page (< pageSize) → completed
+        if (rawProducts.length < pageSize) {
+          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "completed", next_page: 1, pages_scanned: pagesProcessed, products_observed: productsObserved, completed_at: new Date().toISOString(), last_success_at: new Date().toISOString() }, { onConflict: "provider" });
+          break;
+        }
+
+        // Last page in this batch
+        if (page === startPage + maxPages - 1) {
+          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "partial", next_page: page + 1, pages_scanned: pagesProcessed, products_observed: productsObserved, last_success_at: new Date().toISOString() }, { onConflict: "provider" });
+        } else {
+          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "syncing", next_page: page + 1, pages_scanned: pagesProcessed, products_observed: productsObserved, last_success_at: new Date().toISOString() }, { onConflict: "provider" });
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, pages_processed: pagesProcessed, products_observed: productsObserved }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    } catch(err) {
+      console.error("[refresh-catalogue] error:", err);
+      return new Response(JSON.stringify({ ok: false, error: String(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+  }
+if (action === "health") {
     const parsed = healthSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(

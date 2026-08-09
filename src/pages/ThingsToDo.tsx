@@ -1,3 +1,5 @@
+import DestinationAutocomplete from "@/components/search/DestinationAutocomplete";
+import type { ExperienceDestination } from "@/types/experiences";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { useSearchParams, Link } from "react-router-dom";
@@ -265,6 +267,8 @@ export default function ThingsToDo() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* --- hero search draft (uncommitted text inputs) --- */
+  const [cityQuery, setCityQuery] = useState("");
+  const [selectedDestinationId, setSelectedDestinationId] = useState("");
   const [cityInput, setCityInput] = useState(searchParams.get("city") || "");
   const [activityInput, setActivityInput] = useState(searchParams.get("q") || "");
 
@@ -662,13 +666,12 @@ export default function ThingsToDo() {
               <label htmlFor="ttd-city" className="text-xs font-semibold text-[#41536A] mb-0.5 sm:mb-1 block">
                 Where are you going?
               </label>
-              <input
-                id="ttd-city"
+              <DestinationAutocomplete
+                value={cityQuery}
+                onChange={setCityQuery}
+                onSelect={(dest: ExperienceDestination) => { setCityQuery(dest.name); setSelectedDestinationId(dest.destinationId); }}
                 placeholder="Search a city or destination"
-                value={cityInput}
-                onChange={(e) => setCityInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && commitSearch()}
-                className="w-full px-4 py-3 rounded-xl border border-[#D8E0E7] focus:border-[#01367F] focus:ring-2 focus:ring-[#01367F]/20 outline-none text-sm"
+                className="w-full"
               />
             </div>
             <div className="flex-1">

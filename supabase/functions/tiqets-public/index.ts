@@ -375,6 +375,48 @@ function buildSearchCachePayload(
 // Main handler
 // ═══════════════════════════════════════════════════════════════
 
+
+/**
+ * Extract destinations from normalized products and upsert into the durable index.
+ * Called internally when featured results are fresh — no public action.
+ */
+async function refreshDestinationIndex(products: NormalizedProduct[]): Promise<void> {
+  if (!products || products.length === 0) return;
+
+  const destMap = new Map<string, Record<string, unknown>>();
+
+  for (const p of products) {
+    if (!p.city || !p.cityId) continue;
+    const key = p.cityId.toString();
+    if (!destMap.has(key)) {
+      destMap.set(key, {
+        destination_id: key,
+        name: p.city,
+        country: p.country || null,
+        country_id: p.countryId ? String(p.countryId) : null,
+        product_count: 1,
+        slug: (p.country ? p.country.toLowerCase().replace(/\s+/g, '-') : '') + '/' + p.city.toLowerCase().replace(/\s+/g, '-'),
+      });
+    } else {
+      const existing = destMap.get(key)!;
+      existing.product_count = (Number(existing.product_count) || 0) + 1;
+    }
+  }
+
+  const destinations = Array.from(destMap.values());
+  if (destinations.length === 0) return;
+
+  try {
+    const { error } = await supabaseAdmin.rpc("refresh_experience_destinations", {
+      p_provider: "tiqets",
+      p_destinations: destinations,
+    });
+    if (error) console.error("[tiqets-public] refreshDestinationIndex error:", error);
+  } catch (err) {
+    console.error("[tiqets-public] refreshDestinationIndex failed:", err);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const headers = originScopedHeaders(req);
 
@@ -401,7 +443,62 @@ Deno.serve(async (req: Request) => {
   }
 
   const action = (rawBody as Record<string, unknown>).action;
-  if (!action || typeof action !== "string") {
+    // ── Catalogue Search ── local database search (no upstream Tiqets)
+  if (action === "catalogue-search") {
+    try {
+      const parsed = z.object({
+        action: z.literal("catalogue-search"),
+        destinationId: z.string().max(20).optional(),
+        countryId: z.string().max(20).optional(),
+        query: z.string().max(120).optional(),
+        minRating: z.number().int().min(1).max(5).optional(),
+        page: z.number().int().min(1).max(20).default(1),
+        pageSize: z.number().int().min(1).max(50).default(20),
+        sort: z.enum(["popularity", "rating", "price_asc"]).default("popularity"),
+      }).safeParse(body);
+      if (!parsed.success) return json({ error: "Invalid catalogue search" }, 400, headers);
+
+      const q = parsed.data;
+      let dbQuery = supabaseAdmin.from("experience_products").select("*", { count: "exact" });
+
+      if (q.destinationId) dbQuery = dbQuery.eq("city_id", q.destinationId);
+      if (q.countryId) dbQuery = dbQuery.eq("country_id", q.countryId);
+      if (q.query) dbQuery = dbQuery.or("title.ilike.%25" + q.query + "%25,tagline.ilike.%25" + q.query + "%25");
+      if (q.minRating) dbQuery = dbQuery.gte("rating", q.minRating);
+
+      if (q.sort === "rating") dbQuery = dbQuery.order("rating", { ascending: false });
+      else if (q.sort === "price_asc") dbQuery = dbQuery.order("price_amount", { ascending: true, nullsFirst: false });
+      else dbQuery = dbQuery.order("review_count", { ascending: false, nullsFirst: false });
+
+      var from = (q.page - 1) * q.pageSize;
+      dbQuery = dbQuery.range(from, from + q.pageSize - 1);
+
+      const { data: rows, count, error } = await dbQuery;
+      if (error) return json({ error: "Search failed" }, 500, headers);
+
+      var products = (rows || []).map(function(r) {
+        return {
+          provider: "tiqets",
+          providerProductId: r.provider_product_id,
+          title: r.title,
+          city: r.city_name,
+          country: r.country_name,
+          rating: r.rating ? { average: r.rating, count: r.review_count } : null,
+          price: r.price_amount ? { amount: r.price_amount, currency: r.price_currency } : null,
+          productUrl: r.product_url,
+          imageUrl: r.image_url,
+          features: { wheelchair: r.wheelchair_accessible, skipLine: r.skip_the_line },
+          saleStatus: r.sale_status,
+        };
+      });
+
+      return json({ products: products, pagination: { page: q.page, pageSize: q.pageSize, count: count || 0 }, fetchedAt: new Date().toISOString() }, 200, headers);
+    } catch(err) {
+      console.error("[catalogue-search] error:", err);
+      return json({ error: "Search failed" }, 500, headers);
+    }
+  }
+if (!action || typeof action !== "string") {
     return publicError(
       "action is required (featured | search)",
       400,
@@ -514,7 +611,67 @@ Deno.serve(async (req: Request) => {
   // ACTION: search
   // ═══════════════════════════════════════════════════════════
 
-  if (action === "search") {
+
+  // ── Destinations ── (read from durable index, not upstream)
+  if (action === "destinations") {
+    const parsed = z.object({ action: z.literal("destinations") }).safeParse(body);
+    if (!parsed.success) {
+      return errorResponse("Invalid destinations request", 400);
+    }
+
+    try {
+      // Build cache key — simple for destinations (no params)
+      const cacheKey = await generateCacheKey("destinations", { provider: "tiqets" });
+      const cacheResult = await getCachedEntry(cacheKey, 3600); // 1 hour TTL
+
+      if (cacheResult.type === "hit" && cacheResult.entry) {
+        return jsonResponse({
+          destinations: cacheResult.entry.payload,
+          fetchedAt: cacheResult.entry.fetched_at,
+          cacheStatus: "hit" as const,
+        });
+      }
+
+      // Read from durable index
+      const { data: rows, error } = await supabaseAdmin
+        .from("experience_destinations")
+        .select("*")
+        .eq("provider", "tiqets")
+        .order("product_count", { ascending: false })
+        .limit(200);
+
+      if (error || !rows) {
+        return jsonResponse({ destinations: [], fetchedAt: new Date().toISOString(), cacheStatus: "miss" });
+      }
+
+      const destinations = rows.map((r: Record<string, unknown>) => ({
+        provider: r.provider,
+        destinationId: String(r.destination_id || ""),
+        name: r.name || "",
+        country: r.country || null,
+        countryId: r.country_id ? String(r.country_id) : null,
+        countryCode: r.country_code || null,
+        slug: r.slug || "",
+        productCount: Number(r.product_count) || 0,
+        latitude: r.latitude || null,
+        longitude: r.longitude || null,
+      }));
+
+      // Cache the result
+      await upsertCacheEntry(cacheKey, { destinations } as any, 3600, null);
+
+      return jsonResponse({
+        destinations,
+        fetchedAt: new Date().toISOString(),
+        cacheStatus: "miss" as const,
+      });
+    } catch (err) {
+      console.error("[tiqets-public] destinations error:", err);
+      return jsonResponse({ destinations: [], fetchedAt: new Date().toISOString(), cacheStatus: "miss" });
+    }
+  }
+
+if (action === "search") {
     const parsed = searchSchema.safeParse(rawBody);
     if (!parsed.success) {
       const flat = parsed.error.flatten();
@@ -532,6 +689,8 @@ Deno.serve(async (req: Request) => {
 
     // Build cache key from search params (exclude action)
     const { action: _a, ...searchParams } = body;
+    // Ensure numeric params are serialized consistently for cache keys
+    if (searchParams.destination_id) searchParams.destination_id = Number(searchParams.destination_id);
     const cacheKey = await generateCacheKey("search", searchParams as Record<string, unknown>);
 
     const cacheResult = await getCachedEntry(cacheKey, SEARCH_TTL_SEC);
