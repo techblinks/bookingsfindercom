@@ -1,5 +1,5 @@
 /**
- * Brand consistency — conversion button variant tests.
+ * Brand consistency â€” conversion button variant tests.
  *
  * Verifies that the shared "conversion" variant is used for all
  * primary conversion actions and not for navigation/secondary controls.
@@ -12,9 +12,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-// ── Conversion variant CSS checks ───────────────────────────────
+// â”€â”€ Conversion variant CSS checks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe("buttonVariants — conversion variant", () => {
+describe("buttonVariants â€” conversion variant", () => {
   it("includes the conversion variant name", () => {
     // The variant key must exist (compilation check)
     const classes = buttonVariants({ variant: "conversion" });
@@ -56,9 +56,9 @@ describe("buttonVariants — conversion variant", () => {
   });
 });
 
-// ── Navigation variants must NOT be conversion ──────────────────
+// â”€â”€ Navigation variants must NOT be conversion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe("Navigation and controls — NOT conversion", () => {
+describe("Navigation and controls â€” NOT conversion", () => {
   it("default variant is not conversion orange", () => {
     const classes = buttonVariants({ variant: "default" });
     expect(classes).not.toContain("#D64A2A");
@@ -86,9 +86,9 @@ describe("Navigation and controls — NOT conversion", () => {
   });
 });
 
-// ── Conversion variant source file checks ────────────────────────
+// â”€â”€ Conversion variant source file checks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe("Conversion variant — source code audit", () => {
+describe("Conversion variant â€” source code audit", () => {
   it("Header Plan a Trip uses variant='conversion'", () => {
     const fs = require("fs");
     const source = fs.readFileSync("src/components/layout/Header.tsx", "utf-8");
@@ -115,16 +115,16 @@ describe("Conversion variant — source code audit", () => {
 
   it("Index homepage CTAs use buttonVariants conversion", () => {
     const fs = require("fs");
-    const source = fs.readFileSync("src/pages/Index.tsx", "utf-8");
+    const source = fs.readFileSync("src/pages/home/DesktopHome.tsx", "utf-8");
     // Should import buttonVariants and use it
     expect(source).toContain("ctaPrimary");
     expect(source).toContain("ctaSecondary");
   });
 });
 
-// ── Optimizer disabled behavior ──────────────────────────────────
+// â”€â”€ Optimizer disabled behavior â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe("Optimizer — enabled/disabled", () => {
+describe("Optimizer â€” enabled/disabled", () => {
   it("OptimizerForm button has disabled prop wired to isValid", () => {
     const fs = require("fs");
     const source = fs.readFileSync("src/components/optimizer/OptimizerForm.tsx", "utf-8");
@@ -141,7 +141,7 @@ describe("Optimizer — enabled/disabled", () => {
   });
 });
 
-// ── Decorative image accessibility ───────────────────────────────
+// â”€â”€ Decorative image accessibility â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe("Decorative flight images", () => {
   it("FlightResults does not have un-annotated decorative images", () => {
@@ -151,21 +151,21 @@ describe("Decorative flight images", () => {
     const imgMatches = source.match(/<img[^>]*>/g) || [];
     for (const img of imgMatches) {
       if (!img.includes('alt=""') && !img.includes("aria-hidden")) {
-        // Only fail if it's decorative — skip if it has meaningful alt text
+        // Only fail if it's decorative â€” skip if it has meaningful alt text
         if (!img.includes('alt="') || img.includes('alt=""')) {
           // Empty alt is fine (decorative)
           continue;
         }
       }
     }
-    // Test just ensures the file can be parsed — no assertion needed
+    // Test just ensures the file can be parsed â€” no assertion needed
     expect(source).toBeTruthy();
   });
 });
 
-// ── Conversion variant disabled appearance ────────────────────────
+// â”€â”€ Conversion variant disabled appearance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe("Conversion variant — disabled state", () => {
+describe("Conversion variant â€” disabled state", () => {
   it("conversion variant inherits base disabled:opacity-50", () => {
     // The base cva class includes "disabled:opacity-50" for all variants
     const classes = buttonVariants({ variant: "conversion", className: "test" });
@@ -181,7 +181,7 @@ describe("Conversion variant — disabled state", () => {
   });
 });
 
-// ── Priority controls use brand blue, not orange ─────────────────
+// â”€â”€ Priority controls use brand blue, not orange â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe("Optimizer priority controls", () => {
   it("Cheapest/Fastest/Low Risk use border-primary not conversion", () => {

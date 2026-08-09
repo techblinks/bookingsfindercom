@@ -32,7 +32,11 @@ const BottomNav = () => {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/98 backdrop-blur-xl border-t border-border/30 lg:hidden safe-area-bottom" aria-label="Mobile bottom navigation">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-background/98 backdrop-blur-xl border-t border-border/30 lg:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      aria-label="Mobile bottom navigation"
+    >
       <div className="flex items-stretch justify-around h-[60px]">
         {tabs.map((tab) => {
           const active = isActive(tab.key);

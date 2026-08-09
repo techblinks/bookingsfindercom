@@ -1,44 +1,19 @@
 import { createRoot } from "react-dom/client";
 import { useState, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
 import App from "./App.tsx";
 import SplashScreen from "./components/SplashScreen.tsx";
 import { BrandingProvider } from "./hooks/useBranding";
 import { FaviconUpdater } from "./components/brand/FaviconUpdater";
 import "./index.css";
 
-const SPLASH_DURATION = 1500; // 1.5 seconds
+const SPLASH_DURATION = 800; // M1: shortened to 0.8s
 const SPLASH_SESSION_KEY = 'bf_splash_shown';
 
 const Root = () => {
-  // Only show splash on first visit of the session
   const hasSeenSplash = sessionStorage.getItem(SPLASH_SESSION_KEY) === 'true';
-  const [showSplash, setShowSplash] = useState(!hasSeenSplash);
-  const [splashExiting, setSplashExiting] = useState(false);
 
-  useEffect(() => {
-    if (!showSplash) return;
-    
-    const timer = setTimeout(() => {
-      setSplashExiting(true);
-      sessionStorage.setItem(SPLASH_SESSION_KEY, 'true');
-    }, SPLASH_DURATION);
-
-    return () => clearTimeout(timer);
-  }, [showSplash]);
-
-  useEffect(() => {
-    if (splashExiting) {
-      // Small delay for exit animation
-      const exitTimer = setTimeout(() => {
-        setShowSplash(false);
-      }, 400);
-      return () => clearTimeout(exitTimer);
-    }
-  }, [splashExiting]);
-
-  // Skip splash entirely if already seen
-  if (!showSplash && hasSeenSplash) {
+  // M1: App is always rendered immediately. Splash is non-blocking overlay.
+  if (hasSeenSplash) {
     return (
       <BrandingProvider>
         <FaviconUpdater />
@@ -49,23 +24,37 @@ const Root = () => {
 
   return (
     <>
-      <AnimatePresence mode="wait">
-        {showSplash && !splashExiting && (
-          <SplashScreen onComplete={() => setShowSplash(false)} />
-        )}
-      </AnimatePresence>
-      
-      {/* App fades in as splash exits */}
-      <div 
-        className={`transition-opacity duration-300 ${showSplash ? 'opacity-0' : 'opacity-100'}`}
-      >
-        <BrandingProvider>
-          <FaviconUpdater />
-          <App />
-        </BrandingProvider>
-      </div>
+      <BrandingProvider>
+        <FaviconUpdater />
+        <App />
+      </BrandingProvider>
+      <FirstVisitSplash />
     </>
   );
 };
+
+/** Non-blocking splash overlay shown only on first session visit */
+function FirstVisitSplash() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setVisible(false);
+      sessionStorage.setItem(SPLASH_SESSION_KEY, 'true');
+    }, SPLASH_DURATION);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!visible) return null;
+
+  // M1.1: pointer-events: none — splash is purely visual, never blocks interaction
+  return (
+    <div
+      className="fixed inset-0 z-[9999] bg-background transition-opacity duration-300 pointer-events-none"
+    >
+      <SplashScreen onComplete={() => setVisible(false)} />
+    </div>
+  );
+}
 
 createRoot(document.getElementById("root")!).render(<Root />);
