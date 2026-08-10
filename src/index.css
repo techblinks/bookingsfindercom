@@ -14,70 +14,88 @@
 
 @layer base {
   :root {
-    /* ── Brand Blue #01367F ── */
+    /* ═══ Brand Blue #01367F ═══ */
     --primary: 215 98% 25%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 215 98% 20%;
+    --primary-strong: 215 98% 18%;
+    --primary-soft: 215 98% 95%;
 
-    /* ── Background ── */
-    --background: 210 100% 99%;
+    /* ═══ Conversion Orange #D64A2A ═══ */
+    --accent: 15 68% 50%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 15 68% 42%;
+    --accent-soft: 15 68% 95%;
+
+    /* ═══ Semantic Surfaces ═══
+       V0: canvas → default → raised → context → anchor */
+    --surface-canvas: 215 40% 98%;       /* #F7F9FC — cool near-white */
+    --surface-default: 0 0% 100%;        /* white cards / sheets */
+    --surface-raised: 0 0% 100%;         /* elevated cards */
+    --surface-context: 215 98% 97%;       /* pale BookingsFinder blue */
+    --surface-anchor: 215 98% 12%;        /* deep navy #001D45 */
+
+    /* ═══ Background (canvas) ═══ */
+    --background: var(--surface-canvas);
+
+    /* ═══ Foreground ═══ */
     --foreground: 222 47% 11%;
+    --foreground-strong: 222 47% 8%;
+    --foreground-soft: 215 16% 47%;
 
-    /* ── Card surfaces ── */
-    --card: 0 0% 100%;
+    /* ═══ Card surfaces ═══ */
+    --card: var(--surface-default);
     --card-foreground: 222 47% 11%;
     --card-hover: 212 71% 96%;
 
-    /* ── Muted / pale blue panels ── */
+    /* ═══ Muted / pale blue panels ═══ */
     --muted: 212 71% 94%;
     --muted-foreground: 215 16% 47%;
 
-    /* ── Secondary ── */
+    /* ═══ Secondary ═══ */
     --secondary: 212 71% 94%;
     --secondary-foreground: 222 47% 11%;
 
-    /* ── Accent — Orange #D64A2A ── */
-    --accent: 15 68% 50%;
-    --accent-foreground: 0 0% 100%;
-
-    /* ── Success — Muted Emerald (semantic, not brand) ── */
+    /* ═══ Success — Muted Emerald (semantic, not brand) ═══ */
     --success: 150 40% 30%;
     --success-foreground: 0 0% 100%;
 
-    /* ── Warning — Warm Amber (semantic, not brand) ── */
+    /* ═══ Warning — Warm Amber (semantic, not brand) ═══ */
     --warning: 33 58% 41%;
     --warning-foreground: 0 0% 100%;
 
-    /* ── Destructive — Accessible Red (semantic, not brand) ── */
+    /* ═══ Destructive — Accessible Red (semantic, not brand) ═══ */
     --destructive: 0 53% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    /* ── Popover ── */
+    /* ═══ Popover ═══ */
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* ── Border — #D8E0E7 ── */
-    --border: 212 24% 88%;
-    --input: 212 24% 88%;
+    /* ═══ Border Hierarchy ═══ */
+    --border: 215 20% 88%;              /* default border */
+    --border-strong: 215 20% 78%;       /* contextual/emphasized */
+    --input: 215 20% 88%;
     --ring: 215 42% 50%;
 
-    /* ── Radius ── */
+    /* ═══ Radius ═══
+       base → sm → md → lg → xl → 2xl (via Tailwind extend) */
     --radius: 0.75rem;
 
-    /* ── Shadows — subtle blue-tinted ── */
+    /* ═══ Elevation — restrained depth via background contrast + subtle border ═══ */
     --shadow-sm: 0 1px 2px 0 rgb(1 54 127 / 0.04);
-    --shadow-card: 0 1px 3px 0 rgb(1 54 127 / 0.06), 0 1px 2px -1px rgb(1 54 127 / 0.04);
-    --shadow-elevated: 0 4px 6px -1px rgb(1 54 127 / 0.06), 0 2px 4px -2px rgb(1 54 127 / 0.04);
-    --shadow-modal: 0 10px 15px -3px rgb(1 54 127 / 0.06), 0 4px 6px -4px rgb(1 54 127 / 0.04);
+    --shadow-card: 0 1px 3px 0 rgb(1 54 127 / 0.05), 0 1px 2px -1px rgb(1 54 127 / 0.03);
+    --shadow-elevated: 0 4px 6px -1px rgb(1 54 127 / 0.05), 0 2px 4px -2px rgb(1 54 127 / 0.03);
+    --shadow-modal: 0 10px 15px -3px rgb(1 54 127 / 0.05), 0 4px 6px -4px rgb(1 54 127 / 0.03);
 
-    /* ── Sidebar ── */
+    /* ═══ Sidebar ═══ */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 215 98% 25%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 212 71% 94%;
     --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 212 24% 88%;
+    --sidebar-border: 215 20% 88%;
     --sidebar-ring: 215 42% 50%;
   }
 
@@ -85,9 +103,24 @@
     --primary: 215 70% 55%;
     --primary-foreground: 222 47% 8%;
     --primary-hover: 215 70% 50%;
+    --primary-strong: 215 70% 60%;
+    --primary-soft: 215 40% 12%;
+
+    --accent: 15 60% 50%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 15 60% 44%;
+    --accent-soft: 15 30% 15%;
+
+    --surface-canvas: 222 47% 6%;
+    --surface-default: 222 47% 10%;
+    --surface-raised: 222 47% 14%;
+    --surface-context: 215 30% 12%;
+    --surface-anchor: 215 40% 8%;
 
     --background: 222 47% 6%;
     --foreground: 210 40% 93%;
+    --foreground-strong: 210 40% 98%;
+    --foreground-soft: 215 20% 55%;
 
     --card: 222 47% 10%;
     --card-foreground: 210 40% 93%;
@@ -109,6 +142,7 @@
     --popover-foreground: 210 40% 93%;
 
     --border: 222 30% 20%;
+    --border-strong: 222 30% 26%;
     --input: 222 30% 20%;
     --ring: 215 42% 55%;
 
@@ -218,6 +252,39 @@
   .deal-badge {
     @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success text-success-foreground;
   }
+
+  /* ═══ V0 Visual Foundation: Semantic surface classes ═══ */
+  .surface-canvas {
+    @apply bg-[hsl(var(--surface-canvas))];
+  }
+
+  .surface-default {
+    @apply bg-[hsl(var(--surface-default))] border border-border;
+    box-shadow: var(--shadow-card);
+  }
+
+  .surface-raised {
+    @apply bg-[hsl(var(--surface-raised))] border border-border;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .surface-context {
+    @apply bg-[hsl(var(--surface-context))] border border-primary/10;
+  }
+
+  .surface-anchor {
+    @apply bg-[hsl(var(--surface-anchor))] text-white;
+  }
+
+  /* ═══ Trip Rule — 3px brand-primary bar + soft context surface ═══ */
+  .trip-rule {
+    @apply border-l-[3px] border-l-primary bg-primary/5;
+  }
+
+  /* ═══ Border hierarchy utilities ═══ */
+  .border-strong {
+    @apply border-[hsl(var(--border-strong))];
+  }
 }
 
 @layer utilities {
@@ -226,52 +293,6 @@
   }
 
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
-  }
-
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-    opacity: 0;
-  }
-
-  @keyframes fadeIn {
-    to {
-      opacity: 1;
-    }
-  }
-
-  .scroll-native {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  /* V2-specific utilities */
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  .bg-primary-gradient {
-    background: linear-gradient(135deg, hsl(215 98% 25%), hsl(215 98% 20%));
-  }
-}
-
-/* Respect user motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
   }
 }

@@ -24,7 +24,7 @@ const buttonVariants = cva(
         pill:
           "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
         conversion:
-          "bg-[#D64A2A] text-white shadow-sm hover:bg-[#B83D22] active:scale-[0.98] font-semibold",
+          "bg-[hsl(var(--accent))] text-accent-foreground shadow-sm hover:bg-[hsl(var(--accent-hover))] active:scale-[0.98] font-semibold",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -64,7 +64,7 @@ export const ctaBase =
 
 export const ctaPrimary = cn(
   ctaBase,
-  "bg-[#D64A2A] text-white hover:bg-[#B83D22] shadow-lg shadow-[#D64A2A]/25 focus-visible:outline-[#01367F]"
+  "bg-[hsl(var(--accent))] text-accent-foreground hover:bg-[hsl(var(--accent-hover))] shadow-lg shadow-[hsl(var(--accent))/0.25] focus-visible:outline-[hsl(var(--primary))]"
 );
 
 export const ctaSecondary = cn(

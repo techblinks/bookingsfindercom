@@ -29,13 +29,7 @@ const HOW_IT_WORKS_STEPS = [
   { step: 3, title: "Continue with the provider", desc: "Review current prices, availability and booking terms on the provider's website.", icon: ExternalLink },
 ];
 
-const TRUST_ITEMS = [
-  { icon: Shield, text: "BookingsFinder is a travel comparison and planning platform." },
-  { icon: Plane, text: "BookingsFinder does not directly sell flights or accommodation." },
-  { icon: HeartHandshake, text: "Current prices and availability are confirmed by providers." },
-  { icon: Library, text: "Some outbound links may be affiliate links. BookingsFinder may earn a commission at no additional cost to you." },
-  { icon: ClipboardCheck, text: "Booking conditions, cancellations and payments are handled by the provider." },
-];
+import { TRUST_ITEMS } from "@/components/shared/TrustContent";
 
 const DesktopHome = () => (
   <>

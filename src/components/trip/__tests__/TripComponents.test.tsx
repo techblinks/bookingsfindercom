@@ -47,18 +47,18 @@ describe("TripRibbon — visibility", () => {
     expect(btn.textContent).toContain("Kathmandu");
   });
 
-  it("shows dates when present", () => {
+  it("shows dates when present (V0: en-dash compact)", () => {
     seedTrip({ destination: { name: "Sydney" }, dates: { departureDate: "2026-08-18", returnDate: "2026-08-29" } });
     renderWithTrip(<TripRibbon />);
     const btn = screen.getByRole("button");
-    expect(btn.textContent).toContain("Aug 18-29");
+    expect(btn.textContent).toContain("Aug 18–29");
   });
 
-  it("shows traveller count", () => {
+  it("shows traveller count (V0: compact 'p' suffix)", () => {
     seedTrip({ destination: { name: "Sydney" }, travellers: { adults: 2, children: 0, infants: 0 } });
     renderWithTrip(<TripRibbon />);
     const btn = screen.getByRole("button");
-    expect(btn.textContent).toContain("2 travellers");
+    expect(btn.textContent).toContain("2p");
   });
 
   it("truncates long destination names", () => {
@@ -103,13 +103,13 @@ describe("TripSummarySheet — verified context", () => {
     expect(within(dialog).getByText(/BNE.*Sydney/)).toBeTruthy();
   });
 
-  it("shows dates in YYYY-MM-DD format in sheet", () => {
+  it("shows friendly date display in sheet (V0: no raw YYYY-MM-DD)", () => {
     seedTrip({ destination: { name: "Sydney" }, dates: { departureDate: "2026-08-18" } });
     renderWithTrip(<TripRibbon />);
     fireEvent.click(screen.getByRole("button"));
     const dialog = screen.getByRole("dialog");
-    // The sheet should have the date
-    expect(dialog.textContent).toContain("2026-08-18");
+    // V0: friendly date — "Aug 18" not "2026-08-18"
+    expect(dialog.textContent).toContain("Aug 18");
   });
 
   it("does NOT show fake product/price state", () => {

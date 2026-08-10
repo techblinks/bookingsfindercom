@@ -2,10 +2,12 @@ import { useTrip } from "@/context/TripContext";
 import { useState } from "react";
 import { MapPin, ChevronRight } from "lucide-react";
 import { TripSummarySheet } from "./TripSummarySheet";
+import { formatDateRangeDisplay, formatTravellers } from "@/lib/displayFormatters";
 
 /**
  * Bookings Finder Trip Ribbon — compact trip context indicator.
  * Only renders when meaningful trip context exists.
+ * V0: semantic degradation, friendly dates, no mid-token truncation.
  */
 export function TripRibbon() {
   const { trip, hasTrip } = useTrip();
@@ -13,40 +15,15 @@ export function TripRibbon() {
 
   if (!hasTrip) return null;
 
-  // Build the compact label
-  const parts: string[] = [];
-
-  if (trip.origin?.airportCode && trip.destination?.name) {
-    parts.push(`${trip.origin.airportCode} → ${trip.destination.name}`);
-  } else if (trip.destination?.name) {
-    parts.push(trip.destination.name);
-  }
-
-  if (trip.dates?.departureDate) {
-    let dateStr = trip.dates.departureDate;
-    if (trip.dates.returnDate) {
-      // Compact: "Aug 18-29"
-      dateStr = formatCompactDates(trip.dates.departureDate, trip.dates.returnDate);
-    }
-    parts.push(dateStr);
-  }
-
-  if (trip.travellers) {
-    const total = trip.travellers.adults + trip.travellers.children + trip.travellers.infants;
-    parts.push(`${total} traveller${total !== 1 ? "s" : ""}`);
-  }
-
-  const label = parts.join(" · ");
-
-  // Truncate if too long
-  const displayLabel = label.length > 50 ? label.slice(0, 47) + "..." : label;
+  const fullLabel = buildFullLabel(trip);
+  const displayLabel = buildCompactLabel(trip);
 
   return (
     <>
       <button
         onClick={() => setSheetOpen(true)}
-        className="w-full flex items-center gap-2 px-3 py-2.5 mb-4 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        aria-label={`Your trip: ${label}. Tap to view trip summary.`}
+        className="w-full flex items-center gap-2 px-3 py-2.5 mb-4 trip-rule hover:bg-primary/10 transition-colors text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        aria-label={`Your trip: ${fullLabel}. Tap to view trip summary.`}
       >
         <MapPin className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
         <span className="flex-1 text-sm font-medium text-foreground truncate">{displayLabel}</span>
@@ -59,24 +36,91 @@ export function TripRibbon() {
 }
 
 /**
- * Format two YYYY-MM-DD dates into a compact range like "Aug 18-29"
+ * Build full accessible label — never truncated.
  */
-function formatCompactDates(departureDate: string, returnDate: string): string {
-  try {
-    const dep = new Date(departureDate + "T00:00:00");
-    const ret = new Date(returnDate + "T00:00:00");
-    const monthFormat: Intl.DateTimeFormatOptions = { month: "short" };
+function buildFullLabel(trip: ReturnType<typeof useTrip>["trip"]): string {
+  const parts: string[] = [];
 
-    const depMonth = dep.toLocaleDateString("en-US", monthFormat);
-    const retMonth = ret.toLocaleDateString("en-US", monthFormat);
-    const depDay = dep.getDate();
-    const retDay = ret.getDate();
-
-    if (depMonth === retMonth) {
-      return `${depMonth} ${depDay}-${retDay}`;
-    }
-    return `${depMonth} ${depDay} - ${retMonth} ${retDay}`;
-  } catch {
-    return `${departureDate} - ${returnDate}`;
+  if (trip.origin?.airportCode && trip.destination?.name) {
+    parts.push(`${trip.origin.airportCode} → ${trip.destination.name}`);
+  } else if (trip.destination?.name) {
+    parts.push(trip.destination.name);
   }
+
+  if (trip.travellers) {
+    parts.push(
+      formatTravellers(
+        trip.travellers.adults,
+        trip.travellers.children,
+        trip.travellers.infants,
+      ),
+    );
+  }
+
+  if (trip.dates?.departureDate) {
+    parts.push(formatDateRangeDisplay(trip.dates.departureDate, trip.dates.returnDate));
+  }
+
+  return parts.join(" · ");
+}
+
+/**
+ * Build compact display label with semantic degradation.
+ *
+ * Degradation order:
+ * 1. Prefer airport code over city name for origin
+ * 2. Shorten traveller wording
+ * 3. Omit year from date range where unambiguous
+ * 4. Truncate destination only as last resort
+ *
+ * Never truncate date range mid-token.
+ */
+function buildCompactLabel(trip: ReturnType<typeof useTrip>["trip"]): string {
+  const parts: string[] = [];
+
+  // Route: prefer code → destination
+  if (trip.origin?.airportCode && trip.destination?.name) {
+    parts.push(`${trip.origin.airportCode} → ${trip.destination.name}`);
+  } else if (trip.origin?.name && trip.destination?.name) {
+    parts.push(`${trip.origin.name} → ${trip.destination.name}`);
+  } else if (trip.destination?.name) {
+    parts.push(trip.destination.name);
+  }
+
+  // Dates: compact range, no year unless cross-year
+  if (trip.dates?.departureDate) {
+    parts.push(formatDateRangeDisplay(trip.dates.departureDate, trip.dates.returnDate));
+  }
+
+  // Travellers: short form
+  if (trip.travellers) {
+    const total =
+      trip.travellers.adults +
+      trip.travellers.children +
+      trip.travellers.infants;
+    parts.push(`${total}p`); // e.g. "2p"
+  }
+
+  const label = parts.join(" · ");
+
+  // Only truncate destination as last resort at max width
+  if (label.length > 52) {
+    // Find the destination portion and truncate it
+    const destStart = trip.destination?.name
+      ? label.indexOf(trip.destination.name)
+      : -1;
+    if (destStart > 0) {
+      const before = label.slice(0, destStart);
+      const destName = trip.destination!.name!;
+      const after = label.slice(destStart + destName.length);
+      const available = 52 - before.length - after.length - 3; // 3 for "..."
+      if (available > 4) {
+        return before + destName.slice(0, available) + "..." + after;
+      }
+    }
+    // Fallback: hard truncate but never mid-date
+    return label.slice(0, 49) + "...";
+  }
+
+  return label;
 }

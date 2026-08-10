@@ -2,6 +2,7 @@ import { useTrip } from "@/context/TripContext";
 import { Link } from "react-router-dom";
 import { X, Plane, Building2, Ticket, Calculator, Trash2 } from "lucide-react";
 import { useEffect, useRef, useCallback } from "react";
+import { formatDateRangeDisplay, formatTravellers } from "@/lib/displayFormatters";
 
 interface TripSummarySheetProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface TripSummarySheetProps {
  * Trip Summary Sheet — shows verified trip context and useful actions.
  * M1 does NOT show bookings, prices, saved products, or fake selection state.
  * M1.1: Escape closes, Tab trapped inside, focus restored on close.
+ * V0: friendly date display.
  */
 export function TripSummarySheet({ open, onOpenChange }: TripSummarySheetProps) {
   const { trip, clearTrip } = useTrip();
@@ -22,10 +24,8 @@ export function TripSummarySheet({ open, onOpenChange }: TripSummarySheetProps) 
     if (!open) return;
 
     const prev = document.activeElement as HTMLElement;
-    // Focus the dialog container so keyboard events are captured
     dialogRef.current?.focus();
 
-    // Cleanup runs when open flips to false → restore focus to trigger
     return () => {
       prev?.focus();
     };
@@ -40,7 +40,6 @@ export function TripSummarySheet({ open, onOpenChange }: TripSummarySheetProps) 
         return;
       }
 
-      // Focus trap: cycle Tab within dialog
       if (e.key === "Tab" && dialogRef.current) {
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
           'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
@@ -131,18 +130,23 @@ export function TripSummarySheet({ open, onOpenChange }: TripSummarySheetProps) 
             </div>
           )}
 
-          {/* Dates + Travellers */}
+          {/* Dates + Travellers — V0: friendly display */}
           {(hasDates || totalTravellers > 0) && (
             <div className="flex items-center gap-3 mb-4 text-sm text-muted-foreground">
               {hasDates && (
                 <span>
-                  {trip.dates!.departureDate}
-                  {trip.dates!.returnDate && ` - ${trip.dates!.returnDate}`}
+                  {trip.dates!.returnDate
+                    ? formatDateRangeDisplay(trip.dates!.departureDate, trip.dates!.returnDate)
+                    : formatDateRangeDisplay(trip.dates!.departureDate)}
                 </span>
               )}
               {totalTravellers > 0 && (
                 <span>
-                  {totalTravellers} traveller{totalTravellers !== 1 ? "s" : ""}
+                  {formatTravellers(
+                    trip.travellers?.adults ?? 0,
+                    trip.travellers?.children ?? 0,
+                    trip.travellers?.infants ?? 0,
+                  )}
                 </span>
               )}
             </div>
