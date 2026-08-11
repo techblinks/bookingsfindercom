@@ -2,8 +2,18 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bookingsfindercom",
   "compatibility_date": "2026-08-05",
+  // Worker entry: serves the static bundle for every path except /sitemap.xml,
+  // which is proxied to the Supabase sitemap function (see worker/index.ts).
+  "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // Lets the Worker hand normal requests back to the asset router unchanged.
+    "binding": "ASSETS"
+  },
+  "vars": {
+    // Public Supabase project URL — the same value already shipped in the
+    // client bundle. Not a secret.
+    "SUPABASE_URL": "https://pjehrnhmjrxrlrhuhqgf.supabase.co"
   }
 }
