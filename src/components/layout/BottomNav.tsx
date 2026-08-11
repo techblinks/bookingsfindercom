@@ -1,4 +1,4 @@
-import { Home, Plane, Building2, Map, User } from "lucide-react";
+import { Home, Plane, Building2, Ticket, User } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -6,7 +6,7 @@ const tabs = [
   { label: "Home", href: "/", icon: Home, key: "home" },
   { label: "Flights", href: "/flights", icon: Plane, key: "flights" },
   { label: "Stays", href: "/hotels", icon: Building2, key: "stays" },
-  { label: "Trip Cost", href: "/trip-cost", icon: Map, key: "trip_cost" },
+  { label: "Things", href: "/things-to-do", icon: Ticket, key: "things" },
   { label: "Account", href: "/account", icon: User, key: "account" },
 ];
 
@@ -19,6 +19,7 @@ const BottomNav = () => {
     if (key === "home") return location.pathname === "/";
     if (key === "flights") return location.pathname.startsWith("/flights");
     if (key === "stays") return location.pathname.startsWith("/hotels");
+    if (key === "things") return location.pathname.startsWith("/things-to-do") || location.pathname.startsWith("/attractions");
     if (key === "trip_cost") return location.pathname.startsWith("/trip-cost") || location.pathname.startsWith("/optimizer") || location.pathname.startsWith("/plan");
     if (key === "account") return location.pathname.startsWith("/account");
     return false;
@@ -31,7 +32,11 @@ const BottomNav = () => {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/98 backdrop-blur-xl border-t border-border/30 lg:hidden safe-area-bottom" aria-label="Mobile bottom navigation">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-background/98 backdrop-blur-xl border-t border-border/30 lg:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      aria-label="Mobile bottom navigation"
+    >
       <div className="flex items-stretch justify-around h-[60px]">
         {tabs.map((tab) => {
           const active = isActive(tab.key);

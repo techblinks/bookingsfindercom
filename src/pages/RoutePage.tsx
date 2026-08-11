@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plane, ArrowRight, Calendar, TrendingDown, Search, Star, Clock, ExternalLink, Loader2 } from "lucide-react";
+import { Plane, ArrowRight, Search, Star, ExternalLink, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 // Convert slug like "london-to-dubai" to route info
@@ -50,12 +50,6 @@ const getIATA = (cityName: string): string => {
   return cityToIATA[cityName.toLowerCase()] || cityName.substring(0, 3).toUpperCase();
 };
 
-// Deterministic fake price based on route
-const getRoutePrice = (origin: string, dest: string): number => {
-  const hash = (origin + dest).split("").reduce((a, b) => a + b.charCodeAt(0), 0);
-  return 150 + (hash % 800);
-};
-
 const tips = [
   "Book 6-8 weeks in advance for the best fares",
   "Tuesday and Wednesday flights tend to be cheaper",
@@ -71,7 +65,7 @@ const RoutePage = () => {
   const [dbContent, setDbContent] = useState<any>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(true);
 
-  // Fetch AI-generated content from DB
+  // Fetch published route content from DB
   useEffect(() => {
     if (!slug) return;
     const fetchContent = async () => {
@@ -95,7 +89,7 @@ const RoutePage = () => {
         <main className="flex-1 container py-16 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Route Not Found</h1>
           <p className="text-muted-foreground mb-6">We couldn't find the route you're looking for.</p>
-          <Button asChild><Link to="/">Search Flights</Link></Button>
+          <Button asChild><Link to="/flights">Search Flights</Link></Button>
         </main>
         <Footer />
       </div>
@@ -104,25 +98,29 @@ const RoutePage = () => {
 
   const originIATA = dbContent?.origin_iata || getIATA(route.originCity);
   const destIATA = dbContent?.destination_iata || getIATA(route.destinationCity);
-  const basePrice = getRoutePrice(originIATA, destIATA);
   const today = new Date();
   const searchDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  // A route page is "thin" when there is no published DB content.
+  const isThinPage = !dbContent;
 
   const handleSearch = () => {
     navigate(`/flights?origin=${originIATA}&destination=${destIATA}&departureDate=${searchDate}&passengers=1&cabinClass=economy`);
   };
 
-  // Use DB content for title/description/content if available
-  const pageTitle = dbContent?.title || `Cheap Flights from ${route.originCity} to ${route.destinationCity}`;
-  const pageDescription = dbContent?.meta_description || `Compare cheap flights from ${route.originCity} to ${route.destinationCity} from $${basePrice}. Find the best deals, airlines, and travel tips for this route.`;
-  const h1Title = dbContent?.h1_title || `Cheap Flights from ${route.originCity} to ${route.destinationCity}`;
-  const introText = dbContent?.intro_paragraph || `Compare prices across multiple airlines and booking partners. Find the best deals for ${route.originCity} (${originIATA}) → ${route.destinationCity} (${destIATA}).`;
+  // Page metadata — never fabricate prices.
+  const pageTitle = dbContent?.title || `Compare Flights from ${route.originCity} to ${route.destinationCity}`;
+  const pageDescription = dbContent?.meta_description
+    || `Search live flight options from ${route.originCity} to ${route.destinationCity}. Compare schedules, stops and baggage from trusted travel partners on BookingsFinder.`;
+  const h1Title = dbContent?.h1_title || `Flights from ${route.originCity} to ${route.destinationCity}`;
+  const introText = dbContent?.intro_paragraph
+    || `Search and compare flight options from ${route.originCity} (${originIATA}) to ${route.destinationCity} (${destIATA}). View live fares from our travel partners when you search.`;
   const mainContent = dbContent?.main_content || null;
   const dbTips = dbContent?.travel_tips as any[] | null;
   const dbFaqs = dbContent?.faqs as any[] | null;
   const dbRelated = dbContent?.related_routes as any[] | null;
 
-  // Build FAQ schema from DB or defaults
+  // Build FAQ schema from DB or honest defaults (no fabricated prices)
   const faqItems = dbFaqs && dbFaqs.length > 0
     ? dbFaqs.map((f: any) => ({
         "@type": "Question" as const,
@@ -132,26 +130,26 @@ const RoutePage = () => {
     : [
         {
           "@type": "Question" as const,
-          name: `How much do flights from ${route.originCity} to ${route.destinationCity} cost?`,
+          name: `How can I find the best flights from ${route.originCity} to ${route.destinationCity}?`,
           acceptedAnswer: {
             "@type": "Answer" as const,
-            text: `Flights from ${route.originCity} to ${route.destinationCity} typically start from $${basePrice}. Prices vary depending on the season, airline, and how far in advance you book.`,
+            text: `Use BookingsFinder's flight search to compare live fares from multiple travel partners. Enter your travel dates to see available options side by side.`,
           },
         },
         {
           "@type": "Question" as const,
-          name: `What is the best time to fly from ${route.originCity} to ${route.destinationCity}?`,
+          name: `When is the best time to fly from ${route.originCity} to ${route.destinationCity}?`,
           acceptedAnswer: {
             "@type": "Answer" as const,
-            text: `The cheapest time to fly is usually during off-peak months. We recommend booking 6-8 weeks in advance and using our price alerts to track the best deals.`,
+            text: `The best time depends on your priorities — off-peak seasons often have lower fares. We recommend booking 6-8 weeks in advance and using our price alerts to track fare changes for this route.`,
           },
         },
         {
           "@type": "Question" as const,
-          name: `Which airlines fly from ${route.originCity} to ${route.destinationCity}?`,
+          name: `Which airlines serve the ${route.originCity} to ${route.destinationCity} route?`,
           acceptedAnswer: {
             "@type": "Answer" as const,
-            text: `Multiple airlines serve this route. Use our flight comparison tool to see all available options with real-time pricing from partner booking sites.`,
+            text: `Multiple airlines may serve this route. Use our flight comparison tool to see all available options with real-time pricing from partner booking sites.`,
           },
         },
       ];
@@ -180,8 +178,9 @@ const RoutePage = () => {
       <Helmet>
         <title>{pageTitle} | BookingsFinder</title>
         <meta name="description" content={pageDescription} />
-        <meta name="keywords" content={`cheap flights ${route.originCity} to ${route.destinationCity}, ${route.originCity} ${route.destinationCity} flights, flight deals`} />
         <link rel="canonical" href={`https://bookingsfinder.com/flights/${slug}`} />
+        {/* Thin/unpublished route pages must not be indexed. */}
+        {isThinPage && <meta name="robots" content="noindex,follow" />}
         <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
       </Helmet>
 
@@ -207,18 +206,11 @@ const RoutePage = () => {
                 {introText}
               </p>
 
-              {/* Price highlight + CTA */}
+              {/* Search CTA — no fabricated price */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="bg-card border border-border rounded-xl px-5 py-3 flex items-center gap-3">
-                  <TrendingDown className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Prices from</p>
-                    <p className="text-2xl font-bold text-foreground">${basePrice}</p>
-                  </div>
-                </div>
                 <Button size="lg" onClick={handleSearch} className="gap-2">
                   <Search className="h-4 w-4" />
-                  View Live Prices
+                  Search flights
                 </Button>
               </div>
             </div>
@@ -227,7 +219,7 @@ const RoutePage = () => {
           {/* Content body */}
           <section className="py-10 md:py-14">
             <div className="container max-w-4xl">
-              {/* Route overview - use AI content if available */}
+              {/* Route overview - use published content if available */}
               <div className="prose prose-sm max-w-none mb-10">
                 <h2 className="text-2xl font-bold text-foreground">
                   {route.originCity} to {route.destinationCity} Flight Guide
@@ -240,17 +232,17 @@ const RoutePage = () => {
                 ) : (
                   <>
                     <p className="text-muted-foreground leading-relaxed">
-                      Looking for the best flight deals from {route.originCity} to {route.destinationCity}?
-                      BookingsFinder compares prices from top airlines and booking partners to help you find
-                      the cheapest fares. Whether you're planning a holiday, business trip, or last-minute
-                      getaway, our smart comparison engine shows you real-time prices so you can make informed
-                      decisions before booking with our trusted partners.
+                      Looking for flight options from {route.originCity} to {route.destinationCity}?
+                      BookingsFinder compares available fares from travel partners to help you find
+                      the right flight. Whether you're planning a holiday, business trip, or last-minute
+                      getaway, our comparison tool lets you view options side by side before choosing
+                      a provider.
                     </p>
                     <p className="text-muted-foreground leading-relaxed">
-                      The {route.originCity} to {route.destinationCity} route is served by multiple airlines
-                      offering both direct and connecting flights. Prices typically range from ${basePrice} to
-                      ${basePrice + 400} depending on the season, class, and how far in advance you book.
-                      We recommend setting up a price alert to get notified when fares drop for this route.
+                      The {route.originCity} to {route.destinationCity} route may be served by multiple airlines
+                      offering both direct and connecting flights. Fares vary depending on the season,
+                      class, and how far in advance you book. Search for your dates to see live prices
+                      from our travel partners.
                     </p>
                   </>
                 )}
@@ -282,14 +274,14 @@ const RoutePage = () => {
                       <Plane className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">Ready to compare prices?</p>
+                      <p className="font-semibold text-foreground">Ready to compare options?</p>
                       <p className="text-sm text-muted-foreground">
-                        See live deals from {route.originCity} to {route.destinationCity}
+                        Search live fares from {route.originCity} to {route.destinationCity}
                       </p>
                     </div>
                   </div>
                   <Button onClick={handleSearch} className="gap-2 shrink-0">
-                    Compare Booking Options
+                    Compare flight options
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </CardContent>
@@ -352,8 +344,8 @@ const RoutePage = () => {
           <div className="py-6 bg-muted/50">
             <div className="container">
               <p className="text-xs text-muted-foreground text-center max-w-2xl mx-auto">
-                BookingsFinder provides travel insights. Bookings occur on partner websites.
-                Prices shown are estimates and may vary at time of booking.
+                BookingsFinder provides travel comparison. Bookings are completed with the selected provider.
+                Fares and availability are confirmed on the provider's website before you pay.
               </p>
             </div>
           </div>

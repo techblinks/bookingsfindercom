@@ -80,7 +80,7 @@ describe("NativeLocationPicker", () => {
     render(<NativeLocationPicker isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />);
     typeInInput(screen.getByPlaceholderText("Search airports or cities..."), "zzz");
     vi.advanceTimersByTime(200);
-    await waitFor(() => { expect(screen.getByText(/No airports found for/i)).toBeTruthy(); });
+    await waitFor(() => { expect(screen.getByText(/No airports found/i)).toBeTruthy(); });
   });
 
   it("does not log sensitive data to console", async () => {

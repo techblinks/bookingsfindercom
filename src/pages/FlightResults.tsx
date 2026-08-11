@@ -30,9 +30,10 @@ import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
 import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
+import MobileFlightSearch from "@/components/search/MobileFlightSearch";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { FlightLandingPage } from "@/pages/flight/FlightLandingPage";
-import { parseAndValidateFlightSearchParams } from "@/lib/flightSearchValidation";
+import { parseAndValidateFlightSearchParams, toISODateLocal } from "@/lib/flightSearchValidation";
 
 const INITIAL_DISPLAY_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
@@ -44,26 +45,23 @@ const FlightResults = () => {
   const quickSelectRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // Phase 7A: Single route-mode decision using the shared validator
   const parsed = useMemo(() => parseAndValidateFlightSearchParams(searchParams), [searchParams]);
   const isResultsMode = parsed.mode === "results";
   const validated = parsed.validated;
   const prefill = parsed.prefill;
   const validationErrors = parsed.errors;
 
-  // Derive search input values from validated params (results mode) or empty (form mode)
   const origin = validated?.origin ?? "";
   const destination = validated?.destination ?? "";
   const departureDate = validated?.departureDate
-    ? validated.departureDate.toISOString().split("T")[0]
+    ? toISODateLocal(validated.departureDate)
     : "";
   const returnDate = validated?.returnDate
-    ? validated.returnDate.toISOString().split("T")[0]
+    ? toISODateLocal(validated.returnDate)
     : "";
   const passengers = validated ? (validated.adults + validated.children + validated.infants) : 1;
   const cabinClass = validated?.cabinClass ?? "economy";
 
-  // Phase 5A: Explicit passenger breakdown for White Label eligibility
   const adults = validated?.adults ?? null;
   const children = validated?.children ?? null;
   const infants = validated?.infants ?? null;
@@ -74,7 +72,6 @@ const FlightResults = () => {
   const currencyCode = geoData?.currency || "USD";
   const currencySymbol = geoData?.currencySymbol || "$";
 
-  // Only pass real values when in results mode (validated = fully valid params)
   const {
     flights,
     meta,
@@ -155,7 +152,6 @@ const FlightResults = () => {
     const flight = flights.find(f => f.id === flightId);
     if (!flight) return;
 
-    // Phase 5A: Determine final outbound URL first, then track once
     let finalUrl: string | null = null;
     let outboundHost: string | undefined;
 
@@ -182,9 +178,7 @@ const FlightResults = () => {
           finalUrl = result.redirectUrl;
           outboundHost = new URL(result.redirectUrl).hostname;
         }
-      } catch (err) {
-        // URL generation failed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â do not track
-      }
+      } catch (err) { /* URL generation failed */ }
     }
 
     if (!finalUrl) {
@@ -192,8 +186,6 @@ const FlightResults = () => {
       return;
     }
 
-
-    // Phase 6A: Analytics click event (fire-and-forget, non-blocking)
     void logAffiliateClick({
       partner: outboundHost || 'aviasales',
       partnerType: 'flight',
@@ -228,13 +220,47 @@ const FlightResults = () => {
     ? filteredFlights.reduce((best, f) => (f.deal_score || 0) > (best.deal_score || 0) ? f : best, filteredFlights[0])
     : null;
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Form mode ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â delegated to FlightLandingPage ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  /* ═════════════════════════════════════════════════════════════════
+     V1: Form mode — mobile gets new V1 search, desktop preserves existing
+     ═════════════════════════════════════════════════════════════════ */
 
   if (!isResultsMode) {
+    if (isMobile) {
+      return (
+        <div className="min-h-screen bg-background flex flex-col">
+          <main id="main-content" className="flex-1 px-4 pt-3 pb-24">
+            <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="font-medium">Flights</span>
+            </Link>
+            <MobileFlightSearch />
+            {/* Compact below-form proof panel */}
+            <div className="mt-6 p-4 rounded-xl bg-primary/5 border border-primary/10">
+              <p className="text-xs text-muted-foreground leading-relaxed text-center">
+                BookingsFinder is a travel comparison and planning platform. Current prices and availability are confirmed by providers. Some outbound links may be affiliate links.
+              </p>
+            </div>
+            <div className="mt-3 space-y-0.5">
+              <Link to="/trip-cost" className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors min-h-[44px]">
+                <span className="text-sm text-foreground">Trip Cost Planner</span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground rotate-270" />
+              </Link>
+              <Link to="/help" className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors min-h-[44px]">
+                <span className="text-sm text-foreground">Help Centre</span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground rotate-270" />
+              </Link>
+            </div>
+          </main>
+        </div>
+      );
+    }
     return <FlightLandingPage prefill={prefill} validationErrors={validationErrors} suppliedSearchParams={searchParams} />;
   }
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Results mode: fully validated search ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ show results ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  /* ═════════════════════════════════════════════════════════════════
+     Results mode
+     ═════════════════════════════════════════════════════════════════ */
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <FlightSearchSchema
@@ -265,8 +291,8 @@ const FlightResults = () => {
                 <p className="text-xs text-muted-foreground truncate">
                   {formatDate(departureDate)}
                   {returnDate && ` - ${formatDate(returnDate)}`}
-                  {" Ãƒâ€šÃ‚Â· "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
-                  {" Ãƒâ€šÃ‚Â· "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
+                  {" · "}{passengers} {passengers === 1 ? "Traveler" : "Travelers"}
+                  {" · "}{cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1)}
                 </p>
               </div>
             </div>
@@ -278,17 +304,20 @@ const FlightResults = () => {
                   <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
                 </div>
               )}
-              {/* Phase 7A: Edit preserves current search params for prefill */}
+              {/* V1: Edit hidden on mobile (MobileQuickEditBar not yet reconnected) */}
+              {!isMobile && (
               <Link to={`/flights?${searchParams.toString()}`} className="shrink-0">
                 <Button variant="outline" size="sm" className="h-9">Edit</Button>
               </Link>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <main id="main-content" className="flex-1 container mx-auto px-4 py-5">
+      <main id="main-content" className={"flex-1 container mx-auto px-4 py-5" + (isMobile ? " pb-24" : "")}>
         <div className="flex gap-6">
+          {/* Desktop filters — hidden on mobile */}
           <aside className="hidden lg:block w-72 shrink-0">
             <div className="sticky top-[72px] space-y-4">
               <FlightFiltersPanel
@@ -332,6 +361,7 @@ const FlightResults = () => {
               </div>
             )}
 
+            {/* Sort: mobile segmented control, desktop dropdown */}
             <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
               <div>
                 {isLoading ? (
@@ -342,7 +372,26 @@ const FlightResults = () => {
                   </p>
                 )}
               </div>
-              <SortDropdown value={sortBy} onChange={setSortBy} />
+              {isMobile ? (
+                <div role="radiogroup" aria-label="Sort flights" className="flex bg-muted rounded-full p-0.5">
+                  {(["best", "cheapest", "fastest"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setSortBy(opt)}
+                      role="radio"
+                      aria-checked={sortBy === opt}
+                      className={sortBy === opt
+                        ? "bg-card text-foreground shadow-sm px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
+                        : "text-muted-foreground hover:text-foreground px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
+                      }
+                    >
+                      {opt === "best" ? "Best" : opt === "cheapest" ? "Cheapest" : "Fastest"}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <SortDropdown value={sortBy} onChange={setSortBy} />
+              )}
             </div>
 
             {isSearching && !isLoading && (

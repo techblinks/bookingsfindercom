@@ -29,6 +29,25 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SUPPORTED_CABIN_CLASSES = ["economy", "premium", "business", "first"];
 
 /**
+ * Format a Date as a LOCAL calendar-date string (YYYY-MM-DD).
+ *
+ * Unlike .toISOString().split("T")[0] which converts through UTC and
+ * can produce the previous day in UTC+ timezones, this reads the local
+ * year/month/day directly and is safe for calendar-only travel dates.
+ *
+ * Example:
+ *   new Date("2026-08-18T00:00:00") (in UTC+10)
+ *   - toISODateLocal returns "2026-08-18"
+ *   - .toISOString().split("T")[0] would return "2026-08-17" (WRONG)
+ */
+export function toISODateLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Validate the complete flight search form.
  * Returns an array of errors. Empty array = valid.
  */

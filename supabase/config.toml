@@ -47,3 +47,17 @@ verify_jwt = false
 
 [functions.flight-destinations]
 verify_jwt = false
+
+[functions.tiqets-catalog]
+verify_jwt = false
+[functions.viator-catalog]
+verify_jwt = false
+[functions.viator-public]
+verify_jwt = false
+[functions.tiqets-public]
+verify_jwt = false
+
+# Fetched anonymously by search-engine crawlers (and by the /sitemap.xml edge
+# route), which cannot present a JWT. Without this the function answers 401.
+[functions.sitemap]
+verify_jwt = false

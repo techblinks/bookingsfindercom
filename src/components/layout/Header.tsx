@@ -1,4 +1,4 @@
-import { Menu, X, Plane, Building2, Map, Wrench, HelpCircle, MessageCircle, FileQuestion, ChevronRight } from "lucide-react";
+import { Menu, X, Plane, Building2, Map, Wrench, HelpCircle, MessageCircle, FileQuestion, ChevronRight, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -15,6 +15,7 @@ const Header = () => {
   const navItems = [
     { label: "Flights", href: "/flights", icon: Plane },
     { label: "Stays", href: "/hotels", icon: Building2 },
+    { label: "Things to Do", href: "/things-to-do", icon: Ticket },
     { label: "Trip Cost", href: "/trip-cost", icon: Map },
     { label: "Optimizer", href: "/optimizer", icon: Wrench },
   ];
@@ -39,6 +40,14 @@ const Header = () => {
 
   return (
     <>
+      {/* Skip to main content — visible on focus for keyboard users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-[100] focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-semibold focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
       <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md border-b border-border/50 safe-area-top">
         <div className="container max-w-7xl mx-auto flex h-16 lg:h-[68px] items-center justify-between gap-4 px-4">
           <Link to="/" className="flex items-center gap-2.5 shrink-0 group" onClick={close} aria-label="BookingsFinder - Go to homepage">
