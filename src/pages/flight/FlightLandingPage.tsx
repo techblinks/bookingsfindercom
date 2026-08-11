@@ -2,15 +2,15 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle, Search, ArrowRight,
-  Calculator, Plane, ClipboardCheck,
+  Calculator, ClipboardCheck,
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { FlightHero, TrustPoints } from "@/components/flight-landing";
+import ExploreRoutes from "@/components/flights/ExploreRoutes";
 import type { FlightSearchFormValues, ValidationError } from "@/lib/flightSearchValidation";
-import { cn } from "@/lib/utils";
 
 // ── IATA code → city name lookup (local, no API call needed) ──
 
@@ -36,16 +36,9 @@ function getCityName(code: string): string | null {
   return KNOWN_AIRPORTS[code.toUpperCase()] ?? null;
 }
 
-// ── Explore routes (renamed from "Popular" — factual heading) ──
-
-const EXPLORE_ROUTES = [
-  { origin: "BNE", originName: "Brisbane", destination: "SYD", destinationName: "Sydney" },
-  { origin: "SYD", originName: "Sydney", destination: "MEL", destinationName: "Melbourne" },
-  { origin: "BNE", originName: "Brisbane", destination: "MEL", destinationName: "Melbourne" },
-  { origin: "OOL", originName: "Gold Coast", destination: "SYD", destinationName: "Sydney" },
-  { origin: "SYD", originName: "Sydney", destination: "KTM", destinationName: "Kathmandu" },
-  { origin: "MEL", originName: "Melbourne", destination: "DEL", destinationName: "Delhi" },
-];
+// Explore routes are now geo-aware and API-derived — see ExploreRoutes /
+// useRouteDiscovery. The former hardcoded EXPLORE_ROUTES array was removed so
+// there is a single source of route data.
 
 // ── Compact value cards (reduced from 4 to 2 genuinely differentiated items) ──
 
@@ -279,51 +272,8 @@ export function FlightLandingPage({ prefill, validationErrors, suppliedSearchPar
         {/* ── 2. Trust Row (compact) ── */}
         <TrustPoints />
 
-        {/* ── 3. Explore Flight Routes ── */}
-        <section className="py-12 md:py-16 bg-background">
-          <div className="container max-w-5xl mx-auto px-4">
-            <div className="text-center mb-8 md:mb-10">
-              <h2 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight mb-3">
-                Explore flight routes
-              </h2>
-              <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-                Select a route to prefill the search form above. Add your travel dates to compare live fares.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
-              {EXPLORE_ROUTES.map((route) => {
-                const routeParamString = `origin=${route.origin}&destination=${route.destination}`;
-                const isSameRoute = prefill.origin === route.origin && prefill.destination === route.destination;
-                return (
-                  <Link
-                    key={`${route.origin}-${route.destination}`}
-                    to={`/flights?${routeParamString}`}
-                    className={cn(
-                      "group flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all",
-                      isSameRoute && "border-primary/30 bg-primary/5"
-                    )}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <Plane className="h-5 w-5 text-primary" aria-hidden="true" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <span className="font-mono uppercase">{route.origin}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
-                        <span className="font-mono uppercase">{route.destination}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {route.originName} → {route.destinationName}
-                      </p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        {/* ── 3. Explore Flight Routes (geo-aware) ── */}
+        <ExploreRoutes prefill={prefill} preferredOrigin={prefill.origin} />
 
         {/* ── 4. Compact Why BookingsFinder ── */}
         <section className="py-12 md:py-16 bg-muted/30">

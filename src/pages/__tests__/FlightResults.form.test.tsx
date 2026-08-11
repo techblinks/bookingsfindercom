@@ -163,18 +163,31 @@ describe("FlightResults — Phase 7B landing page", () => {
 
   // ── Explore routes (renamed from Popular) ──
 
-  it("renders explore route cards", () => {
+  it("renders the explore routes section", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
     expect(screen.getByText("Explore flight routes")).toBeTruthy();
-    expect(screen.getAllByText("BNE").length).toBeGreaterThan(0);
   });
 
-  it("route cards link without departureDate (no auto-search)", () => {
+  it("no longer renders the removed hardcoded route array", () => {
+    // Phase 2: routes come from useRouteDiscovery, so the old static BNE/OOL/KTM
+    // cards must not be emitted synchronously from the page module any more.
     render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
-    const links = screen.getAllByRole("link");
-    const routeLink = links.find(l => l.getAttribute("href")?.includes("origin=BNE&destination=SYD"));
-    expect(routeLink).toBeTruthy();
-    expect(routeLink?.getAttribute("href")).not.toMatch(/departureDate/);
+    expect(screen.queryByText("OOL")).toBeNull();
+    const staticPair = screen.getAllByRole("link")
+      .find(l => l.getAttribute("href")?.includes("origin=OOL&destination=SYD"));
+    expect(staticPair).toBeUndefined();
+  });
+
+  it("any rendered route link prefills without triggering an auto-search", async () => {
+    render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
+    const list = await screen.findByTestId("explore-routes-list");
+    // Whatever the discovery state resolves to, a route link must carry only
+    // origin/destination — never dates, which would start a search.
+    for (const link of Array.from(list.querySelectorAll("a"))) {
+      const href = link.getAttribute("href") ?? "";
+      expect(href).toMatch(/^\/flights\?origin=[A-Z]{3}&destination=[A-Z]{3}$/);
+      expect(href).not.toMatch(/departureDate|returnDate/);
+    }
   });
 
   // ── Why BookingsFinder (condensed to 2 cards) ──
