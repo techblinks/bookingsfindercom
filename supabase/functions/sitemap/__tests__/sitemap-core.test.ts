@@ -161,15 +161,45 @@ describe("Static pages are preserved", () => {
 
   it("static page count is unchanged by route filtering", () => {
     // Guards against a future route-eligibility change quietly dropping a
-    // static URL. /trip-cost and /things-to-do are real app routes that have
-    // never been listed here — adding them is a separate SEO decision, not
-    // part of the route-sitemap alignment.
-    expect(staticPages).toHaveLength(21);
+    // static URL. Phase 2.1: 21 - /my-alerts + /trip-cost + /things-to-do.
+    expect(staticPages).toHaveLength(22);
     const withRoutes = build([PUBLISHED_ROW]);
     const withoutRoutes = build(null);
     for (const page of staticPages) {
       expect(withRoutes).toContain(`<loc>${SITE_URL}${page.path}</loc>`);
       expect(withoutRoutes).toContain(`<loc>${SITE_URL}${page.path}</loc>`);
+    }
+  });
+
+  /*
+   * Phase 2.1 — audited public pages.
+   *
+   * Inclusion requires the page to be public, substantive and to canonicalise
+   * to exactly the URL listed here. Pages that are account-only or thin stay
+   * out no matter that the route exists.
+   */
+  it("includes the audited public pages", () => {
+    const xml = build([]);
+    for (const path of ["/trip-cost", "/things-to-do", "/hotels"]) {
+      expect(xml).toContain(`<loc>${SITE_URL}${path}</loc>`);
+    }
+  });
+
+  it("excludes the account-only alerts page", () => {
+    expect(staticPages.some((p) => p.path === "/my-alerts")).toBe(false);
+    expect(build([])).not.toContain(`<loc>${SITE_URL}/my-alerts</loc>`);
+  });
+
+  it("lists every static path exactly once", () => {
+    const paths = staticPages.map((p) => p.path);
+    expect(new Set(paths).size).toBe(paths.length);
+  });
+
+  it("every static entry canonicalises cleanly — no slash or query drift", () => {
+    for (const page of staticPages) {
+      if (page.path === "/") continue;
+      expect(page.path).toMatch(/^\/[a-z0-9-]+$/);
+      expect(page.path).not.toMatch(/\?|#|\/$/);
     }
   });
 

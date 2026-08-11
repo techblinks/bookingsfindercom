@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import HotelResults from "@/pages/HotelResults";
 
 const { mockLogInternalNavigation } = vi.hoisted(() => ({
@@ -25,7 +26,16 @@ vi.mock("@/hooks/useHeroMedia", () => ({
 function renderHotel(opts?: { mobile?: boolean }) {
   Object.defineProperty(window, "innerWidth", { value: opts?.mobile ? 768 : 1440, writable: true, configurable: true });
   window.dispatchEvent(new Event("resize"));
-  return render(<MemoryRouter initialEntries={["/hotels"]}><HotelResults /></MemoryRouter>);
+  // The page now declares its own <Helmet> head, so it needs the same
+  // HelmetProvider the app wraps it in (App.tsx) — as MobileHome and
+  // FlightResultsV1Mobile already do.
+  return render(
+    <HelmetProvider>
+      <MemoryRouter initialEntries={["/hotels"]}>
+        <HotelResults />
+      </MemoryRouter>
+    </HelmetProvider>,
+  );
 }
 
 describe("Stays landing page", () => {

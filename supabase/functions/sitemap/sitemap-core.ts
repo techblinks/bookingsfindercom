@@ -26,6 +26,9 @@ export const staticPages = [
   { path: "/", priority: "1.0", changefreq: "daily" },
   { path: "/flights", priority: "0.9", changefreq: "daily" },
   { path: "/hotels", priority: "0.9", changefreq: "daily" },
+  // Audited in Phase 2.1: both are public, substantive and self-canonical.
+  { path: "/things-to-do", priority: "0.9", changefreq: "daily" },
+  { path: "/trip-cost", priority: "0.8", changefreq: "monthly" },
   { path: "/how-it-works", priority: "0.7", changefreq: "monthly" },
   { path: "/about", priority: "0.6", changefreq: "monthly" },
   { path: "/careers", priority: "0.5", changefreq: "monthly" },
@@ -43,7 +46,12 @@ export const staticPages = [
   { path: "/terms", priority: "0.4", changefreq: "yearly" },
   { path: "/cookies", priority: "0.4", changefreq: "yearly" },
   { path: "/affiliate-disclosure", priority: "0.4", changefreq: "yearly" },
-  { path: "/my-alerts", priority: "0.4", changefreq: "weekly" },
+  /*
+   * /my-alerts is deliberately absent. It is an account utility: the page is
+   * an email-lookup form for managing your own saved price alerts, with no
+   * standalone content for a search result. It fails the same "account-only /
+   * thin" bar this list is meant to enforce.
+   */
 ];
 
 /** Hardcoded destination landing pages (from destinationData.ts). */

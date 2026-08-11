@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
   Building2, Search, Check, ArrowRight,
@@ -84,7 +85,28 @@ const HotelResults = () => {
   const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
 
   return (
-    <div className="min-h-screen bg-[#EDF4FC] flex flex-col">
+    <>
+      {/*
+        This page has always been in the sitemap but carried no metadata of its
+        own, so it inherited index.html's head and canonicalised itself to the
+        homepage — telling crawlers to ignore the very URL the sitemap listed.
+      */}
+      <Helmet>
+        <title>Compare Accommodation and Plan Your Stay | BookingsFinder</title>
+        <meta
+          name="description"
+          content="Search accommodation for your trip with current availability from Trip.com, then add the cost to your trip budget. Booking and payment are completed with the provider."
+        />
+        <meta property="og:title" content="Compare Accommodation and Plan Your Stay | BookingsFinder" />
+        <meta
+          property="og:description"
+          content="Search accommodation for your trip and plan the full cost of your stay with BookingsFinder."
+        />
+        <meta property="og:type" content="website" />
+        <link rel="canonical" href="https://bookingsfinder.com/hotels" />
+      </Helmet>
+
+      <div className="min-h-screen bg-[#EDF4FC] flex flex-col">
       <Header />
 
       <main className="flex-1">
@@ -267,7 +289,8 @@ const HotelResults = () => {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 };
 

@@ -636,7 +636,10 @@ export default function ThingsToDo() {
           name="description"
           content="Find things to do, tours, attractions and experiences. Compare experience details from our partners and continue to book when you're ready."
         />
-        <link rel="canonical" href="https://www.bookingsfinder.com/things-to-do" />
+        {/* Non-www is the site's canonical host (index.html, robots.txt sitemap
+            URL and the sitemap function all use it). This was the only www
+            canonical in the codebase and disagreed with its own JSON-LD url. */}
+        <link rel="canonical" href="https://bookingsfinder.com/things-to-do" />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
