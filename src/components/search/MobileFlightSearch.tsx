@@ -106,8 +106,12 @@ export default function MobileFlightSearch() {
       setFlightFromDisplay(resolveLocationLabel(urlOrigin) ?? urlOrigin);
       setFromPrefill({ fromTrip: false, userEdited: false });
     } else if (tripOrigin) {
-      setFlightFrom(tripOrigin.airportCode);
-      setFlightFromDisplay(tripOrigin.name);
+      // airportCode is OPTIONAL on TripDestination — a trip set from Stays or
+      // the planner can carry a city name with no code. The state initialiser
+      // has always coalesced to ""; without it `flightFrom` becomes undefined
+      // and the code badge below crashes on .toUpperCase().
+      setFlightFrom(tripOrigin.airportCode ?? "");
+      setFlightFromDisplay(tripOrigin.name ?? "");
       setFromPrefill({ fromTrip: true, userEdited: false });
     } else {
       setFlightFrom("");
@@ -122,8 +126,9 @@ export default function MobileFlightSearch() {
       setFlightToDisplay(resolveLocationLabel(urlDestination) ?? urlDestination);
       setToPrefill({ fromTrip: false, userEdited: false });
     } else if (tripDestination) {
-      setFlightTo(tripDestination.airportCode);
-      setFlightToDisplay(tripDestination.name);
+      // Same optional-airportCode guard as the origin effect above.
+      setFlightTo(tripDestination.airportCode ?? "");
+      setFlightToDisplay(tripDestination.name ?? "");
       setToPrefill({ fromTrip: true, userEdited: false });
     } else {
       setFlightTo("");

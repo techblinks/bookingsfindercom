@@ -113,6 +113,30 @@ describe("MobileFlightSearch — URL prefill", () => {
     expect(screen.getByRole("button", { name: /search flights/i })).toBeTruthy();
   });
 
+  /*
+   * Regression: TripDestination.airportCode is OPTIONAL. A trip set from Stays
+   * or the planner carries a city name with no code, and the URL-hydration
+   * effects fed that undefined straight into state — the code badge then threw
+   * `Cannot read properties of undefined (reading 'toUpperCase')` and the whole
+   * mobile search screen unmounted.
+   */
+  it("renders a TripContext location that has no airportCode", () => {
+    seedTrip({ destination: { name: "Sydney" } });
+    renderAt("/flights");
+    expect(screen.getByText("Sydney")).toBeTruthy();
+    // Still usable — the form did not crash out to an empty tree.
+    expect(screen.getByRole("button", { name: /search flights/i })).toBeTruthy();
+  });
+
+  it("renders a codeless TripContext origin alongside a URL destination", () => {
+    seedTrip({ origin: { name: "Sydney" } });
+    renderAt("/flights?destination=MOW");
+    expect(screen.getByText("Sydney")).toBeTruthy();
+    expect(screen.getByText("Moscow")).toBeTruthy();
+    expect(screen.getByText("MOW")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /search flights/i })).toBeTruthy();
+  });
+
   it("does not auto-search on a prefill-only URL", () => {
     renderAt("/flights?origin=SYD&destination=MOW");
     expect(screen.getByText("Sydney")).toBeTruthy();
