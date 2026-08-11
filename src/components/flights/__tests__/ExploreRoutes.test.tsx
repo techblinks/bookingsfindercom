@@ -7,7 +7,7 @@
  * failure mode degrades to claim-safe suggestions instead of crashing /flights.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ExploreRoutes from "@/components/flights/ExploreRoutes";
 import {
@@ -56,6 +56,8 @@ function mockDirections(body: unknown, ok = true) {
 function renderSection(props = {}) {
   return render(
     <MemoryRouter>
+      {/* SPA scroll target the section returns the viewport to on activation. */}
+      <div id="flight-search" data-testid="flight-search-anchor" />
       <ExploreRoutes {...props} />
     </MemoryRouter>,
   );
@@ -71,6 +73,9 @@ const AU_RESPONSE = {
 
 beforeEach(() => {
   logInternalNavigation.mockClear();
+  // jsdom lacks scrollIntoView; ExploreRoutes scrolls to #flight-search on
+  // activation, so every clickable-card test needs a safe stub.
+  Element.prototype.scrollIntoView = vi.fn();
   geoState.loading = false;
   geoState.geoData = {
     defaultOrigin: "BNE",
@@ -449,6 +454,34 @@ describe("Card behaviour and accessibility", () => {
     renderSection();
     await screen.findByText("SYD");
     expect(screen.getAllByRole("link")[0].className).toContain("focus-visible:ring-2");
+  });
+
+  it("scrolls back to the flight-search anchor on card activation", async () => {
+    mockDirections(AU_RESPONSE);
+    renderSection();
+    await screen.findByText("SYD");
+    const anchor = document.getElementById("flight-search")!;
+    const scrollSpy = vi.fn();
+    anchor.scrollIntoView = scrollSpy;
+    fireEvent.click(screen.getAllByRole("link")[0]);
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalled());
+    expect(scrollSpy.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ block: "start", behavior: expect.any(String) }),
+    );
+  });
+
+  it("does not scroll on modifier-click (new-tab navigation)", async () => {
+    mockDirections(AU_RESPONSE);
+    renderSection();
+    await screen.findByText("SYD");
+    const anchor = document.getElementById("flight-search")!;
+    const scrollSpy = vi.fn();
+    anchor.scrollIntoView = scrollSpy;
+    fireEvent.click(screen.getAllByRole("link")[0], { ctrlKey: true });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(scrollSpy).not.toHaveBeenCalled();
+    // Analytics still fires for the activation.
+    expect(logInternalNavigation).toHaveBeenCalledTimes(1);
   });
 
   it("emits exactly one analytics event per activation", async () => {

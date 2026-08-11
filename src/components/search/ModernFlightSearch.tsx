@@ -48,6 +48,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { validateFlightSearch, type FlightSearchFormValues } from "@/lib/flightSearchValidation";
 import { logSearch as logAnalyticsSearch } from "@/lib/analytics";
+import { resolveLocationDisplay } from "@/lib/locationResolution";
 
 type TripType = "roundtrip" | "oneway" | "multicity";
 
@@ -89,11 +90,11 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
   // Form state — initialised from prefill, then geo location fallback
   const [flightFrom, setFlightFrom] = useState(prefill?.origin ?? "");
   const [flightFromDisplay, setFlightFromDisplay] = useState(
-    prefill?.origin ? `${prefill.origin}` : ""
+    prefill?.origin ? resolveLocationDisplay(prefill.origin) : ""
   );
   const [flightTo, setFlightTo] = useState(prefill?.destination ?? "");
   const [flightToDisplay, setFlightToDisplay] = useState(
-    prefill?.destination ? `${prefill.destination}` : ""
+    prefill?.destination ? resolveLocationDisplay(prefill.destination) : ""
   );
   const [departureDate, setDepartureDate] = useState<Date | undefined>(
     prefill?.departureDate
@@ -107,6 +108,30 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
     infants: prefill?.infants ?? 0,
   });
   const [cabinClass, setCabinClass] = useState(prefill?.cabinClass ?? "economy");
+
+  /*
+   * Sync route-derived origin/destination prefill on same-page navigation.
+   *
+   * React Router keeps this component mounted when only the query string
+   * changes (/flights -> /flights?origin=SYD&destination=MOW), so useState
+   * initialisation alone misses the update. These effects deliberately touch
+   * ONLY origin/destination - dates, travellers and cabin class survive a
+   * route-card change untouched.
+   */
+  const prefilledOrigin = prefill?.origin?.trim().toUpperCase();
+  const prefilledDestination = prefill?.destination?.trim().toUpperCase();
+
+  useEffect(() => {
+    if (!prefilledOrigin) return;
+    setFlightFrom(prefilledOrigin);
+    setFlightFromDisplay(resolveLocationDisplay(prefilledOrigin));
+  }, [prefilledOrigin]);
+
+  useEffect(() => {
+    if (!prefilledDestination) return;
+    setFlightTo(prefilledDestination);
+    setFlightToDisplay(resolveLocationDisplay(prefilledDestination));
+  }, [prefilledDestination]);
 
   // Advanced options
   const [flexibleDates, setFlexibleDates] = useState(false);

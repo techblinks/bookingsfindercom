@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUpDown, Calendar, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import NativeDatePicker from "./NativeDatePicker";
 import { PassengerPickerSheet } from "./PassengerPickerSheet";
 import { useTrip } from "@/context/TripContext";
 import { formatDateRangeDisplay, formatTravellers } from "@/lib/displayFormatters";
+import { resolveLocationLabel } from "@/lib/locationResolution";
 import type { PassengerCount } from "./PassengerPicker";
 
 /* Flights-scoped local colour tokens */
@@ -33,8 +34,28 @@ function cityTextClass(name: string): string {
 
 interface PrefillState { fromTrip: boolean; userEdited: boolean; }
 
+const IATA_RE = /^[A-Z]{3}$/;
+
+/** Accept only well-formed IATA/city codes; everything else stays null. */
+function parseIata(value: string | null): string | null {
+  if (!value) return null;
+  const v = value.trim().toUpperCase();
+  return IATA_RE.test(v) ? v : null;
+}
+
 export default function MobileFlightSearch() {
   const navigate = useNavigate();
+
+  /*
+   * URL prefill wins over TripContext:
+   *   explicit URL origin/destination -> TripContext -> geo/default fallback.
+   * An Explore-route URL such as /flights?origin=SYD&destination=MOW must
+   * override stale trip values; when the URL carries nothing, TripContext
+   * behaves exactly as before.
+   */
+  const [searchParams] = useSearchParams();
+  const urlOrigin = parseIata(searchParams.get("origin"));
+  const urlDestination = parseIata(searchParams.get("destination"));
   const { trip, hasTrip } = useTrip();
 
   const tripOrigin = hasTrip ? trip.origin : null;
@@ -49,10 +70,10 @@ export default function MobileFlightSearch() {
   const [tripType, setTripType] = useState<TripType>(
     tripDepDate && !tripRetDate ? "oneway" : "roundtrip"
   );
-  const [flightFrom, setFlightFrom] = useState(tripOrigin?.airportCode ?? "");
-  const [flightFromDisplay, setFlightFromDisplay] = useState(tripOrigin?.name ?? "");
-  const [flightTo, setFlightTo] = useState(tripDestination?.airportCode ?? "");
-  const [flightToDisplay, setFlightToDisplay] = useState(tripDestination?.name ?? "");
+  const [flightFrom, setFlightFrom] = useState(urlOrigin ?? tripOrigin?.airportCode ?? "");
+  const [flightFromDisplay, setFlightFromDisplay] = useState(urlOrigin ? (resolveLocationLabel(urlOrigin) ?? urlOrigin) : (tripOrigin?.name ?? ""));
+  const [flightTo, setFlightTo] = useState(urlDestination ?? tripDestination?.airportCode ?? "");
+  const [flightToDisplay, setFlightToDisplay] = useState(urlDestination ? (resolveLocationLabel(urlDestination) ?? urlDestination) : (tripDestination?.name ?? ""));
 
   const initialDepDate = useMemo(() => {
     if (tripDepDate) { const d = new Date(tripDepDate + "T00:00:00"); return isNaN(d.getTime()) ? undefined : d; }
@@ -68,11 +89,48 @@ export default function MobileFlightSearch() {
   const [passengers, setPassengers] = useState<PassengerCount>({ adults: tripAdults ?? 1, children: tripChildren ?? 0, infants: tripInfants ?? 0 });
   const [cabinClass, setCabinClass] = useState<CabinClass>("economy");
 
-  const [fromPrefill, setFromPrefill] = useState<PrefillState>({ fromTrip: !!tripOrigin, userEdited: false });
-  const [toPrefill, setToPrefill] = useState<PrefillState>({ fromTrip: !!tripDestination, userEdited: false });
+  const [fromPrefill, setFromPrefill] = useState<PrefillState>({ fromTrip: !urlOrigin && !!tripOrigin, userEdited: false });
+  const [toPrefill, setToPrefill] = useState<PrefillState>({ fromTrip: !urlDestination && !!tripDestination, userEdited: false });
   const [departurePrefill, setDeparturePrefill] = useState<PrefillState>({ fromTrip: !!tripDepDate, userEdited: false });
   const [returnPrefill, setReturnPrefill] = useState<PrefillState>({ fromTrip: !!tripRetDate, userEdited: false });
   const [travellersPrefill, setTravellersPrefill] = useState<PrefillState>({ fromTrip: !!(tripAdults || tripChildren || tripInfants), userEdited: false });
+
+  /*
+   * Same-page URL hydration: when the query string changes while this form is
+   * mounted, re-apply explicit URL origin/destination. TripContext is used only
+   * when the URL carries no valid code. Dates/travellers/cabin are untouched.
+   */
+  useEffect(() => {
+    if (urlOrigin) {
+      setFlightFrom(urlOrigin);
+      setFlightFromDisplay(resolveLocationLabel(urlOrigin) ?? urlOrigin);
+      setFromPrefill({ fromTrip: false, userEdited: false });
+    } else if (tripOrigin) {
+      setFlightFrom(tripOrigin.airportCode);
+      setFlightFromDisplay(tripOrigin.name);
+      setFromPrefill({ fromTrip: true, userEdited: false });
+    } else {
+      setFlightFrom("");
+      setFlightFromDisplay("");
+      setFromPrefill({ fromTrip: false, userEdited: false });
+    }
+  }, [urlOrigin, tripOrigin]);
+
+  useEffect(() => {
+    if (urlDestination) {
+      setFlightTo(urlDestination);
+      setFlightToDisplay(resolveLocationLabel(urlDestination) ?? urlDestination);
+      setToPrefill({ fromTrip: false, userEdited: false });
+    } else if (tripDestination) {
+      setFlightTo(tripDestination.airportCode);
+      setFlightToDisplay(tripDestination.name);
+      setToPrefill({ fromTrip: true, userEdited: false });
+    } else {
+      setFlightTo("");
+      setFlightToDisplay("");
+      setToPrefill({ fromTrip: false, userEdited: false });
+    }
+  }, [urlDestination, tripDestination]);
 
   const [fromSheetOpen, setFromSheetOpen] = useState(false);
   const [toSheetOpen, setToSheetOpen] = useState(false);

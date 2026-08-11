@@ -29,6 +29,32 @@ interface ExploreRoutesProps {
   preferredOrigin?: string;
 }
 
+
+/**
+ * SPA-only scroll back to the flight-search form after a route-card activation.
+ *
+ * The cards sit lower on the page; once the query string updates and the form
+ * prefills, the viewport returns to #flight-search so the user can add dates.
+ * No page reload, no keyboard focus grab, and prefers-reduced-motion is
+ * respected (auto instead of smooth).
+ */
+function scrollToFlightSearch() {
+  const run = () => {
+    const anchor = document.getElementById("flight-search");
+    if (!anchor) return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    anchor.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  };
+  // Defer one frame so the URL change and prefill render settle first.
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(run);
+  } else {
+    window.setTimeout(run, 0);
+  }
+}
+
 /** One event per activation, matching the existing fire-and-forget pattern. */
 function track(route: DiscoveredRoute, href: string) {
   try {
@@ -134,7 +160,14 @@ const ExploreRoutes = ({ prefill, preferredOrigin }: ExploreRoutesProps) => {
                   >
                     <Link
                       to={href}
-                      onClick={() => track(route, href)}
+                      onClick={(event) => {
+                        track(route, href);
+                        // Preserve modifier-click / new-tab semantics: only the
+                        // current-tab SPA activation should scroll back to the
+                        // search form.
+                        if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return;
+                        scrollToFlightSearch();
+                      }}
                       aria-label={label}
                       aria-current={isCurrent ? "true" : undefined}
                       className={cn(
