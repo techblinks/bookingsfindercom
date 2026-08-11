@@ -15,8 +15,10 @@ const Footer = () => {
       { label: "Currency Converter", href: "/currency-converter" },
       { label: "Travel Insurance", href: "/travel-insurance" },
     ],
-    book: [
+    compare: [
       { label: "Flights", href: "/flights" },
+      { label: "Stays", href: "/hotels" },
+      { label: "Things to Do", href: "/things-to-do" },
     ],
     company: [
       { label: "About", href: "/about" },
@@ -75,11 +77,11 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Book */}
+          {/* Search & Compare */}
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-4">Book</h4>
+            <h4 className="text-sm font-semibold text-foreground mb-4">Search &amp; Compare</h4>
             <ul className="space-y-2.5">
-              {footerLinks.book.map((link) => (
+              {footerLinks.compare.map((link) => (
                 <li key={link.label}>
                   <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                     {link.label}

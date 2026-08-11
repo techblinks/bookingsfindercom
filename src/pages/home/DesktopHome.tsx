@@ -49,8 +49,6 @@ const DesktopHome = () => (
     </Helmet>
 
     <div className="min-h-screen flex flex-col bg-white">
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-3 focus:bg-[#001D45] focus:text-white focus:rounded-lg focus:shadow-lg focus:ring-2 focus:ring-[#01367F] focus:ring-offset-2 focus:outline-none focus:text-sm focus:font-medium">Skip to main content</a>
-
       <Header />
 
       <main id="main-content" className="flex-1">

@@ -161,11 +161,11 @@ describe("FlightResults — Phase 7B landing page", () => {
     expect(hoisted.navigate).not.toHaveBeenCalled();
   });
 
-  // ── Popular routes ──
+  // ── Explore routes (renamed from Popular) ──
 
-  it("renders popular route cards", () => {
+  it("renders explore route cards", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
-    expect(screen.getByText("Popular flight routes")).toBeTruthy();
+    expect(screen.getByText("Explore flight routes")).toBeTruthy();
     expect(screen.getAllByText("BNE").length).toBeGreaterThan(0);
   });
 
@@ -177,51 +177,34 @@ describe("FlightResults — Phase 7B landing page", () => {
     expect(routeLink?.getAttribute("href")).not.toMatch(/departureDate/);
   });
 
-  // ── Why BookingsFinder ──
+  // ── Why BookingsFinder (condensed to 2 cards) ──
 
-  it("renders value cards", () => {
+  it("renders compact value cards", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
     expect(screen.getByText("Why use BookingsFinder")).toBeTruthy();
-    expect(screen.getByText("Compare before choosing")).toBeTruthy();
+    // Phase 1 condensed cards: Plan your full trip cost + Keep your trip organised
+    expect(screen.getByText("Plan your full trip cost")).toBeTruthy();
+    expect(screen.getByText("Keep your trip organised")).toBeTruthy();
   });
 
-  // ── Tools — only verified working ──
+  // ── Removed: Helpful trip-planning tools standalone section ──
 
-  it("renders only the verified working tool (Trip Cost Planner)", () => {
+  it("does NOT render standalone Helpful trip-planning tools section", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
-    expect(screen.getByText("Helpful trip-planning tools")).toBeTruthy();
-    // Only Trip Cost Planner should appear
-    expect(screen.getAllByText("Trip Cost Planner").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Helpful trip-planning tools")).toBeFalsy();
   });
 
-  it("does NOT show placeholder tools in the tools section", () => {
-    render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
-    // The "Helpful trip-planning tools" section should only contain Trip Cost Planner
-    // Footer may also render links with these names, so use getAllByText to check count
-    const passportMatches = screen.queryAllByText("Passport Validity");
-    const visaMatches = screen.queryAllByText("Visa Requirements");
-    const packingMatches = screen.queryAllByText("Packing Checklist");
-    // At most 1 match from Footer, none from the tools section
-    expect(passportMatches.length).toBeLessThanOrEqual(1);
-    expect(visaMatches.length).toBeLessThanOrEqual(1);
-    expect(packingMatches.length).toBeLessThanOrEqual(1);
-    // "Coming soon" badge should not be present at all
-    expect(screen.queryByText("Coming soon")).toBeFalsy();
-  });
+  // ── FAQ (reduced to 4 questions) ──
 
-  it("tool link resolves to a valid route", () => {
-    render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
-    const links = screen.getAllByRole("link");
-    const toolLink = links.find(l => l.getAttribute("href") === "/trip-cost");
-    expect(toolLink).toBeTruthy();
-  });
-
-  // ── FAQ ──
-
-  it("renders FAQ section", () => {
+  it("renders FAQ section with updated questions", () => {
     render(<MemoryRouter initialEntries={["/flights"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
     expect(screen.getByText("Frequently asked questions")).toBeTruthy();
-    expect(screen.getByText("Does BookingsFinder sell flight tickets?")).toBeTruthy();
+    // New FAQ question replacing the removed ones
+    expect(screen.getByText("How does flight comparison on BookingsFinder work?")).toBeTruthy();
+    // Verify removed questions are NOT present
+    expect(screen.queryByText("Does BookingsFinder sell flight tickets?")).toBeFalsy();
+    expect(screen.queryByText("Do you charge a booking fee?")).toBeFalsy();
+    expect(screen.queryByText("Where do I complete my booking?")).toBeFalsy();
   });
 
   // ── Heading structure ──
