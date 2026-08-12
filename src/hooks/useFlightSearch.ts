@@ -342,11 +342,11 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
 
   const fetchFlights = useCallback(async () => {
     if (!params.origin || !params.destination || !params.departureDate) {
-      console.warn('Flight search skipped: missing required params', {
-        origin: params.origin,
-        destination: params.destination,
-        departureDate: params.departureDate,
-      });
+      // Form/prefill mode invokes this hook without a complete search - that is
+      // a normal state (e.g. /flights?origin=SYD&destination=MOW), not an error,
+      // so nothing is logged. Validation still blocks any request until every
+      // required field is present; malformed inputs are reported separately.
+
       setIsLoading(false);
       setError(!params.origin || !params.destination 
         ? 'Please select both origin and destination airports.' 

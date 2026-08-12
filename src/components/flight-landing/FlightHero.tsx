@@ -87,7 +87,7 @@ const FlightHero = ({ heading, prefill, hasPrefill, errorBanner }: FlightHeroPro
         <div className="mt-5 xl:grid xl:grid-cols-[minmax(720px,1fr)_336px] xl:items-start xl:gap-8">
           {/* Left: search card (dominant) + microcopy + mobile image. */}
           <div className="min-w-0">
-            <div className="rounded-2xl border border-border bg-card px-2 py-4 shadow-elevated xl:p-4">
+            <div id="flight-search" className="rounded-2xl border border-border bg-card px-2 py-4 shadow-elevated xl:p-4">
               <ModernFlightSearch prefill={hasPrefill ? prefill : undefined} hideMultiCity />
             </div>
             <p className="mt-2.5 text-xs font-medium uppercase tracking-wider text-muted-foreground/80">
