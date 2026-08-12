@@ -36,6 +36,19 @@ export const TRUST_ITEMS: TrustItem[] = [
   },
 ];
 
+/**
+ * Compact trust line — mobile V2.
+ *
+ * Same three commitments as TRUST_ITEMS, condensed to a single scannable
+ * line for surfaces where the full disclosure block is too heavy. The full
+ * wording still lives on the dedicated legal routes below.
+ */
+export const TRUST_LINE_ITEMS = [
+  "Independent comparison",
+  "We don't sell travel",
+  "You book with the provider",
+] as const;
+
 export const TRUST_LEGAL_LINKS = [
   { label: "Affiliate disclosure", href: "/affiliate-disclosure" },
   { label: "Privacy policy", href: "/privacy" },

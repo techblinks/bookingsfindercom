@@ -52,6 +52,12 @@
     --muted: 212 71% 94%;
     --muted-foreground: 215 16% 47%;
 
+    /* ═══ Secondary body text ═══
+       Darker than --muted-foreground so 12–15px copy clears WCAG AA (4.5:1)
+       on both the canvas and card surfaces. Matches the #41536A the desktop
+       pages already use for secondary text. */
+    --text-secondary: 214 24% 34%;
+
     /* ═══ Secondary ═══ */
     --secondary: 212 71% 94%;
     --secondary-foreground: 222 47% 11%;
@@ -128,6 +134,7 @@
 
     --muted: 222 47% 16%;
     --muted-foreground: 215 20% 55%;
+    --text-secondary: 215 22% 72%;
 
     --secondary: 222 47% 14%;
     --secondary-foreground: 210 40% 90%;

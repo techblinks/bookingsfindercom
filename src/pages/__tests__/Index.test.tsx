@@ -517,6 +517,45 @@ describe("Prohibited claims absent", () => {
 
 // ── #flight-search anchor only ────────────────────────────────────
 
+// ── Desktop must not adopt mobile-only structure ──────────────────
+
+describe("Desktop homepage does not use mobile-only V2 structure", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("uses the desktop hero H1, not the mobile V2 one", () => {
+    renderIndex();
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("Find, compare and plan your whole trip.");
+    expect(document.body.textContent).not.toContain("not just the flight");
+  });
+
+  it("does not render the mobile hero, search or quick-actions sections", () => {
+    renderIndex();
+    for (const id of ["mobile-hero-heading", "mobile-search-heading", "mobile-actions-heading"]) {
+      expect(document.getElementById(id)).toBeNull();
+    }
+  });
+
+  it("does not render the mobile compact trust line", () => {
+    renderIndex();
+    expect(screen.queryByText("Independent comparison")).toBeNull();
+    expect(screen.queryByText("We don't sell travel")).toBeNull();
+  });
+
+  it("keeps the full desktop five-item trust block", async () => {
+    const { TRUST_ITEMS } = await import("@/components/shared/TrustContent");
+    renderIndex();
+    for (const item of TRUST_ITEMS) {
+      expect(screen.getByText(item.text)).toBeTruthy();
+    }
+  });
+
+  it("keeps the desktop mobile-search helper copy off the page", () => {
+    renderIndex();
+    expect(screen.queryByText("Pick a destination to start planning your trip.")).toBeNull();
+  });
+});
+
 describe("#flight-search anchor exclusivity", () => {
   it("only #flight-search and #main-content are used as in-page anchors", () => {
     renderIndex();

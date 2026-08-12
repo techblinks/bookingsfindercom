@@ -1,40 +1,20 @@
 import { Link } from "react-router-dom";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import MobileFooter from "./MobileFooter";
+import { FOOTER_DISCLOSURE, FOOTER_LINKS } from "./footerLinks";
 
 const Footer = () => {
-  const footerLinks = {
-    plan: [
-      { label: "Trip Planner", href: "/plan" },
-      { label: "Trip Cost Planner", href: "/trip-cost" },
-      { label: "My Trips", href: "/trips" },
-    ],
-    tools: [
-      { label: "Passport Validity", href: "/passport-validity" },
-      { label: "Visa Requirements", href: "/visa-requirements" },
-      { label: "Packing Checklist", href: "/packing-checklist" },
-      { label: "Currency Converter", href: "/currency-converter" },
-      { label: "Travel Insurance", href: "/travel-insurance" },
-    ],
-    compare: [
-      { label: "Flights", href: "/flights" },
-      { label: "Stays", href: "/hotels" },
-      { label: "Things to Do", href: "/things-to-do" },
-    ],
-    company: [
-      { label: "About", href: "/about" },
-      { label: "Contact", href: "/contact" },
-      { label: "Blog", href: "/blog" },
-    ],
-    legal: [
-      { label: "Affiliate Disclosure", href: "/affiliate-disclosure" },
-      { label: "Privacy", href: "/privacy" },
-      { label: "Terms", href: "/terms" },
-    ],
-  };
+  const footerLinks = FOOTER_LINKS;
 
   return (
-    <footer className="bg-card border-t border-border pb-24 lg:pb-0">
-      <div className="container max-w-7xl mx-auto px-4 py-14">
+    <footer className="bg-card border-t border-border">
+      {/* Mobile / tablet: collapsed footer (matches the lg:hidden bottom nav) */}
+      <div className="lg:hidden">
+        <MobileFooter />
+      </div>
+
+      {/* Desktop: unchanged grid footer */}
+      <div className="hidden lg:block container max-w-7xl mx-auto px-4 py-14">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-10">
           {/* Brand */}
           <div className="col-span-2">
@@ -120,7 +100,7 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-border">
           <div className="bg-muted/40 rounded-xl p-4 mb-6">
             <p className="text-xs text-muted-foreground text-center max-w-2xl mx-auto leading-relaxed">
-              <strong className="text-foreground">Important:</strong> BookingsFinder is a travel planning and comparison platform. We do not sell flights, hotels, or travel products. We compare offers from third-party sites and connect you to booking partners. We may earn an affiliate commission at no extra cost to you.
+              <strong className="text-foreground">Important:</strong> {FOOTER_DISCLOSURE}
             </p>
           </div>
           <div className="flex flex-col items-center gap-4 text-center">
