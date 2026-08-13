@@ -6,7 +6,6 @@ import { formatDuration } from "@/hooks/useFlightSearch";
 import { getAirlineLogo, getAirlineName } from "@/lib/airlineLogos";
 import { getAirportTimezone, calculateDayDifference, formatDayDifference } from "@/lib/timezones";
 import { cn } from "@/lib/utils";
-import DealScoreBadge from "./DealScoreBadge";
 import PriceConfidenceIndicator from "./PriceConfidenceIndicator";
 import FlightWarningBadges from "./FlightWarningBadges";
 import UrgencyBadges from "./UrgencyBadges";
@@ -259,42 +258,24 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
           {/* Price, Deal Score & Action */}
           <div className="flex items-center justify-between lg:flex-col lg:items-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 lg:border-l border-border lg:pl-5 lg:min-w-[160px] shrink-0">
             <div className="text-right space-y-1">
-              {/* Deal Score Badge */}
-              {flight.deal_score !== undefined && (
-                <div className="mb-1.5">
-                  <DealScoreBadge score={flight.deal_score} size="sm" showLabel={false} />
-                </div>
-              )}
-              
-              {/* Legacy deal badge fallback */}
-              {flight.is_deal && !flight.deal_score && (
-                <span className="inline-block bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-semibold px-2 py-0.5 rounded-full mb-1">
-                  Best Deal
-                </span>
-              )}
-              
+              {/*
+               * No deal score, no "Best Deal" and no price-trend chip here. All
+               * three were derived from this flight's position within the current
+               * result batch, which cannot support an absolute or forward-looking
+               * claim. The one comparison we can defend — how this price sits
+               * against the average of the results on screen — is stated in words
+               * by UrgencyBadges below.
+               */}
               <p className="text-2xl font-bold text-foreground tabular-nums">
                 <span className="text-sm font-normal text-muted-foreground mr-0.5">{currency}</span>
                 {flight.price.toLocaleString()}
               </p>
-              
-              {/* Price Confidence */}
-              {flight.price_confidence && (
-                <PriceConfidenceIndicator
-                  confidence={flight.price_confidence}
-                  trend={flight.price_trend}
-                  compact
-                />
-              )}
-              
+
               <p className="text-xs text-muted-foreground">per person</p>
-              
-              {/* Urgency/Scarcity Badges */}
+
               <UrgencyBadges
                 price={flight.price}
                 averagePrice={flight.average_price}
-                dealScore={flight.deal_score}
-                departureDate={flight.segments[0]?.depart_time}
               />
             </div>
             <Button
@@ -450,15 +431,14 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
                 </div>
               )}
 
-              {/* Price Confidence Detail */}
+              {/* How this price compares with the other results in this search */}
               {flight.price_confidence && (
                 <div>
                   <h5 className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">
-                    Price Analysis
+                    Price vs these results
                   </h5>
                   <PriceConfidenceIndicator
                     confidence={flight.price_confidence}
-                    trend={flight.price_trend}
                     averagePrice={flight.average_price}
                     currentPrice={flight.price}
                     currency={currency}

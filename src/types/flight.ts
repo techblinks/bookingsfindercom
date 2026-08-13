@@ -95,8 +95,17 @@ export const WARNING_LABELS: Record<FlightWarning, { label: string; icon: string
   airport_change: { label: 'Airport change required', icon: '🚌' },
 };
 
+/**
+ * Copy for the price comparison shown on a result.
+ *
+ * The underlying value is this flight's deviation from the average price of the
+ * results in the SAME search. It is not a market baseline and not a forecast, so
+ * the wording says exactly that. Previous copy ("Great price - compare now!",
+ * "Price may change") claimed knowledge of the wider market and of future
+ * movement that we do not have.
+ */
 export const PRICE_CONFIDENCE_CONFIG: Record<PriceConfidence, { label: string; color: string; recommendation: string }> = {
-  low: { label: 'Low confidence', color: 'text-amber-600', recommendation: 'Price may change' },
-  average: { label: 'Average confidence', color: 'text-blue-600', recommendation: 'Good time to compare' },
-  high: { label: 'High confidence', color: 'text-emerald-600', recommendation: 'Great price - compare now!' },
+  low: { label: 'Above average', color: 'text-amber-600', recommendation: 'Costs more than the average of the results in this search' },
+  average: { label: 'Around average', color: 'text-blue-600', recommendation: 'Close to the average of the results in this search' },
+  high: { label: 'Below average', color: 'text-emerald-600', recommendation: 'Cheaper than the average of the results in this search' },
 };
