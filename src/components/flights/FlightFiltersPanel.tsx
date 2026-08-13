@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { FilterState, DEPARTURE_TIME_SLOTS, STOP_OPTIONS } from "@/types/flight";
 import { formatDuration } from "@/hooks/useFlightSearch";
 import { getAirlineLogo } from "@/lib/airlineLogos";
+import { countActiveFilters } from "./filterSummary";
+import { cn } from "@/lib/utils";
 
 interface FilterSectionProps {
   title: string;
@@ -45,6 +47,13 @@ interface FlightFiltersPanelProps {
   onReset: () => void;
   totalResults: number;
   currency?: string;
+  /**
+   * "card" (default) is the desktop sidebar: its own card chrome, heading and
+   * Reset. "plain" drops that chrome so the panel can sit inside a surface that
+   * already provides a title and actions — the mobile filter sheet. The filter
+   * controls themselves are identical in both.
+   */
+  variant?: "card" | "plain";
 }
 
 const FlightFiltersPanel = ({
@@ -56,7 +65,9 @@ const FlightFiltersPanel = ({
   onReset,
   totalResults,
   currency = "$",
+  variant = "card",
 }: FlightFiltersPanelProps) => {
+  const isPlain = variant === "plain";
   const toggleArrayFilter = <T,>(current: T[], value: T, onChange: (newValue: T[]) => void) => {
     if (current.includes(value)) {
       onChange(current.filter(v => v !== value));
@@ -65,39 +76,34 @@ const FlightFiltersPanel = ({
     }
   };
 
-  const hasActiveFilters = 
-    filters.selectedAirlines.length > 0 ||
-    filters.selectedStops.length > 0 ||
-    filters.selectedDepartureTimes.length > 0 ||
-    filters.priceRange[0] !== filters.minPrice ||
-    filters.priceRange[1] !== filters.maxPrice ||
-    filters.durationRange[0] !== 0 ||
-    filters.durationRange[1] !== filters.maxDuration;
+  const hasActiveFilters = countActiveFilters(filters) > 0;
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-border bg-muted/30">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold text-foreground">Filters</h2>
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onReset}
-              className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-            >
-              <RotateCcw className="h-3 w-3" />
-              Reset
-            </Button>
-          )}
+    <div className={cn(!isPlain && "bg-card rounded-xl border border-border shadow-sm overflow-hidden")}>
+      {/* Header — the sheet supplies its own title, Reset and result count */}
+      {!isPlain && (
+        <div className="p-4 border-b border-border bg-muted/30">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-foreground">Filters</h2>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onReset}
+                className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {totalResults} flight{totalResults !== 1 ? 's' : ''} found
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          {totalResults} flight{totalResults !== 1 ? 's' : ''} found
-        </p>
-      </div>
+      )}
 
-      <div className="p-4">
+      <div className={cn(!isPlain && "p-4")}>
         {/* Price Range */}
         <FilterSection title="Price">
           <div className="px-1">

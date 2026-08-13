@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import FlightFiltersPanel from "@/components/flights/FlightFiltersPanel";
+import MobileFiltersSheet from "@/components/flights/MobileFiltersSheet";
 import FlightCard from "@/components/flights/FlightCard";
 import FlightCardSkeleton from "@/components/flights/FlightCardSkeleton";
 import EmptyFlightState from "@/components/flights/EmptyFlightState";
@@ -26,7 +27,7 @@ import { getRedirectUrl } from "@/services/travelApi";
 import { logAffiliateClick } from "@/lib/analytics";
 import { buildWhiteLabelFlightUrl } from "@/lib/whiteLabelUrl";
 import { getWhiteLabelHost } from "@/lib/travelConfig";
-import { DEPARTURE_TIME_SLOTS } from "@/types/flight";
+import { DEPARTURE_TIME_SLOTS, type FilterState } from "@/types/flight";
 import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
@@ -136,6 +137,19 @@ const FlightResults = () => {
   const loadMore = useCallback(() => {
     setDisplayCount(prev => prev + LOAD_MORE_COUNT);
   }, []);
+
+  /*
+   * Commit a whole mobile filter draft. The five constraint fields are pushed
+   * through the existing updateFilter API in one handler, so React batches them
+   * into a single render and the existing displayCount reset runs once.
+   */
+  const applyMobileFilters = useCallback((next: FilterState) => {
+    updateFilter("priceRange", next.priceRange);
+    updateFilter("selectedStops", next.selectedStops);
+    updateFilter("selectedAirlines", next.selectedAirlines);
+    updateFilter("selectedDepartureTimes", next.selectedDepartureTimes);
+    updateFilter("durationRange", next.durationRange);
+  }, [updateFilter]);
 
   useEffect(() => {
     if (!hasMore || isLoading) return;
@@ -372,26 +386,45 @@ const FlightResults = () => {
                   </p>
                 )}
               </div>
-              {isMobile ? (
-                <div role="radiogroup" aria-label="Sort flights" className="flex bg-muted rounded-full p-0.5">
-                  {(["best", "cheapest", "fastest"] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setSortBy(opt)}
-                      role="radio"
-                      aria-checked={sortBy === opt}
-                      className={sortBy === opt
-                        ? "bg-card text-foreground shadow-sm px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
-                        : "text-muted-foreground hover:text-foreground px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
-                      }
-                    >
-                      {opt === "best" ? "Best" : opt === "cheapest" ? "Cheapest" : "Fastest"}
-                    </button>
-                  ))}
+              {/*
+                * The filters trigger follows the sidebar, not the mobile search
+                * breakpoint: the sidebar appears at lg, so every width below it
+                * needs the sheet — including the 768-1023 band, which had no
+                * filter controls at all.
+                */}
+              <div className={isMobile ? "flex w-full items-center justify-between gap-2" : "flex items-center gap-2"}>
+                {isMobile ? (
+                  <div role="radiogroup" aria-label="Sort flights" className="flex min-w-0 bg-muted rounded-full p-0.5">
+                    {(["best", "cheapest", "fastest"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => setSortBy(opt)}
+                        role="radio"
+                        aria-checked={sortBy === opt}
+                        className={sortBy === opt
+                          ? "bg-card text-foreground shadow-sm px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
+                          : "text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
+                        }
+                      >
+                        {opt === "best" ? "Best" : opt === "cheapest" ? "Cheapest" : "Fastest"}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <SortDropdown value={sortBy} onChange={setSortBy} />
+                )}
+                <div className="lg:hidden">
+                  <MobileFiltersSheet
+                    filters={filters}
+                    airlines={airlines}
+                    stopCounts={stopCounts}
+                    departureCounts={departureCounts}
+                    onApply={applyMobileFilters}
+                    totalResults={totalResults}
+                    currency={currencySymbol}
+                  />
                 </div>
-              ) : (
-                <SortDropdown value={sortBy} onChange={setSortBy} />
-              )}
+              </div>
             </div>
 
             {isSearching && !isLoading && (
