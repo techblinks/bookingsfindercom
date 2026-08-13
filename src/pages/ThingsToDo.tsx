@@ -41,6 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { searchExperiences } from "@/services/experiences";
+import { recordActivity } from "@/lib/recentActivity";
 import type { ExperienceProduct, ExperienceSearchFilters } from "@/types/experiences";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
@@ -267,7 +268,9 @@ export default function ThingsToDo() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* --- hero search draft (uncommitted text inputs) --- */
-  const [cityQuery, setCityQuery] = useState("");
+  // cityInput is the single hero-city draft: the autocomplete controls it and
+  // commitSearch reads it. A separate draft would let the typed city and the
+  // committed city drift apart, which is exactly what used to happen.
   const [selectedDestinationId, setSelectedDestinationId] = useState("");
   const [cityInput, setCityInput] = useState(searchParams.get("city") || "");
   const [activityInput, setActivityInput] = useState(searchParams.get("q") || "");
@@ -419,6 +422,18 @@ export default function ThingsToDo() {
       setQueryText(nextQuery);
       setPage(1);
       syncUrl({ city: nextCity, q: nextQuery, page: 1 });
+
+      /*
+       * Recent activity — this callback is the only committed-search boundary
+       * on the page, so filters, sorting, pagination and URL hydration never
+       * reach it. A query with no city is not a place we could return the user
+       * to, so it is not recorded. Canonicalisation and truncation belong to
+       * the model.
+       */
+      if (nextCity.trim()) {
+        recordActivity({ kind: "things", city: nextCity, query: nextQuery || undefined });
+      }
+
       window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     },
     [cityInput, activityInput, syncUrl]
@@ -670,9 +685,9 @@ export default function ThingsToDo() {
                 Where are you going?
               </label>
               <DestinationAutocomplete
-                value={cityQuery}
-                onChange={setCityQuery}
-                onSelect={(dest: ExperienceDestination) => { setCityQuery(dest.name); setSelectedDestinationId(dest.destinationId); }}
+                value={cityInput}
+                onChange={setCityInput}
+                onSelect={(dest: ExperienceDestination) => { setCityInput(dest.name); setSelectedDestinationId(dest.destinationId); }}
                 placeholder="Search a city or destination"
                 className="w-full"
               />

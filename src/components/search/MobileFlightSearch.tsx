@@ -10,6 +10,7 @@ import { PassengerPickerSheet } from "./PassengerPickerSheet";
 import { useTrip } from "@/context/TripContext";
 import { formatDateRangeDisplay, formatTravellers } from "@/lib/displayFormatters";
 import { resolveLocationLabel } from "@/lib/locationResolution";
+import { recordActivity } from "@/lib/recentActivity";
 import type { PassengerCount } from "./PassengerPicker";
 
 /* Flights-scoped local colour tokens */
@@ -213,8 +214,30 @@ export default function MobileFlightSearch() {
       cabinClass,
     });
     if (returnDate && tripType === "roundtrip") params.append("returnDate", formatLocalDate(returnDate));
+
+    /*
+     * Recent activity — recorded only here, on a validated submission, from the
+     * committed form values rather than the URL we are about to build. Failures
+     * are silent inside recordActivity, so this can never block the search.
+     */
+    recordActivity({
+      kind: "flight",
+      origin: flightFrom.toUpperCase(),
+      destination: flightTo.toUpperCase(),
+      originLabel: flightFromDisplay || undefined,
+      destinationLabel: flightToDisplay || undefined,
+      departureDate: formatLocalDate(departureDate!),
+      returnDate: tripType === "roundtrip" && returnDate ? formatLocalDate(returnDate) : undefined,
+      travellers: {
+        adults: passengers.adults,
+        children: passengers.children,
+        infants: passengers.infants,
+      },
+      cabinClass,
+    });
+
     navigate(`/flights?${params.toString()}`);
-  }, [hasAttempted, flightFrom, flightTo, departureDate, returnDate, tripType, totalPassengers, passengers, cabinClass, navigate]);
+  }, [hasAttempted, flightFrom, flightTo, flightFromDisplay, flightToDisplay, departureDate, returnDate, tripType, totalPassengers, passengers, cabinClass, navigate]);
 
   /* Route rail state */
   const railState: "empty" | "origin" | "complete" =
