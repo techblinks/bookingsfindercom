@@ -147,6 +147,71 @@ describe("MobileFooter — always-visible legal and disclosure", () => {
   });
 });
 
+describe("MobileFooter — no duplicate brand logo", () => {
+  it("does not render BrandLogo (the header already carries it)", () => {
+    renderMobileFooter();
+    expect(screen.queryByTestId("brand-logo")).toBeNull();
+  });
+
+  it("has no homepage logo link above the navigation", () => {
+    renderMobileFooter();
+    expect(screen.queryByRole("link", { name: /Go to homepage/i })).toBeNull();
+  });
+
+  it("starts directly with the footer navigation groups", () => {
+    const { container } = renderMobileFooter();
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.firstElementChild).toBe(groupNav());
+    expect(within(groupNav()).getAllByRole("button").map(b => b.textContent)).toEqual([
+      "Plan",
+      "Search & Compare",
+      "Tools",
+      "Company",
+    ]);
+  });
+
+  it("keeps the legal links and disclosure after the logo removal", () => {
+    renderMobileFooter();
+    for (const link of FOOTER_LINKS.legal) {
+      expect(screen.getByRole("link", { name: link.label }).getAttribute("href")).toBe(link.href);
+    }
+    expect(screen.getAllByText(FOOTER_DISCLOSURE).length).toBe(1);
+  });
+});
+
+describe("Footer — desktop branding is unaffected", () => {
+  it("desktop branch still renders BrandLogo", () => {
+    renderFooter();
+    const desktop = document.querySelector<HTMLElement>("footer > div.hidden.lg\\:block")!;
+    expect(desktop.querySelector('[data-testid="brand-logo"]')).toBeTruthy();
+  });
+
+  it("desktop brand logo links to the homepage", () => {
+    renderFooter();
+    const desktop = document.querySelector<HTMLElement>("footer > div.hidden.lg\\:block")!;
+    const logoLink = desktop.querySelector('[data-testid="brand-logo"]')!.closest("a");
+    expect(logoLink!.getAttribute("href")).toBe("/");
+  });
+
+  it("desktop branch keeps its brand blurb and location line", () => {
+    renderFooter();
+    const desktop = document.querySelector<HTMLElement>("footer > div.hidden.lg\\:block")!;
+    expect(desktop.textContent).toContain("BookingsFinder helps you travel ready.");
+    expect(desktop.textContent).toContain("Based in Queensland, Australia");
+  });
+
+  it("the footer renders the brand logo exactly once", () => {
+    renderFooter();
+    expect(screen.getAllByTestId("brand-logo").length).toBe(1);
+  });
+
+  it("the mobile branch of Footer contains no brand logo", () => {
+    renderFooter();
+    const mobile = groupNav().closest("div.lg\\:hidden")!;
+    expect(mobile.querySelector('[data-testid="brand-logo"]')).toBeNull();
+  });
+});
+
 describe("MobileFooter — no routes lost", () => {
   it("every footer route is present in the DOM once all groups are open", () => {
     renderMobileFooter();

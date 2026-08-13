@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
-import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
 import { FOOTER_DISCLOSURE, FOOTER_LINKS, type FooterLink } from "./footerLinks";
 
@@ -64,17 +63,9 @@ function FooterGroup({ id, title, links }: { id: string; title: string; links: F
 
 const MobileFooter = () => (
   <div
-    className="px-4 pt-8"
+    className="px-4"
     style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}
   >
-    <Link
-      to="/"
-      className="mb-6 inline-flex rounded-[12px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      aria-label="BookingsFinder - Go to homepage"
-    >
-      <BrandLogo variant="default" context="footer" />
-    </Link>
-
     <nav aria-label="Footer navigation" className="border-t border-border/60">
       {GROUPS.map(group => (
         <FooterGroup key={group.id} {...group} />
