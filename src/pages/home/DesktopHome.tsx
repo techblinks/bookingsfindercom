@@ -1,14 +1,12 @@
 import { Helmet } from "react-helmet-async";
 import { cn } from "@/lib/utils";
-import { buttonVariants, ctaPrimary, ctaSecondary } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Plane, Building2, Compass, MapPin, ArrowRight, Search, ClipboardCheck, ExternalLink, Shield, HeartHandshake, Library, Calculator, Ticket } from "lucide-react";
+import { Plane, Building2, ArrowRight, Search, ClipboardCheck, ExternalLink, Calculator, Route, Ticket } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
-import { SectionContainer } from "@/components/home-v2/SectionContainer";
-import { SectionHeading } from "@/components/home-v2/SectionHeading";
 import { logInternalNavigation } from "@/lib/analytics";
+import { TRUST_ITEMS } from "@/components/shared/TrustContent";
 import DesktopRecentActivitySection from "./DesktopRecentActivitySection";
 
 const safeTrack = (label: string, href: string) => {
@@ -22,21 +20,56 @@ const TRAVEL_CATEGORIES = [
   { label: "Things to do", href: "/things-to-do", icon: Ticket, analyticsLabel: "category_things" },
 ];
 
-const PRODUCT_CARDS = [
-  { title: "Compare flights", desc: "Search and compare available flight options from participating travel providers.", href: "/flights", icon: Plane },
-  { title: "Find stays", desc: "Browse hotel options and compare accommodation for your trip.", href: "/hotels", icon: Building2 },
-  { title: "Estimate trip costs", desc: "Plan your budget with our interactive trip cost planner.", href: "/trip-cost", icon: Compass },
-  { title: "Optimize your itinerary", desc: "Plan multi-city routes and find the most efficient travel path.", href: "/optimizer", icon: MapPin },
-  { title: "Discover things to do", desc: "Explore attractions, museums, tours and experiences for your trip.", href: "/things-to-do", icon: Ticket },
+/**
+ * The two planning tools that have no entry point in the band above, and that
+ * a visitor is least likely to know exist. They lead the lower page because
+ * they are the part of BookingsFinder that is genuinely not a search box.
+ *
+ * Both descriptions are written from the shipped product, not from ambition.
+ * The planner totals amounts the traveller enters — it has no live pricing, so
+ * it can only ever "estimate". The optimizer analyses ONE route (cost
+ * breakdown, timing, layover risk); it does not build multi-city itineraries,
+ * which is what the previous "Plan multi-city routes and find the most
+ * efficient travel path" card claimed.
+ */
+const PLANNING_TOOLS = [
+  {
+    title: "Estimate your trip cost",
+    desc: "Add flights, stays, daily spending and everything else to build a full trip budget from the amounts you enter.",
+    action: "Open the trip cost planner",
+    href: "/trip-cost",
+    icon: Calculator,
+    analyticsLabel: "plan_trip_cost",
+  },
+  {
+    title: "Check a route before you book",
+    desc: "See a cost breakdown, timing advice and layover risks for a route you are considering.",
+    action: "Open the optimizer",
+    href: "/optimizer",
+    icon: Route,
+    analyticsLabel: "plan_optimizer",
+  },
+];
+
+/**
+ * The three search products. They already have pills in the band above, so
+ * here they are one divided strip rather than three more cards — enough to
+ * keep the internal links and their crawlable descriptions, not enough to
+ * repeat the navigation as a feature grid.
+ */
+const PRODUCT_LINKS = [
+  // Kept short enough to hold one line in a third of a tablet row — a wrap here
+  // pushes the Flights title off the baseline its two neighbours sit on.
+  { label: "Flights", desc: "Compare fares", href: "/flights", icon: Plane, analyticsLabel: "plan_flights" },
+  { label: "Stays", desc: "Browse hotel options", href: "/hotels", icon: Building2, analyticsLabel: "plan_stays" },
+  { label: "Things to do", desc: "Find tours and tickets", href: "/things-to-do", icon: Ticket, analyticsLabel: "plan_things" },
 ];
 
 const HOW_IT_WORKS_STEPS = [
-  { step: 1, title: "Search and compare", desc: "Search available travel options using BookingsFinder's supported tools and partners.", icon: Search },
-  { step: 2, title: "Plan the full trip", desc: "Estimate trip costs, organise travel details and refine your itinerary.", icon: ClipboardCheck },
-  { step: 3, title: "Continue with the provider", desc: "Review current prices, availability and booking terms on the provider's website.", icon: ExternalLink },
+  { step: 1, title: "Search and compare", desc: "Search flights, stays and things to do from one place.", icon: Search },
+  { step: 2, title: "Plan the full trip", desc: "Estimate what the trip may cost and organise the details.", icon: ClipboardCheck },
+  { step: 3, title: "Continue with the provider", desc: "Check current prices and booking terms on the provider's site.", icon: ExternalLink },
 ];
-
-import { TRUST_ITEMS } from "@/components/shared/TrustContent";
 
 const DesktopHome = () => (
   <>
@@ -142,110 +175,164 @@ const DesktopHome = () => (
         {/* Pick up where you left off — renders itself only when there is genuine recent activity */}
         <DesktopRecentActivitySection />
 
-        {/* Product Cards */}
-        <section className="py-16 sm:py-20 bg-white" aria-labelledby="products-heading">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 id="products-heading" className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0F172A] text-center">Everything you need to plan your trip</h2>
-            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {PRODUCT_CARDS.map(card => (
-                <Link key={card.title} to={card.href} onClick={() => safeTrack(card.title, card.href)} className="group flex flex-col p-6 rounded-2xl border border-[#D8E0E7] hover:border-[#01367F]/40 hover:shadow-lg hover:shadow-[#01367F]/5 transition-all bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#01367F]">
-                  <div className="w-11 h-11 rounded-xl bg-[#EDF4FC] flex items-center justify-center mb-4 group-hover:bg-[#01367F]/10 transition-colors">
-                    <card.icon className="w-5 h-5 text-[#01367F]" aria-hidden="true" />
-                  </div>
-                  <h3 className="text-base font-bold text-[#0F172A] mb-2">{card.title}</h3>
-                  <p className="text-sm text-[#41536A] leading-relaxed flex-1">{card.desc}</p>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#01367F] group-hover:gap-2.5 transition-all">Learn more <ArrowRight className="w-4 h-4" /></span>
+        {/*
+          * D4 — Plan the rest of your trip.
+          *
+          * Replaces the five-card "Everything you need to plan your trip" grid,
+          * which put every capability in an identical box, dropped a fifth card
+          * onto a lonely second row at lg, and re-advertised Flights/Stays/
+          * Things that already have pills in the band above.
+          *
+          * The hierarchy now matches how much of this a visitor already knows:
+          * the two planning tools nobody has seen lead, and the three search
+          * products sit under them as one divided strip. Same five destinations,
+          * three surfaces instead of five, and no orphan row at any width.
+          *
+          * Keeps id="products-heading" — the recent-activity ordering test and
+          * any in-page reference still resolve.
+          */}
+        <section className="bg-white py-12 lg:py-14" aria-labelledby="products-heading">
+          <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">
+            <h2 id="products-heading" className="text-[24px] leading-[30px] lg:text-[28px] lg:leading-[34px] font-bold tracking-tight text-[#0F172A]">
+              Plan the rest of your trip
+            </h2>
+            <p className="mt-2 max-w-2xl text-[15px] leading-[22px] text-[#41536A]">
+              A flight is only one part of the trip. These tools help with everything around it.
+            </p>
+
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+              {PLANNING_TOOLS.map(tool => (
+                <Link
+                  key={tool.href}
+                  to={tool.href}
+                  onClick={() => safeTrack(tool.analyticsLabel, tool.href)}
+                  className="group flex gap-4 rounded-2xl border border-[#D8E0E7] bg-white p-5 lg:p-6 motion-safe:transition-colors hover:border-[#01367F]/40 hover:bg-[#01367F]/[0.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#01367F]"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EDF4FC] motion-safe:transition-colors group-hover:bg-[#01367F]/10">
+                    <tool.icon className="h-5 w-5 text-[#01367F]" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <h3 className="text-[17px] leading-[24px] font-bold text-[#0F172A]">{tool.title}</h3>
+                    <p className="mt-1.5 text-[14px] leading-[21px] text-[#41536A]">{tool.desc}</p>
+                    <span className="mt-2.5 inline-flex items-center gap-1.5 text-[14px] leading-[20px] font-semibold text-[#01367F]">
+                      {tool.action}
+                      <ArrowRight className="h-4 w-4 shrink-0 motion-safe:transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    </span>
+                  </span>
                 </Link>
               ))}
             </div>
+
+            {/* One strip, divided — not three more cards */}
+            <ul className="mt-4 grid overflow-hidden rounded-2xl border border-[#D8E0E7] sm:grid-cols-3 sm:divide-x divide-y sm:divide-y-0 divide-[#D8E0E7]">
+              {PRODUCT_LINKS.map(product => (
+                <li key={product.href}>
+                  <Link
+                    to={product.href}
+                    onClick={() => safeTrack(product.analyticsLabel, product.href)}
+                    className="group flex h-full items-center gap-3 px-5 py-4 motion-safe:transition-colors hover:bg-[#EDF4FC]/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#01367F]"
+                  >
+                    <product.icon className="h-[18px] w-[18px] shrink-0 text-[#01367F]" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block text-[15px] leading-[21px] font-semibold text-[#0F172A]">{product.label}</span>
+                      <span className="block text-[13px] leading-[18px] text-[#41536A]">{product.desc}</span>
+                    </span>
+                    <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-[#8FA3BC] motion-safe:transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        {/* SECTION 1: How BookingsFinder Works */}
-        <SectionContainer className="bg-[#EDF4FC]" aria-labelledby="how-works-heading">
-          <SectionHeading
-            headline="How BookingsFinder works"
-            supporting="Search, plan and continue to trusted travel providers from one place."
-          />
-          <div className="max-w-5xl mx-auto mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {HOW_IT_WORKS_STEPS.map((step) => (
-                <div key={step.step} className="flex flex-col items-center text-center p-6">
-                  <div className="w-14 h-14 rounded-2xl bg-[#01367F]/10 flex items-center justify-center mb-5" aria-hidden="true">
-                    <step.icon className="w-7 h-7 text-[#01367F]" />
-                  </div>
-                  <div className="text-xs font-bold text-[#01367F] uppercase tracking-[0.1em] mb-2">Step {step.step}</div>
-                  <h3 className="text-lg font-bold text-[#0F172A] mb-2">{step.title}</h3>
-                  <p className="text-sm text-[#41536A] leading-relaxed">{step.desc}</p>
-                </div>
-              ))}
-            </div>
+        {/*
+          * D4 — How it works, and why you can trust it. One band, two sections.
+          *
+          * These were two full-height SectionContainers (py-14 md:py-20 each,
+          * with 40-56px heading gaps) carrying about six sentences between
+          * them. Three centred step columns and five individually-boxed trust
+          * paragraphs cost roughly 900px to say something supporting. They are
+          * now one tinted band: steps read horizontally, and every one of the
+          * five approved trust statements is preserved verbatim — compressed,
+          * not edited, so no disclosure is weakened.
+          */}
+        <div className="border-y border-[#D8E0E7] bg-[#F5F9FD]">
+          <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8 py-12 lg:py-14">
+            <section aria-labelledby="how-works-heading">
+              <h2 id="how-works-heading" className="text-[20px] leading-[26px] font-bold tracking-tight text-[#0F172A]">
+                How BookingsFinder works
+              </h2>
+
+              <ol className="mt-5 grid gap-x-8 gap-y-5 md:grid-cols-3">
+                {HOW_IT_WORKS_STEPS.map(step => (
+                  <li key={step.step} className="flex gap-3.5">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#01367F]/[0.08]">
+                      <step.icon className="h-[18px] w-[18px] text-[#01367F]" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="text-[15px] leading-[21px] font-bold text-[#0F172A]">
+                        <span className="text-[#01367F]">{step.step}.</span> {step.title}
+                      </h3>
+                      <p className="mt-1 text-[13px] leading-[19px] text-[#41536A]">{step.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section aria-labelledby="trust-heading" className="mt-9 border-t border-[#D8E0E7] pt-8">
+              <h2 id="trust-heading" className="text-[20px] leading-[26px] font-bold tracking-tight text-[#0F172A]">
+                Trust and transparency
+              </h2>
+
+              {/*
+                * Column flow, not a two-column grid: five items into a grid
+                * leaves the last one alone in a row, and the one statement that
+                * wraps to two lines opens a hole beside it. Columns just fill.
+                */}
+              <ul className="mt-4 md:columns-2 md:gap-x-10">
+                {TRUST_ITEMS.map(item => (
+                  <li key={item.text} className="mb-2.5 flex break-inside-avoid gap-2.5">
+                    <item.icon className="mt-[3px] h-4 w-4 shrink-0 text-[#01367F]" aria-hidden="true" />
+                    <span className="text-[13px] leading-[19px] text-[#41536A]">{item.text}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <Link to="/affiliate-disclosure" className="text-[13px] font-medium text-[#01367F] underline underline-offset-2 transition-colors hover:text-[#012B66] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#01367F]">
+                  Affiliate disclosure
+                </Link>
+                <span className="text-[#C3D2E0]" aria-hidden="true">·</span>
+                <Link to="/privacy" className="text-[13px] font-medium text-[#01367F] underline underline-offset-2 transition-colors hover:text-[#012B66] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#01367F]">
+                  Privacy policy
+                </Link>
+                <span className="text-[#C3D2E0]" aria-hidden="true">·</span>
+                <Link to="/terms" className="text-[13px] font-medium text-[#01367F] underline underline-offset-2 transition-colors hover:text-[#012B66] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#01367F]">
+                  Terms of service
+                </Link>
+              </div>
+
+              <p className="mt-4 max-w-3xl text-[12px] leading-[18px] text-[#5A6C85]">
+                Travel requirements can change. Always confirm critical information with the relevant government, airline or provider before travelling.
+              </p>
+            </section>
           </div>
-        </SectionContainer>
+        </div>
 
-        {/* SECTION 2: Trust and Transparency */}
-        <SectionContainer className="bg-white" aria-labelledby="trust-heading">
-          <SectionHeading
-            headline="Trust and transparency"
-            supporting="We believe you should know how BookingsFinder works and how we support our service."
-          />
-          <div className="max-w-3xl mx-auto">
-            <div className="space-y-4">
-              {TRUST_ITEMS.map((item, i) => (
-                <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-[#EDF4FC] border border-[#D8E0E7]">
-                  <div className="w-9 h-9 rounded-lg bg-[#01367F]/10 flex items-center justify-center shrink-0 mt-0.5" aria-hidden="true">
-                    <item.icon className="w-4.5 h-4.5 text-[#01367F]" />
-                  </div>
-                  <p className="text-sm text-[#41536A] leading-relaxed pt-1">{item.text}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-3 mt-8">
-              <Link to="/affiliate-disclosure" className="text-sm text-[#01367F] underline underline-offset-2 hover:text-[#012B66] transition-colors font-medium">
-                Affiliate disclosure
-              </Link>
-              <span className="text-[#D8E0E7] hidden sm:inline">·</span>
-              <Link to="/privacy" className="text-sm text-[#01367F] underline underline-offset-2 hover:text-[#012B66] transition-colors font-medium">
-                Privacy policy
-              </Link>
-              <span className="text-[#D8E0E7] hidden sm:inline">·</span>
-              <Link to="/terms" className="text-sm text-[#01367F] underline underline-offset-2 hover:text-[#012B66] transition-colors font-medium">
-                Terms of service
-              </Link>
-            </div>
-
-            <p className="text-xs text-[#41536A] text-center max-w-xl mx-auto mt-6 leading-relaxed">
-              Travel requirements can change. Always confirm critical information with the relevant government, airline or provider before travelling.
-            </p>
-          </div>
-        </SectionContainer>
-
-        {/* SECTION 3: Final CTA */}
-        <section className="bg-[#001D45] py-14 sm:py-16" aria-labelledby="cta-heading">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 id="cta-heading" className="text-2xl sm:text-3xl font-bold text-white mb-3">Ready to start planning?</h2>
-            <p className="text-[#718096] text-base max-w-xl mx-auto mb-8">Search available flights or estimate the full cost of your next trip.</p>
-            <div className="flex flex-wrap justify-center gap-4 items-center">
-              <a
-                href="#flight-search"
-                onClick={() => safeTrack("cta_search_flights", "#flight-search")}
-                className={ctaPrimary}
-              >
-                <Plane className="w-[18px] h-[18px]" />
-                Search flights
-              </a>
-              <Link
-                to="/trip-cost"
-                onClick={() => safeTrack("cta_plan_costs", "/trip-cost")}
-                className={ctaSecondary}
-              >
-                <Calculator className="w-[18px] h-[18px]" />
-                Plan trip costs
-              </Link>
-            </div>
-          </div>
-        </section>
+        {/*
+          * The "Ready to start planning?" band is gone.
+          *
+          * Its primary button scrolled to #flight-search — back to the top of
+          * this same page, where D1 already put an operable search in the first
+          * viewport. Its only other action, the trip cost planner, now leads the
+          * planning section above. What remained was ~230px of navy repeating an
+          * offer the visitor had already scrolled past, plus a second "Search
+          * flights" CTA competing with the real one.
+          *
+          * id="flight-search" stays on the band, so deep links to /#flight-search
+          * and the flights page's own scroll target are unaffected.
+          */}
       </main>
 
       <Footer />
