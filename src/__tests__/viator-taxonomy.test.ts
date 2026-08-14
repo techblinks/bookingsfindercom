@@ -425,7 +425,7 @@ describe("Viator — shapes reconciled against the live sandbox", () => {
 
   it("accepts the live outbound host, which is a viator.com subdomain", () => {
     // Sandbox returns shop.live.rc.viator.com, not www.viator.com.
-    const host = "shop.live.rc.viator.com";
+    const host: string = "shop.live.rc.viator.com";
     expect(host === "viator.com" || host.endsWith(".viator.com")).toBe(true);
   });
 

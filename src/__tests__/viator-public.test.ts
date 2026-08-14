@@ -384,15 +384,15 @@ describe("Viator-public auth/access", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("Viator-public search schema", () => {
-  it("9. action allowlist (only search/destinations/tags)", () => {
+  it("9. action allowlist (status/search/destinations/tags)", () => {
     if (viatorPublicSrc) {
       // Must use Zod union or discriminated union for action
       expect(viatorPublicSrc).toMatch(/action/);
-      // Must only allow search, destinations, tags
+      // Must only allow status, search, destinations, tags
       const blockedActions = ["health", "products", "bookings", "orders", "availability", "checkout", "admin"];
       for (const blocked of blockedActions) {
         // These actions should NOT be allowed in the public endpoint
-        // (search/destinations/tags are the only public actions)
+        // (status/search/destinations/tags are the only public actions)
         const actionPattern = new RegExp(`z\\.literal\\s*\\(\\s*["']${blocked}["']`);
         expect(viatorPublicSrc, `viator-public must not allow action="${blocked}"`).not.toMatch(actionPattern);
       }
@@ -932,40 +932,107 @@ function walkDir(dir: string, ...extensions: string[]): string[] {
 }
 
 describe("Status action", () => {
-  it("status action performs zero upstream calls", () => {
-    // The status action only checks Deno.env — no fetch required
-    // Verified by reading viator-public source
+  /** Enabled-path status branch: from the dispatch check to the next action. */
+  function statusBranch(src: string): string {
+    const start = src.indexOf('action === "status"');
+    expect(start).toBeGreaterThan(-1);
+    const end = src.indexOf('action === "search"', start);
+    expect(end).toBeGreaterThan(start);
+    return src.substring(start, end);
+  }
+
+  it("status is dispatched only after the disabled gate (gate wins for any action)", () => {
     const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
-    const statusHandler = src.substring(
-      src.indexOf('action === "status"'),
-      src.indexOf("search", src.indexOf('action === "status"'))
+    const handler = src.slice(src.indexOf("Deno.serve("));
+    const gate = handler.indexOf("!SERVER_ENABLED");
+    const status = handler.indexOf('action === "status"');
+    const search = handler.indexOf('action === "search"');
+    expect(gate).toBeGreaterThan(-1);
+    expect(status).toBeGreaterThan(gate);
+    expect(status).toBeLessThan(search);
+  });
+
+  it("disabled server returns the same disabled response for any action", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    const handler = src.slice(src.indexOf("Deno.serve("));
+    const gateBlock = handler.substring(
+      handler.indexOf("!SERVER_ENABLED"),
+      handler.indexOf('action === "status"'),
     );
-    expect(statusHandler).not.toContain("fetch(");
-    expect(statusHandler).not.toContain("viatorRequest");
-    expect(statusHandler).toContain("VIATOR_PUBLIC_ENABLED");
+    expect(gateBlock).toContain("status: \"disabled\"");
+    expect(gateBlock).toContain("products: []");
+    expect(gateBlock).toMatch(/status:\s*200/);
+    // The gate returns before any body parsing, so status/search/etc all hit it.
+    expect(handler.indexOf("req.json")).toBeGreaterThan(handler.indexOf("!SERVER_ENABLED"));
   });
 
-  it("disabled server response creates status=disabled", () => {
-    const enabled = false;
-    const status = enabled ? "enabled" : "disabled";
-    expect(status).toBe("disabled");
+  it("enabled status response is provider=viator, status=enabled, products=[] with HTTP 200", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    const branch = statusBranch(src);
+    expect(branch).toContain('"viator"');
+    expect(branch).toContain('"enabled"');
+    expect(branch).toContain("products: []");
+    // json(...) returns HTTP 200 after the enabled payload.
+    expect(branch.indexOf("200,")).toBeGreaterThan(branch.indexOf("products: []"));
   });
 
-  it("enabled with missing config returns misconfigured", () => {
-    const enabled = true;
-    const configured = false;
-    const status = !enabled ? "disabled" : !configured ? "misconfigured" : "enabled";
-    expect(status).toBe("misconfigured");
+  it("enabled status makes zero upstream calls", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    const branch = statusBranch(src);
+    expect(branch).not.toContain("fetch(");
+    expect(branch).not.toContain("viatorPost");
+    expect(branch).not.toContain("viatorGet");
+    expect(branch).not.toContain("viatorRequest");
+    expect(branch).not.toContain("/destinations");
+    expect(branch).not.toContain("/products/tags");
+    expect(branch).not.toContain("/products/search");
   });
 
-  it("enabled with config returns enabled", () => {
-    const enabled = true;
-    const configured = true;
-    const status = !enabled ? "disabled" : !configured ? "misconfigured" : "enabled";
-    expect(status).toBe("enabled");
+  it("enabled status performs no cache read/write", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    const branch = statusBranch(src);
+    expect(branch).not.toContain("getCachedEntry");
+    expect(branch).not.toContain("upsertCacheEntry");
+    expect(branch).not.toContain("generateCacheKey");
+    expect(branch).not.toContain("tiqets_public_cache");
   });
 
-  it("does not appear as traveler-facing error when disabled", () => {
+  it("enabled status does not require or expose VIATOR_API_KEY or any env value", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    const branch = statusBranch(src);
+    expect(branch).not.toContain("VIATOR_API_KEY");
+    expect(branch).not.toContain("Deno.env");
+  });
+
+  it("enabled status requires no destination/tag/search payload", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    const branch = statusBranch(src);
+    expect(branch).not.toContain("destinationId");
+    expect(branch).not.toContain("activityTags");
+    expect(branch).not.toContain("pageSize");
+    expect(branch).not.toContain("cursor");
+  });
+
+  it("status stays a kill-switch truth — no provider-health states", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    const branch = statusBranch(src);
+    for (const banned of ["misconfigured", "HEALTHY", "AUTH_ERROR", "RATE_LIMITED", "UPSTREAM_ERROR", "NOT_DEPLOYED"]) {
+      expect(branch).not.toContain(banned);
+    }
+  });
+
+  it("unknown action still fails safely with HTTP 400", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    expect(src).toContain("Unknown action:");
+    expect(src).toMatch(/publicError\(`Unknown action: \$\{action\}`, 400, headers\)/);
+  });
+
+  it("action-required error text includes status", () => {
+    const src = require("fs").readFileSync("supabase/functions/viator-public/index.ts", "utf8");
+    expect(src).toContain("action is required (status | search | destinations | tags)");
+  });
+
+  it("disabled response is not a traveler-facing error", () => {
     const disabledResponse = { provider: "viator", status: "disabled", products: [] };
     expect(disabledResponse).not.toHaveProperty("error");
     expect(disabledResponse.status).toBe("disabled");
