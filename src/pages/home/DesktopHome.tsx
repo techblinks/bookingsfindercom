@@ -9,11 +9,17 @@ import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { SectionContainer } from "@/components/home-v2/SectionContainer";
 import { SectionHeading } from "@/components/home-v2/SectionHeading";
 import { logInternalNavigation } from "@/lib/analytics";
-import HeroMediaCollage from "@/components/hero/HeroMediaCollage";
 
 const safeTrack = (label: string, href: string) => {
   try { logInternalNavigation({ label, source: "homepage", href }); } catch (_) {}
 };
+
+/** Category entry points. Every one is a real route that already exists. */
+const TRAVEL_CATEGORIES = [
+  { label: "Flights", href: "/flights", icon: Plane, analyticsLabel: "category_flights" },
+  { label: "Stays", href: "/hotels", icon: Building2, analyticsLabel: "category_stays" },
+  { label: "Things to do", href: "/things-to-do", icon: Ticket, analyticsLabel: "category_things" },
+];
 
 const PRODUCT_CARDS = [
   { title: "Compare flights", desc: "Search and compare available flight options from participating travel providers.", href: "/flights", icon: Plane },
@@ -52,37 +58,71 @@ const DesktopHome = () => (
       <Header />
 
       <main id="main-content" className="flex-1">
-        {/* Hero */}
-        <section className="relative overflow-hidden bg-[#001D45]" aria-labelledby="hero-heading">
+        {/*
+          * Product band — the first viewport IS the product.
+          *
+          * Positioning, category entry points and the real flight search share
+          * one navy surface, so a visitor can operate the search on arrival.
+          * The previous composition put a 576px marketing hero above a separate
+          * search section, which pushed the Search flights CTA to y≈996 — below
+          * the fold at every desktop width. The decorative collage and the two
+          * hero CTAs (whose only job was to scroll down to the search) are gone
+          * with it.
+          *
+          * Keeps id="flight-search" so the existing lower-page anchors still land here.
+          */}
+        <section id="flight-search" className="relative overflow-hidden bg-[#001D45]" aria-labelledby="hero-heading">
           <div className="absolute inset-0 opacity-[0.06]" aria-hidden="true">
             <svg width="100%" height="100%" viewBox="0 0 1440 700" preserveAspectRatio="none"><path d="M-100,400 Q200,200 500,380 T1440,200" fill="none" stroke="white" strokeWidth="1.5"/><path d="M-100,500 Q400,700 800,350 T1440,450" fill="none" stroke="white" strokeWidth="1" opacity="0.5"/><circle cx="300" cy="380" r="4" fill="white" opacity="0.3"/><circle cx="900" cy="300" r="5" fill="white" opacity="0.2"/></svg>
           </div>
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-28">
-            <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-14">
-              <div className="flex-1">
-                <p className="text-[#01367F] text-sm font-bold tracking-[0.14em] uppercase mb-4">Plan smarter. Travel better.</p>
-                <h1 id="hero-heading" className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.08] max-w-3xl">Find, compare and plan your whole trip.</h1>
-                <p className="mt-5 text-lg sm:text-xl text-[#718096] max-w-2xl leading-relaxed">Compare flights, estimate trip costs and use practical travel tools from one place.</p>
-                <div className="mt-8 flex flex-wrap gap-4 items-center">
-                  <a href="#flight-search" onClick={() => safeTrack("hero_search", "#flight-search")} className={ctaPrimary}>Search flights <Plane className="w-[18px] h-[18px]" /></a>
-                  <Link to="/trip-cost" onClick={() => safeTrack("hero_explore_tools", "/trip-cost")} className={ctaSecondary}>Explore tools <ArrowRight className="w-[18px] h-[18px]" /></Link>
-                </div>
-              </div>
-              <HeroMediaCollage pageKey="home" />
-            </div>
-          </div>
-        </section>
 
-        {/* Flight Search */}
-        <section id="flight-search" className="bg-[#EDF4FC] py-10 sm:py-14" aria-labelledby="flight-search-heading">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-4xl mx-auto">
-              <h2 id="flight-search-heading" className="text-2xl sm:text-3xl font-bold text-[#0F172A] text-center mb-2">Search available flights</h2>
-              <p className="text-[#41536A] text-center mb-8">Compare options from participating travel providers.</p>
-              <div className="bg-white rounded-2xl shadow-md border border-[#D8E0E7] p-5 sm:p-7">
-                <ModernFlightSearch />
-              </div>
+          <div className="relative z-10 mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8 pt-9 pb-8 lg:pt-11 lg:pb-10">
+            <h1
+              id="hero-heading"
+              className="text-[26px] leading-[32px] sm:text-[30px] sm:leading-[36px] lg:text-[34px] lg:leading-[42px] font-extrabold tracking-tight text-white"
+            >
+              Plan the whole trip, not just the flight.
+            </h1>
+            <p className="mt-2.5 max-w-2xl text-[15px] leading-[22px] lg:text-base lg:leading-[24px] text-white/70">
+              Compare flights, stays and things to do — then estimate what the trip may cost.
+            </p>
+
+            {/* Real product destinations, not tabs that pretend to swap the form */}
+            <nav aria-label="Travel categories" className="mt-5 flex flex-wrap items-center gap-2">
+              {TRAVEL_CATEGORIES.map(category => {
+                const isCurrent = category.href === "/flights";
+                return (
+                  <Link
+                    key={category.label}
+                    to={category.href}
+                    aria-current={isCurrent ? "page" : undefined}
+                    onClick={() => safeTrack(category.analyticsLabel, category.href)}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                      isCurrent
+                        ? "bg-white text-[#001D45] shadow-sm"
+                        : "bg-white/[0.08] text-white/85 hover:bg-white/[0.16] hover:text-white",
+                    )}
+                  >
+                    <category.icon className="h-4 w-4" aria-hidden="true" />
+                    {category.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* The search sits directly on the band — its own shell is the card */}
+            <div className="mt-4">
+              <ModernFlightSearch onDark />
             </div>
+
+            {/*
+              * No trust line is repeated here. The existing trust strip sits
+              * immediately below this band and is inside the first viewport at
+              * every tested width, so it already is the one concise line near
+              * the search — duplicating its wording would create a second
+              * source of the same truth. D4 owns restyling that strip.
+              */}
           </div>
         </section>
 

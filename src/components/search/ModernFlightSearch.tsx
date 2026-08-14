@@ -56,6 +56,13 @@ type TripType = "roundtrip" | "oneway";
 interface ModernFlightSearchProps {
   /** Prefill values from URL params (for Edit flow and /flights form mode). */
   prefill?: Partial<FlightSearchFormValues>;
+  /**
+   * Presentation only. The trip-type pills sit outside the white search card,
+   * so on a dark surface (the homepage product band) they need light-on-dark
+   * treatment. Every field, popover and behaviour is unchanged, and every
+   * existing call site keeps the default light styling.
+   */
+  onDark?: boolean;
 }
 
 // Dedup window for analytics: prevent duplicate search events within 3 seconds for identical params
@@ -80,7 +87,7 @@ function isDuplicateSubmission(params: string): boolean {
   return false;
 }
 
-const ModernFlightSearch = ({ prefill }: ModernFlightSearchProps = {}) => {
+const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps = {}) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { geoData } = useGeoLocation();
@@ -662,7 +669,12 @@ const ModernFlightSearch = ({ prefill }: ModernFlightSearchProps = {}) => {
   return (
     <div className="space-y-4 max-w-[1100px]">
       {/* Trip Type Pills */}
-      <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl w-fit">
+      <div
+        className={cn(
+          "flex items-center gap-1 p-1 rounded-xl w-fit",
+          onDark ? "bg-white/10" : "bg-secondary/50",
+        )}
+      >
         {[
           { value: "roundtrip", label: "Round trip" },{ value: "oneway", label: "One way" },
         ].map((type) => (
@@ -675,8 +687,12 @@ const ModernFlightSearch = ({ prefill }: ModernFlightSearchProps = {}) => {
             className={cn(
               "px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
               tripType === type.value
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? onDark
+                  ? "bg-white text-[#001D45] shadow-sm"
+                  : "bg-card text-foreground shadow-sm"
+                : onDark
+                  ? "text-white/75 hover:text-white"
+                  : "text-muted-foreground hover:text-foreground"
             )}
           >
             {type.label}
