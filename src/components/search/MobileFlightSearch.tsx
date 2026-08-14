@@ -11,6 +11,7 @@ import { useTrip } from "@/context/TripContext";
 import { formatDateRangeDisplay, formatTravellers } from "@/lib/displayFormatters";
 import { resolveLocationLabel } from "@/lib/locationResolution";
 import { recordActivity } from "@/lib/recentActivity";
+import type { FlightSearchFormValues } from "@/lib/flightSearchValidation";
 import type { PassengerCount } from "./PassengerPicker";
 
 /* Flights-scoped local colour tokens */
@@ -44,16 +45,45 @@ function parseIata(value: string | null): string | null {
   return IATA_RE.test(v) ? v : null;
 }
 
-export default function MobileFlightSearch() {
+const CABIN_CLASS_VALUES: CabinClass[] = ["economy", "premium", "business", "first"];
+
+/** Only accept a cabin the picker can actually represent. */
+function coerceCabinClass(value: string | undefined): CabinClass | undefined {
+  if (!value) return undefined;
+  const cabin = value.trim().toLowerCase() as CabinClass;
+  return CABIN_CLASS_VALUES.includes(cabin) ? cabin : undefined;
+}
+
+interface MobileFlightSearchProps {
+  /**
+   * A complete search to edit, e.g. the validated search behind the results the
+   * user is looking at. Supplying it puts the form in edit mode: these values
+   * outrank both the URL and TripContext, and nothing re-hydrates them
+   * afterwards, so an in-progress edit is never overwritten.
+   *
+   * Same contract name and shape as ModernFlightSearch's `prefill`.
+   */
+  prefill?: Partial<FlightSearchFormValues>;
+  /** CTA wording. Defaults to the standard search label. */
+  submitLabel?: string;
+}
+
+export default function MobileFlightSearch({ prefill, submitLabel }: MobileFlightSearchProps = {}) {
   const navigate = useNavigate();
 
   /*
-   * URL prefill wins over TripContext:
-   *   explicit URL origin/destination -> TripContext -> geo/default fallback.
+   * Prefill precedence:
+   *   explicit edit prefill -> explicit URL origin/destination -> TripContext.
    * An Explore-route URL such as /flights?origin=SYD&destination=MOW must
    * override stale trip values; when the URL carries nothing, TripContext
-   * behaves exactly as before.
+   * behaves exactly as before. With no explicit prefill this component behaves
+   * exactly as it always has.
    */
+  const isEditingSearch = !!prefill;
+  const prefillCabin = coerceCabinClass(prefill?.cabinClass);
+  const prefillOrigin = prefill?.origin ? prefill.origin.trim().toUpperCase() : undefined;
+  const prefillDestination = prefill?.destination ? prefill.destination.trim().toUpperCase() : undefined;
+
   const [searchParams] = useSearchParams();
   const urlOrigin = parseIata(searchParams.get("origin"));
   const urlDestination = parseIata(searchParams.get("destination"));
@@ -69,12 +99,18 @@ export default function MobileFlightSearch() {
 
   /* Default: Round trip on fresh load, one-way only if explicitly from context */
   const [tripType, setTripType] = useState<TripType>(
-    tripDepDate && !tripRetDate ? "oneway" : "roundtrip"
+    prefill?.tripType ?? (tripDepDate && !tripRetDate ? "oneway" : "roundtrip")
   );
-  const [flightFrom, setFlightFrom] = useState(urlOrigin ?? tripOrigin?.airportCode ?? "");
-  const [flightFromDisplay, setFlightFromDisplay] = useState(urlOrigin ? (resolveLocationLabel(urlOrigin) ?? urlOrigin) : (tripOrigin?.name ?? ""));
-  const [flightTo, setFlightTo] = useState(urlDestination ?? tripDestination?.airportCode ?? "");
-  const [flightToDisplay, setFlightToDisplay] = useState(urlDestination ? (resolveLocationLabel(urlDestination) ?? urlDestination) : (tripDestination?.name ?? ""));
+  const [flightFrom, setFlightFrom] = useState(prefillOrigin ?? urlOrigin ?? tripOrigin?.airportCode ?? "");
+  const [flightFromDisplay, setFlightFromDisplay] = useState(() => {
+    const code = prefillOrigin ?? urlOrigin;
+    return code ? (resolveLocationLabel(code) ?? code) : (tripOrigin?.name ?? "");
+  });
+  const [flightTo, setFlightTo] = useState(prefillDestination ?? urlDestination ?? tripDestination?.airportCode ?? "");
+  const [flightToDisplay, setFlightToDisplay] = useState(() => {
+    const code = prefillDestination ?? urlDestination;
+    return code ? (resolveLocationLabel(code) ?? code) : (tripDestination?.name ?? "");
+  });
 
   const initialDepDate = useMemo(() => {
     if (tripDepDate) { const d = new Date(tripDepDate + "T00:00:00"); return isNaN(d.getTime()) ? undefined : d; }
@@ -85,10 +121,16 @@ export default function MobileFlightSearch() {
     return undefined;
   }, [tripRetDate]);
 
-  const [departureDate, setDepartureDate] = useState<Date | undefined>(initialDepDate);
-  const [returnDate, setReturnDate] = useState<Date | undefined>(initialRetDate);
-  const [passengers, setPassengers] = useState<PassengerCount>({ adults: tripAdults ?? 1, children: tripChildren ?? 0, infants: tripInfants ?? 0 });
-  const [cabinClass, setCabinClass] = useState<CabinClass>("economy");
+  const [departureDate, setDepartureDate] = useState<Date | undefined>(prefill?.departureDate ?? initialDepDate);
+  const [returnDate, setReturnDate] = useState<Date | undefined>(
+    prefill?.tripType === "oneway" ? undefined : (prefill?.returnDate ?? initialRetDate),
+  );
+  const [passengers, setPassengers] = useState<PassengerCount>({
+    adults: prefill?.adults ?? tripAdults ?? 1,
+    children: prefill?.children ?? tripChildren ?? 0,
+    infants: prefill?.infants ?? tripInfants ?? 0,
+  });
+  const [cabinClass, setCabinClass] = useState<CabinClass>(prefillCabin ?? "economy");
 
   const [fromPrefill, setFromPrefill] = useState<PrefillState>({ fromTrip: !urlOrigin && !!tripOrigin, userEdited: false });
   const [toPrefill, setToPrefill] = useState<PrefillState>({ fromTrip: !urlDestination && !!tripDestination, userEdited: false });
@@ -102,6 +144,9 @@ export default function MobileFlightSearch() {
    * when the URL carries no valid code. Dates/travellers/cabin are untouched.
    */
   useEffect(() => {
+    // Edit mode owns its values: re-applying the URL here would silently undo
+    // the change the user is in the middle of making.
+    if (isEditingSearch) return;
     if (urlOrigin) {
       setFlightFrom(urlOrigin);
       setFlightFromDisplay(resolveLocationLabel(urlOrigin) ?? urlOrigin);
@@ -119,9 +164,10 @@ export default function MobileFlightSearch() {
       setFlightFromDisplay("");
       setFromPrefill({ fromTrip: false, userEdited: false });
     }
-  }, [urlOrigin, tripOrigin]);
+  }, [urlOrigin, tripOrigin, isEditingSearch]);
 
   useEffect(() => {
+    if (isEditingSearch) return;
     if (urlDestination) {
       setFlightTo(urlDestination);
       setFlightToDisplay(resolveLocationLabel(urlDestination) ?? urlDestination);
@@ -136,7 +182,7 @@ export default function MobileFlightSearch() {
       setFlightToDisplay("");
       setToPrefill({ fromTrip: false, userEdited: false });
     }
-  }, [urlDestination, tripDestination]);
+  }, [urlDestination, tripDestination, isEditingSearch]);
 
   const [fromSheetOpen, setFromSheetOpen] = useState(false);
   const [toSheetOpen, setToSheetOpen] = useState(false);
@@ -256,7 +302,8 @@ export default function MobileFlightSearch() {
             </button>
           ))}
         </div>
-        {hasTrip && (
+        {/* Start fresh belongs to the trip-prefill story, not to editing a search. */}
+        {hasTrip && !isEditingSearch && (
           <button onClick={startFresh} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground ml-auto">
             Start fresh
           </button>
@@ -383,7 +430,7 @@ export default function MobileFlightSearch() {
       {/* SEARCH CTA */}
       <Button onClick={handleSearch} variant="conversion"
         className="w-full h-[52px] text-base font-semibold rounded-[12px] mt-1">
-        Search flights
+        {submitLabel ?? "Search flights"}
       </Button>
 
       {/* SHEETS */}

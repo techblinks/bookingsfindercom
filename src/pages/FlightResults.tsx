@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Plane, ChevronDown, AlertTriangle } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useIsMobile, useIsBelowDesktop } from "@/hooks/use-mobile";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -43,8 +43,11 @@ const FlightResults = () => {
   const [searchParams] = useSearchParams();
   const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY_COUNT);
   const [priceToolsOpen, setPriceToolsOpen] = useState(false);
+  const [isEditingSearch, setIsEditingSearch] = useState(false);
   const quickSelectRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  /* Phones and tablets share the mobile search UI; only lg+ gets the wide desktop form. */
+  const isBelowDesktop = useIsBelowDesktop();
 
   const parsed = useMemo(() => parseAndValidateFlightSearchParams(searchParams), [searchParams]);
   const isResultsMode = parsed.mode === "results";
@@ -105,6 +108,48 @@ const FlightResults = () => {
   useEffect(() => {
     setDisplayCount(INITIAL_DISPLAY_COUNT);
   }, [filters, sortBy]);
+
+  /*
+   * A committed change of search — from the edit form, the price calendar, or
+   * any other route into /flights — starts a different journey.
+   *
+   * useFlightSearch keeps filter state across param changes and only
+   * re-initialises the numeric ranges from the new results, so a selected
+   * airline, stop count or departure slot would otherwise survive into an
+   * unrelated route and silently hide flights that do exist. Sort returns to
+   * Best for the same reason: the old ordering was chosen against a different
+   * set of options.
+   *
+   * Keyed on the validated search rather than the raw query string so filter
+   * state is not thrown away by a cosmetic parameter change.
+   */
+  const searchKey = validated
+    ? [origin, destination, departureDate, returnDate, adults, children, infants, cabinClass].join("|")
+    : "";
+  const committedSearchRef = useRef(searchKey);
+
+  useEffect(() => {
+    if (committedSearchRef.current === searchKey) return;
+    committedSearchRef.current = searchKey;
+    resetFilters();
+    setSortBy("best");
+    setDisplayCount(INITIAL_DISPLAY_COUNT);
+  }, [searchKey, resetFilters, setSortBy]);
+
+  /*
+   * Any committed submit closes the editor, including one that re-submits the
+   * same criteria: the traveller pressed Update search, so the form has done its
+   * job and leaving the panel open would read as a failure. Keyed on the router
+   * entry rather than the criteria for exactly that reason.
+   */
+  const { key: locationKey } = useLocation();
+  const locationKeyRef = useRef(locationKey);
+
+  useEffect(() => {
+    if (locationKeyRef.current === locationKey) return;
+    locationKeyRef.current = locationKey;
+    setIsEditingSearch(false);
+  }, [locationKey]);
 
   const stopCounts = useMemo(() => {
     const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0 };
@@ -291,7 +336,8 @@ const FlightResults = () => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <Link to={`/flights?${searchParams.toString()}`}>
+              {/* A genuinely fresh form. Editing this search is the Edit action. */}
+              <Link to="/flights">
                 <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" aria-label="New search">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
@@ -318,11 +364,23 @@ const FlightResults = () => {
                   <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
                 </div>
               )}
-              {/* V1: Edit hidden on mobile (MobileQuickEditBar not yet reconnected) */}
-              {!isMobile && (
-              <Link to={`/flights?${searchParams.toString()}`} className="shrink-0">
-                <Button variant="outline" size="sm" className="h-9">Edit</Button>
-              </Link>
+              {/*
+                * Edit is a local UI mode, not a URL mode: it opens the same
+                * search form the user already knows, prefilled from the
+                * validated search behind these results. Available at every
+                * width — the previous link pointed at this exact results URL
+                * and did nothing.
+                */}
+              {!isEditingSearch && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0"
+                  aria-expanded={false}
+                  onClick={() => setIsEditingSearch(true)}
+                >
+                  Edit
+                </Button>
               )}
             </div>
           </div>
@@ -330,6 +388,31 @@ const FlightResults = () => {
       </div>
 
       <main id="main-content" className={"flex-1 container mx-auto px-4 py-5" + (isMobile ? " pb-24" : "")}>
+        {isEditingSearch ? (
+          /*
+           * Edit mode replaces the results rather than layering over them: the
+           * form's own location, date and traveller pickers are full-screen
+           * overlays, so hosting the form inside another dialog would nest one
+           * overlay in another. Results, filters and sort are untouched while
+           * this is open, so Cancel is a pure return.
+           */
+          <section
+            aria-label="Edit search"
+            className={isBelowDesktop ? "mx-auto w-full max-w-[560px]" : "w-full"}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-foreground">Edit search</h2>
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => setIsEditingSearch(false)}>
+                Cancel
+              </Button>
+            </div>
+            {isBelowDesktop ? (
+              <MobileFlightSearch prefill={validated ?? undefined} submitLabel="Update search" />
+            ) : (
+              <ModernFlightSearch prefill={validated ?? undefined} />
+            )}
+          </section>
+        ) : (
         <div className="flex gap-6">
           {/* Desktop filters — hidden on mobile */}
           <aside className="hidden lg:block w-72 shrink-0">
@@ -478,6 +561,7 @@ const FlightResults = () => {
             )}
           </div>
         </div>
+        )}
       </main>
 
       <Footer />
