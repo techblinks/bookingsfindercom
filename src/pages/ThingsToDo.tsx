@@ -42,7 +42,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { searchExperiences } from "@/services/experiences";
 import { recordActivity } from "@/lib/recentActivity";
-import type { ExperienceProduct, ExperienceSearchFilters } from "@/types/experiences";
+import type { ExperienceProduct, ExperienceSearchFilters, ProviderAvailability } from "@/types/experiences";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
 
@@ -56,7 +56,8 @@ const ACTIVITY_TYPES = [
   { id: "shows-entertainment", label: "Shows & entertainment" },
 ];
 
-const POPULAR_SEARCH_SHORTCUTS = ["Sydney", "Melbourne", "Paris", "Rome"];
+// Example destinations, not a popularity ranking — we hold no popularity data.
+const SEARCH_SHORTCUTS = ["Sydney", "Melbourne", "Paris", "Rome"];
 
 // Values are AUD cents — tiqets-public's price_min/price_max contract.
 const PRICE_RANGES = [
@@ -72,15 +73,22 @@ const RATING_OPTIONS = [
   { id: "4", label: "4+" },
 ];
 
+/*
+ * "Recommended" implied a BookingsFinder recommendation system. There is none —
+ * the order is whatever the provider returns, and the two providers do not even
+ * agree on what it means: tiqets-public maps popularity_desc to upstream
+ * `ordering=-popularity`, while viator-public's schema has no popularity option
+ * at all and defaults to RELEVANCE. Because the semantics genuinely differ, the
+ * label names the SOURCE of the order rather than claiming a criterion.
+ */
 const SORT_OPTIONS = [
-  { id: "popularity_desc", label: "Recommended" },
+  { id: "popularity_desc", label: "Provider order" },
   { id: "price_asc", label: "Price: low to high" },
   { id: "title_asc", label: "Title: A–Z" },
 ];
 
 const FEATURES = [
   { id: "skipLine", label: "Skip the line" },
-  { id: "instant", label: "Instant ticket" },
 ];
 
 const PAGE_SIZE = 24;
@@ -146,6 +154,27 @@ function formatPrice(price: number | null, currency: string | null): string | nu
   } catch {
     return currency ? `${currency} ${price}` : `${price}`;
   }
+}
+
+/**
+ * Did any provider actually answer?
+ *
+ * The customer-visible distinction this page must never get wrong:
+ *
+ *   "available"   the provider responded healthily — an empty list from it is a
+ *                 GENUINE zero-result, and saying "no matches" is truthful.
+ *   "unavailable" the provider errored, timed out, or its function is missing.
+ *   "disabled"    the provider is deliberately switched off. Not a fault, but it
+ *                 contributes nothing, so it cannot make a search "healthy".
+ *
+ * Only when NOTHING answered may we claim inventory is unavailable — and only
+ * when SOMETHING answered may we tell the traveller to change their filters.
+ * The previous logic keyed solely off `providers.tiqets === "unavailable"`, so
+ * a provider returning HTTP 200 with an empty catalogue was reported to the
+ * customer as their own filters' fault.
+ */
+function anyProviderAnswered(providers: ProviderAvailability): boolean {
+  return Object.values(providers).some((status) => status === "available");
 }
 
 function providerLabel(provider: ExperienceProduct["provider"]): string {
@@ -243,7 +272,7 @@ function ExperienceCard({ product }: { product: ExperienceProduct }) {
             ) : (
               <span className="text-xs text-[#8BA0B8]">Price on request</span>
             )}
-            <p className="text-[11px] text-[#8BA0B8] mt-0.5">Provided by {providerLabel(product.provider)}</p>
+            <p className="text-xs text-[#41536A] mt-0.5">Provided by {providerLabel(product.provider)}</p>
           </div>
           {product.outboundUrl ? (
             <a
@@ -289,7 +318,6 @@ export default function ThingsToDo() {
   const [selectedRating, setSelectedRating] = useState(searchParams.get("rating") || "any");
   const [wheelchairOnly, setWheelchairOnly] = useState(searchParams.get("accessible") === "1");
   const [skipLineOnly, setSkipLineOnly] = useState(searchParams.get("skipLine") === "1");
-  const [instantOnly, setInstantOnly] = useState(searchParams.get("instant") === "1");
   const [sort, setSort] = useState(searchParams.get("sort") || "popularity_desc");
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
 
@@ -298,13 +326,14 @@ export default function ThingsToDo() {
   const [totalCount, setTotalCount] = useState(0);
   const [providersAvailable, setProvidersAvailable] = useState({ tiqets: true, viator: true });
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [inventoryUnavailable, setInventoryUnavailable] = useState(false);
 
   /* --- UI state --- */
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   const requestIdRef = useRef(0);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   /* --- mobile draft (for sheet) --- */
   const [mobileDraft, setMobileDraft] = useState({
@@ -313,7 +342,6 @@ export default function ThingsToDo() {
     selectedRating: "any",
     wheelchairOnly: false,
     skipLineOnly: false,
-    instantOnly: false,
     sort: "popularity_desc",
   });
 
@@ -350,7 +378,7 @@ export default function ThingsToDo() {
   useEffect(() => {
     const requestId = ++requestIdRef.current;
     setLoading(true);
-    setLoadError(false);
+    setInventoryUnavailable(false);
 
     searchExperiences(filters)
       .then((result) => {
@@ -361,19 +389,24 @@ export default function ThingsToDo() {
           tiqets: result.providers.tiqets !== "unavailable",
           viator: result.providers.viator !== "unavailable",
         });
-        setLoadError(result.products.length === 0 && result.providers.tiqets === "unavailable");
+        setInventoryUnavailable(!anyProviderAnswered(result.providers));
         setLoading(false);
       })
       .catch(() => {
         if (requestIdRef.current !== requestId) return;
         setProducts([]);
         setTotalCount(0);
-        setLoadError(true);
+        setInventoryUnavailable(true);
         setLoading(false);
       });
-    // instantOnly is deliberately not wired to the API yet — no matching filter param;
-    // it still participates in the active-filter chip UI so the state model stays shared.
-  }, [filters]);
+  }, [filters, retryNonce]);
+
+  /*
+   * Genuine retry. The previous control called setPage(p => p), which sets the
+   * same value — React bails out, the effect never re-runs and nothing is
+   * refetched. A nonce in the dependency list actually repeats the request.
+   */
+  const retrySearch = useCallback(() => setRetryNonce((n) => n + 1), []);
 
   /* --- sync URL <-> state --- */
   const syncUrl = useCallback(
@@ -386,7 +419,6 @@ export default function ThingsToDo() {
         rating: selectedRating,
         accessible: wheelchairOnly,
         skipLine: skipLineOnly,
-        instant: instantOnly,
         sort,
         page,
         ...overrides,
@@ -404,13 +436,12 @@ export default function ThingsToDo() {
       if (merged.rating && merged.rating !== "any") params.rating = String(merged.rating);
       if (merged.accessible) params.accessible = "1";
       if (merged.skipLine) params.skipLine = "1";
-      if (merged.instant) params.instant = "1";
       if (merged.sort && merged.sort !== "popularity_desc") params.sort = String(merged.sort);
       if (merged.page && Number(merged.page) > 1) params.page = String(merged.page);
 
       setSearchParams(params, { replace: true });
     },
-    [destination, queryText, selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, instantOnly, sort, page, setSearchParams]
+    [destination, queryText, selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort, page, setSearchParams]
   );
 
   /* --- handlers --- */
@@ -493,15 +524,6 @@ export default function ThingsToDo() {
     [syncUrl]
   );
 
-  const handleInstantToggle = useCallback(
-    (v: boolean) => {
-      setInstantOnly(v);
-      setPage(1);
-      syncUrl({ instant: v, page: 1 });
-    },
-    [syncUrl]
-  );
-
   const handleSortChange = useCallback(
     (v: string) => {
       setSort(v);
@@ -525,7 +547,6 @@ export default function ThingsToDo() {
     setSelectedRating("any");
     setWheelchairOnly(false);
     setSkipLineOnly(false);
-    setInstantOnly(false);
     setSort("popularity_desc");
     setPage(1);
     syncUrl({
@@ -534,7 +555,6 @@ export default function ThingsToDo() {
       rating: "any",
       accessible: false,
       skipLine: false,
-      instant: false,
       sort: "popularity_desc",
       page: 1,
     });
@@ -548,11 +568,10 @@ export default function ThingsToDo() {
       selectedRating,
       wheelchairOnly,
       skipLineOnly,
-      instantOnly,
-      sort,
+        sort,
     });
     setMobileSheetOpen(true);
-  }, [selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, instantOnly, sort]);
+  }, [selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort]);
 
   const applyMobileFilters = useCallback(() => {
     setSelectedActivity(mobileDraft.selectedActivity);
@@ -560,7 +579,6 @@ export default function ThingsToDo() {
     setSelectedRating(mobileDraft.selectedRating);
     setWheelchairOnly(mobileDraft.wheelchairOnly);
     setSkipLineOnly(mobileDraft.skipLineOnly);
-    setInstantOnly(mobileDraft.instantOnly);
     setSort(mobileDraft.sort);
     setPage(1);
     syncUrl({
@@ -569,7 +587,6 @@ export default function ThingsToDo() {
       rating: mobileDraft.selectedRating,
       accessible: mobileDraft.wheelchairOnly,
       skipLine: mobileDraft.skipLineOnly,
-      instant: mobileDraft.instantOnly,
       sort: mobileDraft.sort,
       page: 1,
     });
@@ -585,8 +602,7 @@ export default function ThingsToDo() {
     Boolean(selectedPriceRange) ||
     selectedRating !== "any" ||
     wheelchairOnly ||
-    skipLineOnly ||
-    instantOnly;
+    skipLineOnly;
 
   const activeFilterCount = [
     selectedActivity,
@@ -594,10 +610,9 @@ export default function ThingsToDo() {
     selectedRating !== "any",
     wheelchairOnly,
     skipLineOnly,
-    instantOnly,
   ].filter(Boolean).length;
 
-  /* --- popular destinations, derived from currently loaded products --- */
+  /* --- other destinations, derived from currently loaded products --- */
   const destinationsFromResults = useMemo(() => {
     const map = new Map<string, { name: string; country: string | null }>();
     for (const p of products) {
@@ -616,7 +631,7 @@ export default function ThingsToDo() {
     ? `Things to do in ${destination.trim()}`
     : queryText.trim() || selectedActivity
       ? "Explore experiences"
-      : "Popular experiences";
+      : "Experiences to explore";
 
   /* --- structured data --- */
   const structuredData =
@@ -715,8 +730,8 @@ export default function ThingsToDo() {
           </div>
 
           <div className="mt-1.5 sm:mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-white/60 font-medium">Popular:</span>
-            {POPULAR_SEARCH_SHORTCUTS.map((city) => (
+            <span className="text-white/70 font-medium">Try:</span>
+            {SEARCH_SHORTCUTS.map((city) => (
               <button
                 key={city}
                 type="button"
@@ -829,9 +844,9 @@ export default function ThingsToDo() {
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 text-sm gap-1.5" aria-label="Features filter">
                   Features
-                  {(skipLineOnly || instantOnly || wheelchairOnly) && (
+                  {(skipLineOnly || wheelchairOnly) && (
                     <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-[#D64A2A]">
-                      {[skipLineOnly, instantOnly, wheelchairOnly].filter(Boolean).length}
+                      {[skipLineOnly, wheelchairOnly].filter(Boolean).length}
                     </Badge>
                   )}
                   <ChevronDown className="w-3 h-3" aria-hidden="true" />
@@ -840,8 +855,8 @@ export default function ThingsToDo() {
               <PopoverContent className="w-56 p-3">
                 <div className="space-y-2">
                   {FEATURES.map((f) => {
-                    const isActive = f.id === "skipLine" ? skipLineOnly : instantOnly;
-                    const handler = f.id === "skipLine" ? handleSkipLineToggle : handleInstantToggle;
+                    const isActive = skipLineOnly;
+                    const handler = handleSkipLineToggle;
                     return (
                       <label key={f.id} className="flex items-center gap-2 cursor-pointer text-sm">
                         <input
@@ -914,7 +929,6 @@ export default function ThingsToDo() {
             {selectedRating !== "any" && <Chip label={`Rating ${selectedRating}+`} onRemove={() => handleRatingChange("any")} />}
             {wheelchairOnly && <Chip label="Wheelchair accessible" onRemove={() => handleWheelchairToggle(false)} />}
             {skipLineOnly && <Chip label="Skip the line" onRemove={() => handleSkipLineToggle(false)} />}
-            {instantOnly && <Chip label="Instant ticket" onRemove={() => handleInstantToggle(false)} />}
             <button type="button" onClick={clearAllFilters} className="text-xs text-[#01367F] hover:underline ml-1">
               Clear all
             </button>
@@ -928,25 +942,45 @@ export default function ThingsToDo() {
               <SkeletonCard key={i} />
             ))}
           </div>
-        ) : loadError && products.length === 0 ? (
-          <div className="text-center py-14 border border-dashed border-[#D8E0E7] rounded-2xl">
+        ) : inventoryUnavailable ? (
+          /*
+            * Nothing answered. This is our problem, not the traveller's, so it
+            * must never suggest they change their filters or spelling. No
+            * provider or infrastructure detail is exposed.
+            */
+          <div
+            role="status"
+            className="text-center py-14 border border-dashed border-[#D8E0E7] rounded-2xl"
+          >
             <Info className="w-10 h-10 text-[#D8E0E7] mx-auto mb-3" aria-hidden="true" />
-            <h3 className="text-base font-semibold text-[#0F172A] mb-1">We couldn't load experiences right now</h3>
-            <p className="text-sm text-[#41536A] mb-4">Please try again in a moment.</p>
-            <Button variant="outline" onClick={() => setPage((p) => p)}>
+            <h3 className="text-base font-semibold text-[#0F172A] mb-1">
+              Experiences are temporarily unavailable
+            </h3>
+            <p className="text-sm text-[#41536A] mb-4">
+              We're having trouble loading activities right now. This is on our side — please try again shortly.
+            </p>
+            <Button variant="outline" onClick={retrySearch}>
               Try again
             </Button>
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-14 border border-dashed border-[#D8E0E7] rounded-2xl">
+          /* A provider answered healthily and genuinely had nothing to match. */
+          <div
+            role="status"
+            className="text-center py-14 border border-dashed border-[#D8E0E7] rounded-2xl"
+          >
             <Info className="w-10 h-10 text-[#D8E0E7] mx-auto mb-3" aria-hidden="true" />
             {hasSearchContext ? (
               <>
-                <h3 className="text-base font-semibold text-[#0F172A] mb-1">No experiences found</h3>
-                <p className="text-sm text-[#41536A] mb-4">Try adjusting your filters or search terms.</p>
-                <Button variant="outline" onClick={clearAllFilters}>
-                  Clear all filters
-                </Button>
+                <h3 className="text-base font-semibold text-[#0F172A] mb-1">No experiences matched your search</h3>
+                <p className="text-sm text-[#41536A] mb-4">
+                  Try a different destination or activity, or remove some filters.
+                </p>
+                {hasActiveFilters && (
+                  <Button variant="outline" onClick={clearAllFilters}>
+                    Clear all filters
+                  </Button>
+                )}
               </>
             ) : (
               <p className="text-sm text-[#41536A]">Search a destination to explore tours, attractions and experiences.</p>
@@ -998,10 +1032,10 @@ export default function ThingsToDo() {
           </>
         )}
 
-        {/* ─── Popular destinations (below results, compact) ─── */}
+        {/* ─── Other destinations seen in these results (compact) ─── */}
         {destinationsFromResults.length > 0 && (
           <div className="mt-14">
-            <h2 className="text-lg sm:text-xl font-bold text-[#0F172A] mb-4">Popular destinations</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-[#0F172A] mb-4">Other destinations in these results</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {destinationsFromResults.map((d) => (
                 <button
@@ -1082,7 +1116,8 @@ export default function ThingsToDo() {
             >
               <Sparkles className="w-5 h-5 text-[#01367F]" aria-hidden="true" />
               <span className="text-sm font-semibold text-[#0F172A]">Optimizer</span>
-              <span className="text-xs text-[#41536A]">Find your best order</span>
+              {/* The optimizer analyses one route — it does not order an itinerary. */}
+              <span className="text-xs text-[#41536A]">Cost, timing and layovers</span>
             </Link>
           </div>
         </div>
@@ -1186,15 +1221,6 @@ export default function ThingsToDo() {
                     />
                     <span className="text-sm">Skip the line</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={mobileDraft.instantOnly}
-                      onChange={(e) => setMobileDraft({ ...mobileDraft, instantOnly: e.target.checked })}
-                      className="rounded border-[#D8E0E7] text-[#01367F] focus:ring-[#01367F]"
-                    />
-                    <span className="text-sm">Instant ticket</span>
-                  </label>
                 </div>
               </div>
 
@@ -1239,7 +1265,6 @@ export default function ThingsToDo() {
                     selectedRating: "any",
                     wheelchairOnly: false,
                     skipLineOnly: false,
-                    instantOnly: false,
                     sort: "popularity_desc",
                   })
                 }
