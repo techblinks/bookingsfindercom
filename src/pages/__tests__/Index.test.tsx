@@ -79,7 +79,8 @@ describe("Homepage structure", () => {
     renderIndex();
     // The old "Search available flights" H2 introduced a search section that
     // sat below the fold. The search is now the first viewport, headed by the H1.
-    expect(screen.getByText("Everything you need to plan your trip")).toBeTruthy();
+    // D4 replaced the "Everything you need to plan your trip" card grid.
+    expect(screen.getByText("Plan the rest of your trip")).toBeTruthy();
     expect(screen.getByText("How BookingsFinder works")).toBeTruthy();
   });
 
@@ -186,34 +187,32 @@ describe("Analytics — internal navigation boundary", () => {
     });
   });
 
-  it("product card click fires logInternalNavigation with correct payload", () => {
+  it("planning tool click fires logInternalNavigation with correct payload", () => {
     renderIndex();
-    const card = screen.getByText("Find stays").closest("a")!;
+    const card = screen.getByText("Estimate your trip cost").closest("a")!;
     card.click();
     expect(mockLogInternalNavigation).toHaveBeenCalledTimes(1);
     expect(mockLogInternalNavigation).toHaveBeenCalledWith({
-      label: "Find stays",
+      label: "plan_trip_cost",
       source: "homepage",
-      href: "/hotels",
+      href: "/trip-cost",
     });
   });
 
-  it("all four product cards fire analytics with correct hrefs", () => {
+  it("every lower planning destination fires analytics with the right href", () => {
     renderIndex();
-    const expected = [
-      ["Compare flights", "/flights"],
-      ["Find stays", "/hotels"],
-      ["Estimate trip costs", "/trip-cost"],
-      ["Optimize your itinerary", "/optimizer"],
+    const expected: [string, string, string][] = [
+      ["Estimate your trip cost", "plan_trip_cost", "/trip-cost"],
+      ["Check a route before you book", "plan_optimizer", "/optimizer"],
+      ["Compare fares", "plan_flights", "/flights"],
+      ["Browse hotel options", "plan_stays", "/hotels"],
+      ["Find tours and tickets", "plan_things", "/things-to-do"],
     ];
-    for (const [title, href] of expected) {
-      const card = screen.getByText(title).closest("a")!;
-      card.click();
-      expect(mockLogInternalNavigation).toHaveBeenCalledWith(
-        expect.objectContaining({ label: title, source: "homepage", href })
-      );
+    for (const [text, label, href] of expected) {
+      screen.getByText(text).closest("a")!.click();
+      expect(mockLogInternalNavigation).toHaveBeenCalledWith({ label, source: "homepage", href });
     }
-    expect(mockLogInternalNavigation).toHaveBeenCalledTimes(4);
+    expect(mockLogInternalNavigation).toHaveBeenCalledTimes(expected.length);
   });
 
   it("does NOT call logAffiliateClick for homepage CTAs", async () => {
@@ -221,7 +220,7 @@ describe("Analytics — internal navigation boundary", () => {
     renderIndex();
     const nav = screen.getByRole("navigation", { name: "Travel categories" });
     within(nav).getByText("Stays").closest("a")!.click();
-    screen.getByText("Find stays").closest("a")!.click();
+    screen.getByText("Estimate your trip cost").closest("a")!.click();
     expect(logAffiliateClick).not.toHaveBeenCalled();
   });
 
@@ -240,8 +239,9 @@ describe("Analytics — internal navigation boundary", () => {
   it("analytics rejection does not block navigation", () => {
     mockLogInternalNavigation.mockImplementationOnce(() => { throw new Error("network down"); });
     renderIndex();
-    const heroBtn = screen.getAllByText("Search flights").find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
-    expect(() => heroBtn.click()).not.toThrow();
+    // D4 removed the lower "Search flights" CTA; any tracked link proves the boundary.
+    const link = screen.getByText("Estimate your trip cost").closest("a")!;
+    expect(() => link.click()).not.toThrow();
   });
 
   it("no unsafe Parameters<typeof ...> type assertion in source", () => {
@@ -261,32 +261,36 @@ describe("How BookingsFinder works section", () => {
     expect(screen.getByText("How BookingsFinder works")).toBeTruthy();
   });
 
-  it("renders supporting copy", () => {
+  /*
+   * D4 dropped the section's supporting sentence: it restated the three steps
+   * immediately below it, and the heading plus the steps already carry it.
+   */
+  it("renders no restating supporting sentence", () => {
     renderIndex();
-    expect(screen.getByText("Search, plan and continue to trusted travel providers from one place.")).toBeTruthy();
+    expect(screen.queryByText("Search, plan and continue to trusted travel providers from one place.")).toBeNull();
   });
 
   it("renders all three steps", () => {
     renderIndex();
-    expect(screen.getByText("Search and compare")).toBeTruthy();
-    expect(screen.getByText("Plan the full trip")).toBeTruthy();
-    expect(screen.getByText("Continue with the provider")).toBeTruthy();
+    expect(screen.getByText(/Search and compare/)).toBeTruthy();
+    expect(screen.getByText(/Plan the full trip/)).toBeTruthy();
+    expect(screen.getByText(/Continue with the provider/)).toBeTruthy();
   });
 
-  it("renders step labels 1, 2, 3", () => {
+  it("numbers the steps 1, 2, 3", () => {
     renderIndex();
-    expect(screen.getByText("Step 1")).toBeTruthy();
-    expect(screen.getByText("Step 2")).toBeTruthy();
-    expect(screen.getByText("Step 3")).toBeTruthy();
+    const steps = document.querySelectorAll("ol > li");
+    expect(steps.length).toBe(3);
+    for (const n of ["1.", "2.", "3."]) {
+      expect(screen.getByText(n)).toBeTruthy();
+    }
   });
 
   it("renders step descriptions", () => {
     renderIndex();
-    expect(screen.getByText(/Search available travel options/)).toBeTruthy();
-    // "Estimate trip costs" appears in product cards too — use getAllByText
-    const estimateEls = screen.getAllByText(/Estimate trip costs/);
-    expect(estimateEls.length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Review current prices, availability and booking terms/)).toBeTruthy();
+    expect(screen.getByText("Search flights, stays and things to do from one place.")).toBeTruthy();
+    expect(screen.getByText("Estimate what the trip may cost and organise the details.")).toBeTruthy();
+    expect(screen.getByText("Check current prices and booking terms on the provider's site.")).toBeTruthy();
   });
 
   it("heading is an H2", () => {
@@ -413,68 +417,45 @@ describe("Trust and transparency section", () => {
   });
 });
 
-// ── SECTION 3: Final CTA ────────────────────────────────────────
+// ── SECTION 3: Final CTA — removed in D4 ────────────────────────
 
-describe("Final CTA section", () => {
+describe("Final CTA section is gone", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("renders the CTA heading", () => {
+  it("renders no closing CTA band", () => {
     renderIndex();
-    expect(screen.getByText("Ready to start planning?")).toBeTruthy();
+    expect(screen.queryByText("Ready to start planning?")).toBeNull();
+    expect(screen.queryByText("Search available flights or estimate the full cost of your next trip.")).toBeNull();
   });
 
-  it("renders supporting CTA copy", () => {
+  /*
+   * The whole point of D1 was putting an operable search in the first viewport.
+   * A second "Search flights" button at the bottom of the page could only send
+   * the visitor back to it, so it was duplication, not conversion.
+   */
+  it("offers no second Search flights CTA below the band", () => {
     renderIndex();
-    expect(screen.getByText("Search available flights or estimate the full cost of your next trip.")).toBeTruthy();
+    expect(screen.queryByText("Search flights")).toBeNull();
+    expect(document.querySelectorAll('a[href="#flight-search"]')).toHaveLength(0);
   });
 
-  it("CTA 'Search flights' links to #flight-search", () => {
+  it("keeps the trip cost planner reachable, now leading the planning section", () => {
     renderIndex();
-    const searchButtons = screen.getAllByText("Search flights");
-    const ctaButton = searchButtons.find(
-      b => b.closest("a")?.getAttribute("href") === "#flight-search"
-    );
-    expect(ctaButton).toBeTruthy();
-  });
-
-  it("CTA 'Plan trip costs' links to /trip-cost", () => {
-    renderIndex();
-    const planButtons = screen.getAllByText("Plan trip costs");
-    expect(planButtons.length).toBeGreaterThanOrEqual(1);
-    const planLink = planButtons.find(
-      b => b.closest("a")?.getAttribute("href") === "/trip-cost"
-    );
-    expect(planLink).toBeTruthy();
-  });
-
-  it("final CTA section has an H2", () => {
-    renderIndex();
-    const heading = screen.getByText("Ready to start planning?");
-    expect(heading.tagName).toBe("H2");
-  });
-
-  it("final CTA uses BookingsFinder brand colors", () => {
-    renderIndex();
-    // The CTA section uses the dark navy background bg-[#0A1F44]
-    const sections = document.querySelectorAll("section");
-    const ctaSection = Array.from(sections).find(s =>
-      s.textContent?.includes("Ready to start planning?")
-    );
-    expect(ctaSection).toBeTruthy();
-    expect(ctaSection!.className).toContain("001D45");
+    const link = screen.getByText("Estimate your trip cost").closest("a")!;
+    expect(link.getAttribute("href")).toBe("/trip-cost");
   });
 });
 
 // ── Section ordering ─────────────────────────────────────────────
 
 describe("Homepage section order", () => {
-  it("How BookingsFinder works appears after product cards", () => {
+  it("How BookingsFinder works appears after the planning section", () => {
     renderIndex();
     const allText = document.body.textContent || "";
-    const productsIdx = allText.indexOf("Everything you need to plan your trip");
+    const planIdx = allText.indexOf("Plan the rest of your trip");
     const howIdx = allText.indexOf("How BookingsFinder works");
-    expect(productsIdx).toBeGreaterThan(0);
-    expect(howIdx).toBeGreaterThan(productsIdx);
+    expect(planIdx).toBeGreaterThan(0);
+    expect(howIdx).toBeGreaterThan(planIdx);
   });
 
   it("Trust and transparency appears after How BookingsFinder works", () => {
@@ -485,12 +466,11 @@ describe("Homepage section order", () => {
     expect(trustIdx).toBeGreaterThan(howIdx);
   });
 
-  it("Final CTA appears after Trust and transparency", () => {
+  it("trust is the last section before the footer", () => {
     renderIndex();
-    const allText = document.body.textContent || "";
-    const trustIdx = allText.indexOf("Trust and transparency");
-    const ctaIdx = allText.indexOf("Ready to start planning?");
-    expect(ctaIdx).toBeGreaterThan(trustIdx);
+    const main = document.querySelector("main")!;
+    const headings = Array.from(main.querySelectorAll("h2")).map(h => h.textContent?.trim());
+    expect(headings[headings.length - 1]).toBe("Trust and transparency");
   });
 });
 
@@ -568,7 +548,14 @@ describe("#flight-search anchor exclusivity", () => {
         expect(allowed.has(href)).toBe(true);
       }
     }
-    // At least one #flight-search anchor must exist
-    expect(hrefs.filter(h => h === "#flight-search").length).toBeGreaterThanOrEqual(1);
+  });
+
+  /*
+   * D4 removed the only link pointing at it, but the target must survive:
+   * /#flight-search is a real entry URL from outside the SPA.
+   */
+  it("keeps the #flight-search target on the page", () => {
+    renderIndex();
+    expect(document.getElementById("flight-search")).toBeTruthy();
   });
 });

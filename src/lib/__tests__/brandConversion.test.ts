@@ -99,10 +99,19 @@ describe("Conversion variant usage — source checks", () => {
     expect(source).toContain('variant="conversion"');
   });
 
-  it("DesktopHome CTAs use ctaPrimary/ctaSecondary (conversion family)", () => {
+  /*
+   * D4 removed the closing "Ready to start planning?" band, which was the only
+   * place DesktopHome used the conversion family. The homepage's one conversion
+   * CTA is now the real Search flights button inside ModernFlightSearch (see
+   * above) — so the contract here is that the page delegates rather than
+   * carrying a second orange button of its own.
+   */
+  it("DesktopHome owns no conversion CTA of its own", () => {
     const source = readFileSync("src/pages/home/DesktopHome.tsx", "utf-8");
-    expect(source).toContain("ctaPrimary");
-    expect(source).toContain("ctaSecondary");
+    expect(source).toContain("ModernFlightSearch");
+    expect(source).not.toContain("ctaPrimary");
+    expect(source).not.toContain("ctaSecondary");
+    expect(source).not.toContain('variant="conversion"');
   });
 });
 

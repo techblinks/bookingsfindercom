@@ -157,11 +157,15 @@ describe("DesktopHome — marketing hero removed", () => {
     expect(anchorCtas).toHaveLength(0);
   });
 
-  it("keeps the flight-search anchor target so existing lower links still work", () => {
+  /*
+   * D4 removed the lower CTA that linked back up to #flight-search, so the page
+   * now has no in-page anchor to it at all. The ID must survive regardless: it
+   * is the target of /#flight-search deep links from outside the SPA.
+   */
+  it("keeps the flight-search anchor target even with no link pointing at it", () => {
     renderDesktopHome();
     expect(band()).toBeTruthy();
-    const anchors = Array.from(document.querySelectorAll('a[href="#flight-search"]'));
-    expect(anchors.length).toBeGreaterThanOrEqual(1); // the lower CTA still points here
+    expect(band().id).toBe("flight-search");
   });
 });
 
@@ -183,12 +187,12 @@ describe("DesktopHome — preserved contracts", () => {
     expect(ld).toContain("SearchAction");
   });
 
-  it("keeps the lower homepage sections for a later phase", () => {
+  /* D4 rebuilt the lower page; D1's contract is only that it still exists below. */
+  it("keeps a lower page below the band", () => {
     renderDesktopHome();
-    expect(screen.getByText("Everything you need to plan your trip")).toBeTruthy();
+    expect(screen.getByText("Plan the rest of your trip")).toBeTruthy();
     expect(screen.getByText("How BookingsFinder works")).toBeTruthy();
     expect(screen.getByText("Trust and transparency")).toBeTruthy();
-    expect(screen.getByText("Ready to start planning?")).toBeTruthy();
   });
 
   it("adds no returning-user, AI or trip-workspace surface in this phase", () => {
