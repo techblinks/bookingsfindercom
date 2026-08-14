@@ -9,6 +9,7 @@ import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { SectionContainer } from "@/components/home-v2/SectionContainer";
 import { SectionHeading } from "@/components/home-v2/SectionHeading";
 import { logInternalNavigation } from "@/lib/analytics";
+import DesktopRecentActivitySection from "./DesktopRecentActivitySection";
 
 const safeTrack = (label: string, href: string) => {
   try { logInternalNavigation({ label, source: "homepage", href }); } catch (_) {}
@@ -137,6 +138,9 @@ const DesktopHome = () => (
             </div>
           </div>
         </div>
+
+        {/* Pick up where you left off — renders itself only when there is genuine recent activity */}
+        <DesktopRecentActivitySection />
 
         {/* Product Cards */}
         <section className="py-16 sm:py-20 bg-white" aria-labelledby="products-heading">
