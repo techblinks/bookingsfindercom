@@ -125,17 +125,53 @@ interface ViatorPublicResult {
   status: "available" | "disabled" | "unavailable";
 }
 
+/**
+ * Customer sort vocabulary → the sort values viator-public accepts.
+ *
+ * The two providers do not share an ordering vocabulary. The app's default,
+ * `popularity_desc`, is a Tiqets value (`ordering=-popularity`); viator-public
+ * only accepts relevance | rating_high | price_low, so forwarding the raw
+ * customer value would fail its Zod enum and 400 the entire Viator search the
+ * moment the provider goes live. Translating here — in the provider adapter —
+ * keeps viator-public's contract strict rather than teaching it another
+ * provider's vocabulary.
+ *
+ * `popularity_desc` maps to `relevance`, Viator's own default. That is not a
+ * popularity claim: it is the order Viator returns when we express no
+ * preference, which is exactly what the customer-facing "Provider order" label
+ * says. `title_asc` has no Viator equivalent, so it maps to undefined and
+ * Viator applies its default rather than us faking an alphabetical sort.
+ */
+/** Keep only genuine numeric Viator tag IDs; undefined when there are none. */
+function viatorTagIds(tags: string[] | undefined): number[] | undefined {
+  if (!tags || tags.length === 0) return undefined;
+  const ids = tags
+    .map((t) => Number(t))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return ids.length > 0 ? ids : undefined;
+}
+
+const VIATOR_SORT: Record<string, "relevance" | "rating_high" | "price_low" | undefined> = {
+  popularity_desc: "relevance",
+  price_asc: "price_low",
+  title_asc: undefined,
+};
+
 async function fetchViatorPublic(filters: ExperienceSearchFilters): Promise<ViatorPublicResult> {
   try {
     const { data, error } = await supabase.functions.invoke("viator-public", {
       body: {
         action: "search",
         destinationId: filters.destinationId,
-        activityTags: filters.activityTags,
+        // viator-public requires genuine numeric Viator tag IDs. The UI's
+        // activity chips are free-text labels, so forwarding them would fail
+        // the same Zod enum the sort would. Until the real tag taxonomy is
+        // wired to the chips, nothing is sent rather than something invented.
+        activityTags: viatorTagIds(filters.activityTags),
         minPrice: filters.minPrice,
         maxPrice: filters.maxPrice,
         freeCancellation: filters.freeCancellation,
-        sort: filters.sort,
+        sort: filters.sort ? VIATOR_SORT[filters.sort] : undefined,
         pageSize: filters.pageSize || 10,
       },
     });

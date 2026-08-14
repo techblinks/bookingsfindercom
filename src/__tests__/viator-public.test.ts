@@ -802,20 +802,16 @@ describe("Aggregator", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("Destinations & tags", () => {
-  it("35. destinations endpoint defined (placeholder, not called yet)", () => {
-    // The viator-public function should define a 'destinations' action
-    if (viatorPublicSrc) {
-      expect(viatorPublicSrc).toMatch(/destinations/);
-    }
-    // The frontend aggregator does not yet call it (placeholder)
-    // This is acceptable — it only validates the endpoint exists
+  it("35. destinations action calls the real taxonomy endpoint", () => {
+    // Live sandbox: the documented /v1/taxonomy/destinations 404s on version 2.0;
+    // the real path is /partner/destinations.
+    expect(viatorPublicSrc).toContain('"/destinations"');
+    expect(viatorPublicSrc).not.toMatch(/destinations endpoint not yet implemented/);
   });
 
-  it("36. tags endpoint defined (placeholder, not called yet)", () => {
-    // The viator-public function should define a 'tags' action
-    if (viatorPublicSrc) {
-      expect(viatorPublicSrc).toMatch(/tags/);
-    }
+  it("36. tags action calls the real tags endpoint", () => {
+    expect(viatorPublicSrc).toContain('"/products/tags"');
+    expect(viatorPublicSrc).not.toMatch(/tags endpoint not yet implemented/);
   });
 
   it("37. no invented tag IDs or destination names", () => {

@@ -15,7 +15,9 @@
 
  *
  * POST only. No authentication required (intentionally public).
- * Supports three actions: `search`, `destinations` (placeholder), `tags` (placeholder).
+ * Supports four read-only actions: `status`, `search`, `destinations`, `tags`.
+ * These are exactly the three Basic Access golden-path endpoints, plus a
+ * zero-upstream-call status probe. Sandbox host only.
  *
  * DISABLED BY DEFAULT:
  * - Returns `{ provider: "viator", status: "disabled", products: [] }` with 200
@@ -44,10 +46,18 @@
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { normalizeViatorProduct } from "../_shared/viator-normalizer.ts";
+import {
+  normalizeViatorDestination,
+  normalizeViatorProduct,
+  normalizeViatorTag,
+} from "../_shared/viator-normalizer.ts";
 import type {
+  NormalizedViatorDestination,
   NormalizedViatorProduct,
+  NormalizedViatorTag,
+  ViatorDestinationRaw,
   ViatorProductRaw,
+  ViatorTagRaw,
 } from "../_shared/viator-normalizer.ts";
 
 // ═══════════════════════════════════════════════════════════════
@@ -148,13 +158,13 @@ interface ViatorSortOption {
 }
 
 const SORT_MAP: Record<string, ViatorSortOption> = {
-  relevance: { sort: "RELEVANCE", order: "DESCENDING" },
+  relevance: { sort: "DEFAULT", order: "DESCENDING" },
   rating_high: { sort: "TRAVELER_RATING", order: "DESCENDING" },
   price_low: { sort: "PRICE", order: "ASCENDING" },
 };
 
 const DEFAULT_SORT: ViatorSortOption = {
-  sort: "RELEVANCE",
+  sort: "DEFAULT",
   order: "DESCENDING",
 };
 
@@ -197,8 +207,10 @@ async function generateCacheKey(
 }
 
 interface CachedPayload {
-  products: NormalizedViatorProduct[];
+  products?: NormalizedViatorProduct[];
   totalCount?: number;
+  destinations?: NormalizedViatorDestination[];
+  tags?: NormalizedViatorTag[];
 }
 
 interface CacheEntry {
@@ -429,6 +441,102 @@ async function viatorPost<T>(
   return { data: parsed as T, status: res.status, trackingId };
 }
 
+/**
+ * Read-only GET against the Viator Partner API.
+ *
+ * The taxonomy endpoints are GET; /products/search is POST. Both go through the
+ * same hostname allow-list (enforced once at startup on VIATOR_BASE_URL) and
+ * the same key handling — the key is read from the environment per request and
+ * never returned, logged or cached. `endpoint` is always a literal from this
+ * file: no caller-supplied path or host ever reaches here, so there is no
+ * proxying and no SSRF surface.
+ */
+async function viatorGet<T>(
+  endpoint: string,
+  timeoutMs: number = VIATOR_TIMEOUT_MS,
+): Promise<{ data: T; status: number; trackingId: string | null }> {
+  const apiKey = Deno.env.get("VIATOR_API_KEY");
+  if (!apiKey) {
+    throw new ViatorUpstreamError(
+      "auth_failure",
+      "[viator-public] VIATOR_API_KEY environment variable is not set.",
+      null,
+      null,
+    );
+  }
+
+  const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const url = `${VIATOR_BASE_URL.replace(/\/$/, "")}${normalizedEndpoint}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "exp-api-key": apiKey,
+        Accept: "application/json;version=2.0",
+        "Accept-Language": "en-AU",
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ViatorUpstreamError(
+        "timeout",
+        `[viator-public] Request to ${endpoint} timed out after ${timeoutMs} ms.`,
+        null,
+        null,
+      );
+    }
+    throw new ViatorUpstreamError(
+      "network",
+      `[viator-public] Network error calling ${endpoint}.`,
+      null,
+      null,
+    );
+  }
+  clearTimeout(timer);
+
+  const trackingId = res.headers.get("X-Unique-ID") ?? null;
+  const bodyText = await res.text();
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    throw new ViatorUpstreamError(
+      "parse",
+      `[viator-public] Failed to parse JSON response from ${endpoint} (status ${res.status}).`,
+      res.status,
+      trackingId,
+    );
+  }
+
+  if (!res.ok) {
+    const code = {
+      400: "validation",
+      401: "auth_failure",
+      403: "access_denied",
+      404: "not_found",
+      429: "rate_limit",
+      500: "upstream",
+      503: "unavailable",
+    }[res.status] || "unknown";
+    throw new ViatorUpstreamError(
+      code,
+      `[viator-public] Viator API returned ${res.status} for ${endpoint}.`,
+      res.status,
+      trackingId,
+    );
+  }
+
+  return { data: parsed as T, status: res.status, trackingId };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Search body builder — translates provider-neutral → Viator POST
 // ═══════════════════════════════════════════════════════════════
@@ -585,7 +693,7 @@ Deno.serve(async (req: Request) => {
     if (cacheResult.type === "hit" && cacheResult.entry) {
       return json(
         {
-          products: cacheResult.entry.payload.products,
+          products: cacheResult.entry.payload.products ?? [],
           totalCount: cacheResult.entry.payload.totalCount ?? null,
           fetchedAt: cacheResult.entry.fetched_at,
           cacheStatus: "hit",
@@ -633,7 +741,7 @@ Deno.serve(async (req: Request) => {
       if (staleFallback) {
         return json(
           {
-            products: staleFallback.payload.products,
+            products: staleFallback.payload.products ?? [],
             totalCount: staleFallback.payload.totalCount ?? null,
             fetchedAt: staleFallback.fetched_at,
             cacheStatus: "stale",
@@ -657,15 +765,69 @@ Deno.serve(async (req: Request) => {
         details: parsed.error.flatten(),
       });
     }
-    return json(
-      {
-        destinations: [],
-        provider: "viator",
-        note: "destinations endpoint not yet implemented",
-      },
-      200,
-      headers,
-    );
+
+    // No caller input participates in this request, so the cache key is a
+    // constant for the action. The key never contains credentials.
+    const cacheKey = await generateCacheKey("viator", "destinations", {});
+    const cacheResult = await getCachedEntry(cacheKey, DESTINATIONS_TTL_SEC);
+
+    if (cacheResult.type === "hit" && cacheResult.entry) {
+      return json(
+        {
+          provider: "viator",
+          destinations: cacheResult.entry.payload.destinations ?? [],
+          fetchedAt: cacheResult.entry.fetched_at,
+          cacheStatus: "hit",
+        },
+        200,
+        headers,
+      );
+    }
+
+    const staleFallback = cacheResult.type === "stale" ? cacheResult.entry : null;
+
+    try {
+      const upstream = await viatorGet<{ destinations?: ViatorDestinationRaw[] }>(
+        "/destinations",
+      );
+
+      const rawDestinations = Array.isArray(upstream.data?.destinations)
+        ? upstream.data.destinations
+        : [];
+      // Untrustworthy rows are dropped, not defaulted.
+      const destinations = rawDestinations
+        .map(normalizeViatorDestination)
+        .filter((d): d is NormalizedViatorDestination => d !== null);
+
+      const now = new Date().toISOString();
+      upsertCacheEntry(cacheKey, { destinations }, DESTINATIONS_TTL_SEC, upstream.trackingId);
+
+      return json(
+        {
+          provider: "viator",
+          destinations,
+          totalCount: destinations.length,
+          fetchedAt: now,
+          cacheStatus: "miss",
+        },
+        200,
+        headers,
+      );
+    } catch (e: unknown) {
+      if (staleFallback) {
+        return json(
+          {
+            provider: "viator",
+            destinations: staleFallback.payload.destinations ?? [],
+            fetchedAt: staleFallback.fetched_at,
+            cacheStatus: "stale",
+          },
+          200,
+          headers,
+        );
+      }
+      return handleUpstreamError(e as ViatorUpstreamError, headers);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -679,15 +841,64 @@ Deno.serve(async (req: Request) => {
         details: parsed.error.flatten(),
       });
     }
-    return json(
-      {
-        tags: [],
-        provider: "viator",
-        note: "tags endpoint not yet implemented",
-      },
-      200,
-      headers,
-    );
+
+    const cacheKey = await generateCacheKey("viator", "tags", {});
+    const cacheResult = await getCachedEntry(cacheKey, TAGS_TTL_SEC);
+
+    if (cacheResult.type === "hit" && cacheResult.entry) {
+      return json(
+        {
+          provider: "viator",
+          tags: cacheResult.entry.payload.tags ?? [],
+          fetchedAt: cacheResult.entry.fetched_at,
+          cacheStatus: "hit",
+        },
+        200,
+        headers,
+      );
+    }
+
+    const staleFallback = cacheResult.type === "stale" ? cacheResult.entry : null;
+
+    try {
+      const upstream = await viatorGet<{ tags?: ViatorTagRaw[] }>("/products/tags");
+
+      const rawTags = Array.isArray(upstream.data?.tags) ? upstream.data.tags : [];
+      // Real provider taxonomy only — no popularity, no product counts, no
+      // BookingsFinder marketing labels.
+      const tags = rawTags
+        .map(normalizeViatorTag)
+        .filter((t): t is NormalizedViatorTag => t !== null);
+
+      const now = new Date().toISOString();
+      upsertCacheEntry(cacheKey, { tags }, TAGS_TTL_SEC, upstream.trackingId);
+
+      return json(
+        {
+          provider: "viator",
+          tags,
+          totalCount: tags.length,
+          fetchedAt: now,
+          cacheStatus: "miss",
+        },
+        200,
+        headers,
+      );
+    } catch (e: unknown) {
+      if (staleFallback) {
+        return json(
+          {
+            provider: "viator",
+            tags: staleFallback.payload.tags ?? [],
+            fetchedAt: staleFallback.fetched_at,
+            cacheStatus: "stale",
+          },
+          200,
+          headers,
+        );
+      }
+      return handleUpstreamError(e as ViatorUpstreamError, headers);
+    }
   }
 
   return publicError(`Unknown action: ${action}`, 400, headers);

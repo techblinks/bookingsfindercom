@@ -16,10 +16,26 @@
 // Raw upstream types (Viator Basic Access /products/search response)
 // ═══════════════════════════════════════════════════════════════
 
-export interface ViatorImageRaw {
-  url: string;
+/**
+ * Live /products/search image shape.
+ *
+ * The URL is NOT on the image row: each image carries a `variants` array of
+ * sized renditions, and the row itself only describes provenance. Verified
+ * against the sandbox — an earlier `{ url, width, height }` assumption meant no
+ * Viator image would ever have resolved.
+ */
+export interface ViatorImageVariantRaw {
+  url?: string;
   width?: number;
   height?: number;
+}
+
+export interface ViatorImageRaw {
+  imageSource?: string;
+  caption?: string;
+  isCover?: boolean;
+  variants?: ViatorImageVariantRaw[];
+  /** Not returned by the sandbox; kept optional so a future credit is honoured. */
   credit?: string;
 }
 
@@ -31,10 +47,14 @@ export interface ViatorProductRaw {
   reviews?: { totalReviews: number; combinedAverageRating: number };
   pricing?: { summary?: { fromPrice?: number }; currency?: string };
   productUrl?: string;
-  destinations?: Array<{ ref: string; name: string; type: string }>;
+  /** Live rows are { ref, primary } only — no name, so `city` stays null. */
+  destinations?: Array<{ ref?: string; primary?: boolean; name?: string; type?: string }>;
   tags?: number[];
   flags?: string[];
+  /** Not returned by the sandbox; free cancellation arrives via flags. */
   bookingInfo?: { freeCancellation?: boolean };
+  /** Present live as { fixedDurationInMinutes } — not yet surfaced downstream. */
+  duration?: { fixedDurationInMinutes?: number; variableDurationFromMinutes?: number; variableDurationToMinutes?: number };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -173,12 +193,14 @@ export function selectViatorImage(
 ): { url: string | null } {
   if (!images || images.length === 0) return { url: null };
 
-  // Filter to valid images with safe URLs
+  // Flatten every image's variants: the renditions carry the URLs and sizes.
   const valid: Array<{ url: string; width?: number; height?: number }> = [];
   for (const img of images) {
-    const safe = safeViatorImageUrl(img.url);
-    if (safe) {
-      valid.push({ url: safe, width: img.width, height: img.height });
+    for (const variant of img?.variants ?? []) {
+      const safe = safeViatorImageUrl(variant?.url);
+      if (safe) {
+        valid.push({ url: safe, width: variant.width, height: variant.height });
+      }
     }
   }
 
@@ -363,4 +385,138 @@ export function normalizeViatorProduct(
     // Outbound
     outboundUrl,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Taxonomy — destinations and tags
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Raw destination from GET /v1/taxonomy/destinations.
+ *
+ * Only fields the response is documented to carry are declared. Anything the
+ * upstream omits stays absent rather than being defaulted to a guess: a
+ * destination with no parent is a root, not a destination whose parent we
+ * invented.
+ */
+export interface ViatorDestinationRaw {
+  destinationId?: number;
+  name?: string;
+  type?: string;
+  parentDestinationId?: number;
+  lookupId?: string;
+  destinationUrl?: string;
+  defaultCurrencyCode?: string;
+  timeZone?: string;
+}
+
+/**
+ * The trustworthy taxonomy layer.
+ *
+ * Deliberately NOT a BookingsFinder destination: there is no slug and no
+ * canonical identity here. Public SEO identity belongs to BookingsFinder and is
+ * built on top of this in a later phase — a provider id must never reach a URL.
+ */
+export interface NormalizedViatorDestination {
+  destinationId: number;
+  name: string;
+  /** Viator's own taxonomy level, e.g. CITY / REGION / COUNTRY. Never inferred. */
+  type: string | null;
+  /** Null means "root", not "unknown". */
+  parentDestinationId: number | null;
+  lookupId: string | null;
+  defaultCurrencyCode: string | null;
+  timeZone: string | null;
+}
+
+const MAX_TAXONOMY_TEXT = 120;
+
+/** Trim and cap a free-text taxonomy field; empty becomes null, never "". */
+function taxonomyText(raw: unknown, max = MAX_TAXONOMY_TEXT): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+}
+
+/** Positive integer or null. Rejects 0, negatives, floats and non-numbers. */
+function taxonomyId(raw: unknown): number | null {
+  if (typeof raw !== "number" || !Number.isInteger(raw) || raw <= 0) return null;
+  return raw;
+}
+
+/**
+ * Normalise one destination. Returns null when the row cannot be trusted —
+ * a destination without a usable id or name is unusable downstream, and
+ * dropping it is safer than shipping a placeholder.
+ */
+export function normalizeViatorDestination(
+  raw: ViatorDestinationRaw | null | undefined,
+): NormalizedViatorDestination | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const destinationId = taxonomyId(raw.destinationId);
+  const name = taxonomyText(raw.name);
+  if (destinationId === null || name === null) return null;
+
+  return {
+    destinationId,
+    name,
+    type: taxonomyText(raw.type, 40),
+    parentDestinationId: taxonomyId(raw.parentDestinationId),
+    lookupId: taxonomyText(raw.lookupId, 60),
+    defaultCurrencyCode: taxonomyText(raw.defaultCurrencyCode, 8),
+    timeZone: taxonomyText(raw.timeZone, 60),
+  };
+}
+
+/** Raw tag from GET /products/tags. */
+export interface ViatorTagRaw {
+  tagId?: number;
+  parentTagIds?: number[];
+  allNamesByLocale?: Record<string, string>;
+}
+
+/**
+ * A real Viator tag.
+ *
+ * `name` comes from the provider's own locale map — it is never a
+ * BookingsFinder marketing label, and no popularity or product count is
+ * attached, because the taxonomy carries neither.
+ */
+export interface NormalizedViatorTag {
+  tagId: number;
+  name: string;
+  parentTagIds: number[] | null;
+}
+
+/** English name from the locale map, tolerating en / en-US / en-AU keys. */
+function englishTagName(names: Record<string, string> | undefined): string | null {
+  if (!names || typeof names !== "object") return null;
+  const direct = taxonomyText(names.en);
+  if (direct) return direct;
+  for (const key of Object.keys(names)) {
+    if (key.toLowerCase().startsWith("en")) {
+      const value = taxonomyText(names[key]);
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+/** Normalise one tag. Returns null when id or English name is unusable. */
+export function normalizeViatorTag(
+  raw: ViatorTagRaw | null | undefined,
+): NormalizedViatorTag | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const tagId = taxonomyId(raw.tagId);
+  const name = englishTagName(raw.allNamesByLocale);
+  if (tagId === null || name === null) return null;
+
+  const parents = Array.isArray(raw.parentTagIds)
+    ? raw.parentTagIds.map(taxonomyId).filter((id): id is number => id !== null)
+    : [];
+
+  return { tagId, name, parentTagIds: parents.length > 0 ? parents : null };
 }
