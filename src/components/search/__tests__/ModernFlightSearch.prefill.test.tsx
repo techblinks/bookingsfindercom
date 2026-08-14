@@ -69,7 +69,7 @@ function FlightPage() {
       <button onClick={() => navigate("/flights?origin=SYD&destination=MOW")}>go SYD-MOW</button>
       <button onClick={() => navigate("/flights?origin=SYD&destination=MEL")}>go SYD-MEL</button>
       <button onClick={() => navigate("/flights?origin=MEL&destination=MOW")}>go MEL-MOW</button>
-      <ModernFlightSearch prefill={parsed.prefill} hideMultiCity />
+      <ModernFlightSearch prefill={parsed.prefill} />
     </>
   );
 }

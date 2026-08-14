@@ -88,7 +88,7 @@ const FlightHero = ({ heading, prefill, hasPrefill, errorBanner }: FlightHeroPro
           {/* Left: search card (dominant) + microcopy + mobile image. */}
           <div className="min-w-0">
             <div id="flight-search" className="rounded-2xl border border-border bg-card px-2 py-4 shadow-elevated xl:p-4">
-              <ModernFlightSearch prefill={hasPrefill ? prefill : undefined} hideMultiCity />
+              <ModernFlightSearch prefill={hasPrefill ? prefill : undefined} />
             </div>
             <p className="mt-2.5 text-xs font-medium uppercase tracking-wider text-muted-foreground/80">
               Independent travel comparison · you book with the provider

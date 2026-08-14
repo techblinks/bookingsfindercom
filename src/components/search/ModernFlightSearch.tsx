@@ -8,7 +8,6 @@ import {
   Search,
   Users,
   ChevronDown,
-  Settings2,
   MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,19 +39,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Checkbox } from "@/components/ui/checkbox";
 import { validateFlightSearch, type FlightSearchFormValues } from "@/lib/flightSearchValidation";
 import { logSearch as logAnalyticsSearch } from "@/lib/analytics";
 import { resolveLocationDisplay } from "@/lib/locationResolution";
 
-type TripType = "roundtrip" | "oneway" | "multicity";
+/*
+ * Only what the search engine actually performs.
+ *
+ * Multi-city used to be offered here and was submitted as a round trip, and
+ * "Flexible dates (±3 days)" / "Include nearby airports" wrote query parameters
+ * that no consumer reads. A visible option must change the search, so all three
+ * are gone until they are genuinely implemented.
+ */
+type TripType = "roundtrip" | "oneway";
 
-interface ModernFlightSearchProps {  hideMultiCity?: boolean;
+interface ModernFlightSearchProps {
   /** Prefill values from URL params (for Edit flow and /flights form mode). */
   prefill?: Partial<FlightSearchFormValues>;
 }
@@ -79,7 +80,7 @@ function isDuplicateSubmission(params: string): boolean {
   return false;
 }
 
-const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps = {}) => {
+const ModernFlightSearch = ({ prefill }: ModernFlightSearchProps = {}) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { geoData } = useGeoLocation();
@@ -132,11 +133,6 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
     setFlightTo(prefilledDestination);
     setFlightToDisplay(resolveLocationDisplay(prefilledDestination));
   }, [prefilledDestination]);
-
-  // Advanced options
-  const [flexibleDates, setFlexibleDates] = useState(false);
-  const [nearbyAirports, setNearbyAirports] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // UI states
   const [fromSheetOpen, setFromSheetOpen] = useState(false);
@@ -203,7 +199,7 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
       children: passengers.children,
       infants: passengers.infants,
       cabinClass,
-      tripType: tripType === "multicity" ? "roundtrip" : tripType,
+      tripType,
     };
 
     const errors = validateFlightSearch(values);
@@ -228,14 +224,6 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
       params.append("returnDate", format(returnDate, "yyyy-MM-dd"));
     }
 
-    if (flexibleDates) {
-      params.append("flexibleDates", "true");
-    }
-
-    if (nearbyAirports) {
-      params.append("nearbyAirports", "true");
-    }
-
     const paramString = params.toString();
 
     // Phase 7A: Exactly-once analytics — fire-and-forget, deduped by sessionStorage
@@ -249,7 +237,7 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
         children: passengers.children,
         infants: passengers.infants,
         cabinClass,
-        tripType: tripType === "multicity" ? "roundtrip" : tripType,
+        tripType,
         landingPage: window.location.pathname,
       }).catch(() => {});
     }
@@ -499,7 +487,7 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: "roundtrip", label: "Round trip" },{ value: "oneway", label: "One way" },...(hideMultiCity ? [] : [{ value: "multicity", label: "Multi-city" }]),
+                    { value: "roundtrip", label: "Round trip" },{ value: "oneway", label: "One way" },
                   ].map((type) => (
                     <button
                       key={type.value}
@@ -650,51 +638,11 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
           </DrawerContent>
         </Drawer>
 
-        {/* More Options - Expandable */}
-        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <Settings2 className="h-4 w-4" />
-              More options
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform",
-                  advancedOpen && "rotate-180"
-                )}
-              />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 pb-2">
-            <label className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl cursor-pointer">
-              <Checkbox
-                checked={flexibleDates}
-                onCheckedChange={(checked) =>
-                  setFlexibleDates(checked as boolean)
-                }
-              />
-              <div>
-                <div className="text-sm font-medium">Flexible dates</div>
-                <div className="text-xs text-muted-foreground">
-                  Show prices for nearby dates
-                </div>
-              </div>
-            </label>
-            <label className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl cursor-pointer">
-              <Checkbox
-                checked={nearbyAirports}
-                onCheckedChange={(checked) =>
-                  setNearbyAirports(checked as boolean)
-                }
-              />
-              <div>
-                <div className="text-sm font-medium">Include nearby airports</div>
-                <div className="text-xs text-muted-foreground">
-                  Search airports within 100km
-                </div>
-              </div>
-            </label>
-          </CollapsibleContent>
-        </Collapsible>
+        {/*
+          * The "More options" disclosure held only the flexible-date and
+          * nearby-airport toggles. With those gone it would have opened onto
+          * nothing, so the control went with them.
+          */}
 
         {/* Search Button */}
         <Button
@@ -716,7 +664,7 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
       {/* Trip Type Pills */}
       <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl w-fit">
         {[
-          { value: "roundtrip", label: "Round trip" },{ value: "oneway", label: "One way" },...(hideMultiCity ? [] : [{ value: "multicity", label: "Multi-city" }]),
+          { value: "roundtrip", label: "Round trip" },{ value: "oneway", label: "One way" },
         ].map((type) => (
           <button
             key={type.value}
@@ -909,17 +857,6 @@ const ModernFlightSearch = ({ prefill, hideMultiCity }: ModernFlightSearchProps 
         </div>
       </div>
 
-      {/* Advanced Options */}
-      <div className="flex items-center gap-6 px-1">
-        <label className="flex items-center gap-2 cursor-pointer group">
-          <Checkbox checked={flexibleDates} onCheckedChange={(checked) => setFlexibleDates(checked as boolean)} />
-          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Flexible dates (±3 days)</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer group">
-          <Checkbox checked={nearbyAirports} onCheckedChange={(checked) => setNearbyAirports(checked as boolean)} />
-          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Include nearby airports</span>
-        </label>
-      </div>
     </div>
   );
 };
