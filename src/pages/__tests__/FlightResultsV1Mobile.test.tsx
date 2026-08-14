@@ -7,7 +7,10 @@ import FlightResults from "@/pages/FlightResults";
 
 const hoisted = vi.hoisted(() => ({ isMobile: false }));
 
-vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => hoisted.isMobile }));
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => hoisted.isMobile,
+  useIsBelowDesktop: () => hoisted.isMobile,
+}));
 vi.mock("@/hooks/useGeoLocation", () => ({
   useGeoLocation: () => ({ geoData: { currency: "USD", currencySymbol: "$", defaultOrigin: "BNE", defaultOriginName: "Brisbane" } }),
 }));

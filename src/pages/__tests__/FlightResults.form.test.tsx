@@ -10,7 +10,10 @@ const hoisted = vi.hoisted(() => ({ isMobile: false, navigate: vi.fn() }));
 
 // ── Mocks ──
 
-vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => hoisted.isMobile }));
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => hoisted.isMobile,
+  useIsBelowDesktop: () => hoisted.isMobile,
+}));
 vi.mock("@/hooks/useGeoLocation", () => ({
   useGeoLocation: () => ({ geoData: { currency: "USD", currencySymbol: "$", defaultOrigin: "BNE", defaultOriginName: "Brisbane" } }),
 }));
@@ -264,9 +267,28 @@ describe("FlightResults — Phase 7B landing page", () => {
     expect(screen.getByText("SYD")).toBeTruthy();
   });
 
-  it("Edit button preserves params in results mode", () => {
+  it("Edit opens the current search for editing instead of relinking to it", () => {
     render(<MemoryRouter initialEntries={["/flights?origin=BNE&destination=SYD&departureDate=2026-08-10&cabinClass=business"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
-    const editBtn = screen.getByText("Edit");
-    expect(editBtn.closest("a")?.getAttribute("href")).toContain("origin=BNE");
+    const editBtn = screen.getByRole("button", { name: "Edit" });
+    // Previously a link back to this same results URL, which did nothing.
+    expect(editBtn.closest("a")).toBeNull();
+
+    fireEvent.click(editBtn);
+    expect(screen.getByRole("region", { name: "Edit search" })).toBeTruthy();
+  });
+
+  it("Cancel leaves edit mode and returns to the results", () => {
+    render(<MemoryRouter initialEntries={["/flights?origin=BNE&destination=SYD&departureDate=2026-08-10"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByRole("region", { name: "Edit search" })).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
+    expect(screen.queryByRole("region", { name: "Edit search" })).toBeNull();
+  });
+
+  it("New search points at a fresh flight form, not this results URL", () => {
+    render(<MemoryRouter initialEntries={["/flights?origin=BNE&destination=SYD&departureDate=2026-08-10"]}><TripProvider><FlightResults /></TripProvider></MemoryRouter>);
+    const back = screen.getByRole("button", { name: "New search" });
+    expect(back.closest("a")?.getAttribute("href")).toBe("/flights");
   });
 });
