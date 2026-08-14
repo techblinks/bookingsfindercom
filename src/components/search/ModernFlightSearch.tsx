@@ -41,7 +41,8 @@ import {
 } from "@/components/ui/popover";
 import { validateFlightSearch, type FlightSearchFormValues } from "@/lib/flightSearchValidation";
 import { logSearch as logAnalyticsSearch } from "@/lib/analytics";
-import { resolveLocationDisplay } from "@/lib/locationResolution";
+import { resolveLocationDisplay, resolveLocationLabel } from "@/lib/locationResolution";
+import { recordActivity } from "@/lib/recentActivity";
 
 /*
  * Only what the search engine actually performs.
@@ -104,6 +105,27 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
   const [flightToDisplay, setFlightToDisplay] = useState(
     prefill?.destination ? resolveLocationDisplay(prefill.destination) : ""
   );
+
+  /*
+   * City names, tracked alongside the combobox display strings.
+   *
+   * The visible display is "City (CODE)" — right for an input the traveller is
+   * reading back, wrong for recent activity, which renders "Brisbane → Kathmandu"
+   * and would otherwise show "Brisbane (BNE) → Kathmandu (KTM)". Rather than
+   * parsing the code back out of a display string, the city is kept as the
+   * traveller actually chose it: airport.city when picked from the autocomplete,
+   * the resolved label for a prefilled code, the geo name for a geo default.
+   *
+   * Undefined is a legitimate value. An airport outside the resolver's map has
+   * no city name here, and recentActivity falls back to the IATA code — the
+   * existing safe behaviour. Nothing is inferred from a code.
+   */
+  const [flightFromCity, setFlightFromCity] = useState<string | undefined>(
+    resolveLocationLabel(prefill?.origin) ?? undefined
+  );
+  const [flightToCity, setFlightToCity] = useState<string | undefined>(
+    resolveLocationLabel(prefill?.destination) ?? undefined
+  );
   const [departureDate, setDepartureDate] = useState<Date | undefined>(
     prefill?.departureDate
   );
@@ -133,12 +155,14 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
     if (!prefilledOrigin) return;
     setFlightFrom(prefilledOrigin);
     setFlightFromDisplay(resolveLocationDisplay(prefilledOrigin));
+    setFlightFromCity(resolveLocationLabel(prefilledOrigin) ?? undefined);
   }, [prefilledOrigin]);
 
   useEffect(() => {
     if (!prefilledDestination) return;
     setFlightTo(prefilledDestination);
     setFlightToDisplay(resolveLocationDisplay(prefilledDestination));
+    setFlightToCity(resolveLocationLabel(prefilledDestination) ?? undefined);
   }, [prefilledDestination]);
 
   // UI states
@@ -153,16 +177,20 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
     if (geoData && !flightFrom && !prefill?.origin) {
       setFlightFrom(geoData.defaultOrigin);
       setFlightFromDisplay(`${geoData.defaultOriginName} (${geoData.defaultOrigin})`);
+      setFlightFromCity(geoData.defaultOriginName);
     }
   }, [geoData, flightFrom, prefill]);
 
   const swapLocations = () => {
     const tempCode = flightFrom;
     const tempDisplay = flightFromDisplay;
+    const tempCity = flightFromCity;
     setFlightFrom(flightTo);
     setFlightFromDisplay(flightToDisplay);
+    setFlightFromCity(flightToCity);
     setFlightTo(tempCode);
     setFlightToDisplay(tempDisplay);
+    setFlightToCity(tempCity);
   };
 
   const totalPassengers = passengers.adults + passengers.children + passengers.infants;
@@ -249,6 +277,37 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
       }).catch(() => {});
     }
 
+    /*
+     * Recent activity — parity with MobileFlightSearch, which has recorded here
+     * since Phase 2A. Desktop recorded nothing, so a traveller who searched only
+     * on desktop could never produce the flight continuation the desktop
+     * "Pick up where you left off" surface reads.
+     *
+     * This is the single submit boundary for every ModernFlightSearch host, and
+     * it is reached only after validateFlightSearch passes and only from an
+     * explicit Search flights click — never on mount, prefill, URL hydration or
+     * an invalid submit. Values come from the committed form, not the URL about
+     * to be built. recordActivity swallows its own storage failures, so it can
+     * never block the navigation below.
+     */
+    recordActivity({
+      kind: "flight",
+      origin: flightFrom.toUpperCase(),
+      destination: flightTo.toUpperCase(),
+      originLabel: flightFromCity || undefined,
+      destinationLabel: flightToCity || undefined,
+      departureDate: format(departureDate!, "yyyy-MM-dd"),
+      // One way never carries a return date, even if one was picked before the
+      // trip type changed.
+      returnDate: tripType === "roundtrip" && returnDate ? format(returnDate, "yyyy-MM-dd") : undefined,
+      travellers: {
+        adults: passengers.adults,
+        children: passengers.children,
+        infants: passengers.infants,
+      },
+      cabinClass,
+    });
+
     navigate(`/flights?${paramString}`);
   };
 
@@ -309,6 +368,7 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
                     setFlightFromDisplay(
                       airport ? `${airport.city} (${airport.code})` : code
                     );
+                    setFlightFromCity(airport?.city);
                     setFromSheetOpen(false);
                   }}
                   placeholder="Search airports or cities..."
@@ -359,6 +419,7 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
                     setFlightToDisplay(
                       airport ? `${airport.city} (${airport.code})` : code
                     );
+                    setFlightToCity(airport?.city);
                     setToSheetOpen(false);
                   }}
                   placeholder="Search airports or cities..."
@@ -715,6 +776,7 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
                   setFlightFromDisplay(
                     airport ? airport.city + " (" + airport.code + ")" : code
                   );
+                  setFlightFromCity(airport?.city);
                 }}
                 placeholder="City or airport"
                 className="text-[15px] font-semibold"
@@ -744,6 +806,7 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
                   setFlightToDisplay(
                     airport ? airport.city + " (" + airport.code + ")" : code
                   );
+                  setFlightToCity(airport?.city);
                 }}
                 placeholder="City or airport"
                 className="text-[15px] font-semibold"
