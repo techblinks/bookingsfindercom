@@ -8,6 +8,7 @@ import { TripRibbon } from "@/components/trip/TripRibbon";
 import { logInternalNavigation } from "@/lib/analytics";
 import { formatDateRangeDisplay, formatTravellers } from "@/lib/displayFormatters";
 import { TRUST_LINE_ITEMS } from "@/components/shared/TrustContent";
+import RecentActivitySection from "./RecentActivitySection";
 
 const safeTrack = (label: string, href: string) => {
   try { logInternalNavigation({ label, source: "homepage-mobile", href }); } catch (_) {}
@@ -113,6 +114,9 @@ export default function MobileHome() {
               ))}
             </ul>
           </section>
+
+          {/* Pick up where you left off — renders itself only when there is genuine recent activity */}
+          <RecentActivitySection />
 
           {/* Continue planning — only when trip context exists */}
           {hasTrip && (
