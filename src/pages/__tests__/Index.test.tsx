@@ -2,7 +2,7 @@
  * Homepage tests: structure, routes, claims, analytics, new sections.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -50,7 +50,7 @@ describe("Homepage structure", () => {
     renderIndex();
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s.length).toBe(1);
-    expect(h1s[0]).toHaveTextContent("Find, compare and plan your whole trip.");
+    expect(h1s[0]).toHaveTextContent("Plan the whole trip, not just the flight.");
   });
 
   it("renders BrandLogo", () => {
@@ -77,8 +77,10 @@ describe("Homepage structure", () => {
 
   it("has section headings", () => {
     renderIndex();
-    expect(screen.getByText("Search available flights")).toBeTruthy();
+    // The old "Search available flights" H2 introduced a search section that
+    // sat below the fold. The search is now the first viewport, headed by the H1.
     expect(screen.getByText("Everything you need to plan your trip")).toBeTruthy();
+    expect(screen.getByText("How BookingsFinder works")).toBeTruthy();
   });
 
   it("has exactly one canonical link at the correct URL", async () => {
@@ -160,29 +162,27 @@ describe("No duplicated logic", () => {
 describe("Analytics — internal navigation boundary", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("hero 'Search flights' CTA fires logInternalNavigation with correct payload", () => {
+  /*
+   * The hero's "Search flights" and "Explore tools" CTAs are gone: the search
+   * itself is now in the first viewport, so a button whose only job was to
+   * scroll down to it no longer has one. Category navigation replaces them.
+   */
+  it("category links fire logInternalNavigation with correct payloads", () => {
     renderIndex();
-    // Two "Search flights" buttons exist — the hero one links to #flight-search
-    const buttons = screen.getAllByText("Search flights");
-    const heroBtn = buttons.find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
-    heroBtn.click();
-    expect(mockLogInternalNavigation).toHaveBeenCalledTimes(1);
-    expect(mockLogInternalNavigation).toHaveBeenCalledWith({
-      label: "hero_search",
-      source: "homepage",
-      href: "#flight-search",
-    });
-  });
+    const nav = screen.getByRole("navigation", { name: "Travel categories" });
 
-  it("hero 'Explore tools' CTA fires logInternalNavigation with correct payload", () => {
-    renderIndex();
-    const btn = screen.getByText("Explore tools");
-    btn.click();
-    expect(mockLogInternalNavigation).toHaveBeenCalledTimes(1);
-    expect(mockLogInternalNavigation).toHaveBeenCalledWith({
-      label: "hero_explore_tools",
+    within(nav).getByText("Stays").closest("a")!.click();
+    expect(mockLogInternalNavigation).toHaveBeenLastCalledWith({
+      label: "category_stays",
       source: "homepage",
-      href: "/trip-cost",
+      href: "/hotels",
+    });
+
+    within(nav).getByText("Things to do").closest("a")!.click();
+    expect(mockLogInternalNavigation).toHaveBeenLastCalledWith({
+      label: "category_things",
+      source: "homepage",
+      href: "/things-to-do",
     });
   });
 
@@ -219,16 +219,16 @@ describe("Analytics — internal navigation boundary", () => {
   it("does NOT call logAffiliateClick for homepage CTAs", async () => {
     const { logAffiliateClick } = await import("@/lib/analytics");
     renderIndex();
-    const heroBtn = screen.getAllByText("Search flights").find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
-    heroBtn.click();
-    screen.getByText("Explore tools").click();
+    const nav = screen.getByRole("navigation", { name: "Travel categories" });
+    within(nav).getByText("Stays").closest("a")!.click();
+    screen.getByText("Find stays").closest("a")!.click();
     expect(logAffiliateClick).not.toHaveBeenCalled();
   });
 
   it("no type/action/sourcePage/placement fields sent to analytics", () => {
     renderIndex();
-    const heroBtn = screen.getAllByText("Search flights").find(b => b.closest("a")?.getAttribute("href") === "#flight-search")!;
-    heroBtn.click();
+    const nav = screen.getByRole("navigation", { name: "Travel categories" });
+    within(nav).getByText("Stays").closest("a")!.click();
     expect(mockLogInternalNavigation).toHaveBeenCalledTimes(1);
     const call = mockLogInternalNavigation.mock.calls[0][0];
     expect(call).not.toHaveProperty("type");
@@ -326,8 +326,10 @@ describe("How BookingsFinder works section", () => {
       }
     }
 
-    // Must have found at least one local image to validate
-    expect(checked.length).toBeGreaterThan(0);
+    // The homepage now ships no decorative imagery — the hero collage was
+    // removed so the first viewport carries the product instead. Any image that
+    // does appear must still resolve; there is no longer a minimum.
+    expect(checked.every(src => src.startsWith("/"))).toBe(true);
   });
 
   it("no remote image URLs are rendered", () => {
@@ -522,11 +524,10 @@ describe("Prohibited claims absent", () => {
 describe("Desktop homepage does not use mobile-only V2 structure", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("uses the desktop hero H1, not the mobile V2 one", () => {
+  it("shares the product positioning with mobile but not the mobile layout", () => {
     renderIndex();
     const h1 = screen.getByRole("heading", { level: 1 });
-    expect(h1).toHaveTextContent("Find, compare and plan your whole trip.");
-    expect(document.body.textContent).not.toContain("not just the flight");
+    expect(h1).toHaveTextContent("Plan the whole trip, not just the flight.");
   });
 
   it("does not render the mobile hero, search or quick-actions sections", () => {
