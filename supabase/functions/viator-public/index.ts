@@ -1,18 +1,10 @@
 /**
  * viator-public — DISABLED-BY-DEFAULT public Viator Basic Access proxy.
-
-  // ── Status ── (zero upstream calls)
-  if (action === "status") {
-    const parsed = statusSchema.safeParse(body);
-    if (!parsed.success) return errorResponse("Invalid status request", 400);
-    const enabled = Deno.env.get("VIATOR_PUBLIC_ENABLED") === "true";
-    const configured = !!Deno.env.get("VIATOR_API_KEY");
-    return jsonResponse({
-      provider: "viator",
-      status: !enabled ? "disabled" : !configured ? "misconfigured" : "enabled",
-    });
-  }
-
+ *
+ * STATUS — kill-switch truth only, never provider health:
+ * - Disabled (any action): `{ provider: "viator", status: "disabled", products: [] }`.
+ * - Enabled `action: "status"`: `{ provider: "viator", status: "enabled", products: [] }`.
+ * - The status action makes zero upstream calls, touches no cache and needs no API key.
  *
  * POST only. No authentication required (intentionally public).
  * Supports four read-only actions: `status`, `search`, `destinations`, `tags`.
@@ -661,8 +653,27 @@ Deno.serve(async (req: Request) => {
   const action = (rawBody as Record<string, unknown>).action;
   if (!action || typeof action !== "string") {
     return publicError(
-      "action is required (search | destinations | tags)",
+      "action is required (status | search | destinations | tags)",
       400,
+      headers,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ACTION: status — server kill-switch truth only (zero upstream)
+  // ═══════════════════════════════════════════════════════════
+
+  if (action === "status") {
+    const parsed = statusSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return publicError("Invalid status request", 400, headers);
+    }
+    // Reached only when SERVER_ENABLED === true (the disabled gate above
+    // returns for every action). No upstream call, no cache read/write, no
+    // destination/tag/search payload, no API key access, no env exposure.
+    return json(
+      { provider: "viator", status: "enabled", products: [] },
+      200,
       headers,
     );
   }
