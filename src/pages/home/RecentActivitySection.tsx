@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Plane, Ticket } from "lucide-react";
-import {
-  MAX_RECENT_ITEMS,
-  loadRecentActivity,
-  selectContinuationCandidate,
-  selectRecentItems,
-  type FlightActivity,
-  type RecentActivityEntry,
-  type ThingsActivity,
-} from "@/lib/recentActivity";
+import { type FlightActivity, type ThingsActivity } from "@/lib/recentActivity";
 import { formatDateRangeDisplay, formatTravellers } from "@/lib/displayFormatters";
-import { logInternalNavigation } from "@/lib/analytics";
+import {
+  RouteLine,
+  buildContinuationUrl,
+  buildRouteUrl,
+  buildThingsUrl,
+  placeLabel,
+  trackRecentActivity,
+  useRecentActivitySurface,
+} from "./recentActivitySurface";
 
 /**
  * "Pick up where you left off" — Mobile V2 Phase 2A-3.
@@ -33,85 +32,17 @@ import { logInternalNavigation } from "@/lib/analytics";
  * keep their model behaviour; they simply have no surface until hotel results
  * can restore a search reliably.
  *
+ * Selection and every restore URL live in ./recentActivitySurface, shared with
+ * the desktop surface so the two can never disagree about what is shown or
+ * where it goes. This file owns the mobile layout only.
+ *
  * Nothing here reads TripContext or writes any store.
  */
 
-const safeTrack = (label: string, href: string) => {
-  try {
-    logInternalNavigation({ label, source: "homepage-mobile", href });
-  } catch (_) {
-    /* analytics must never block navigation */
-  }
-};
-
-/** The label the traveller saw, falling back to the code they searched. */
-const placeLabel = (label: string | undefined, code: string) => label ?? code;
-
-/**
- * The full committed search, rebuilt field by field from stored values.
- * Parameters only — never a persisted URL, and never a tracking parameter.
- */
-function buildContinuationUrl(flight: FlightActivity): string {
-  const params = new URLSearchParams({
-    origin: flight.origin,
-    destination: flight.destination,
-  });
-  if (flight.departureDate) params.set("departureDate", flight.departureDate);
-  if (flight.returnDate) params.set("returnDate", flight.returnDate);
-  if (flight.travellers) {
-    const { adults, children, infants } = flight.travellers;
-    params.set("passengers", String(adults + children + infants));
-    params.set("adults", String(adults));
-    params.set("children", String(children));
-    params.set("infants", String(infants));
-  }
-  if (flight.cabinClass) params.set("cabinClass", flight.cabinClass);
-  return `/flights?${params.toString()}`;
-}
-
-/**
- * Route only. A compact shortcut means "this route again", so it deliberately
- * carries no dates: the search form opens for the route and the traveller
- * chooses when to travel rather than inheriting a stale answer.
- */
-function buildRouteUrl(flight: FlightActivity): string {
-  const params = new URLSearchParams({
-    origin: flight.origin,
-    destination: flight.destination,
-  });
-  return `/flights?${params.toString()}`;
-}
-
-/** City, plus the query if there was one. No filters, sort or pagination. */
-function buildThingsUrl(things: ThingsActivity): string {
-  const params = new URLSearchParams({ city: things.city });
-  if (things.query) params.set("q", things.query);
-  return `/things-to-do?${params.toString()}`;
-}
+const safeTrack = (label: string, href: string) => trackRecentActivity(label, href, "homepage-mobile");
 
 const ROW_CLASS =
   "flex min-h-[56px] w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left motion-safe:transition-colors hover:bg-primary/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
-
-/**
- * A route with two independent truncation boundaries.
- *
- * Origin and destination each shrink on their own, so a long origin can never
- * push the destination off the row: the two ends shrink in proportion to their
- * own length and the arrow between them never shrinks. Truncating one joined
- * string would have hidden where the traveller was actually going.
- */
-function RouteLine({ from, to, className }: { from: string; to: string; className: string }) {
-  return (
-    <span className={`flex min-w-0 items-center gap-1.5 ${className}`}>
-      {/* max-w keeps one long side from squeezing a short one that already fits */}
-      <span className="min-w-0 max-w-[60%] truncate">{from}</span>
-      <span aria-hidden="true" className="shrink-0 text-muted-foreground">
-        →
-      </span>
-      <span className="min-w-0 max-w-[60%] truncate">{to}</span>
-    </span>
-  );
-}
 
 function ContinuationCard({ flight }: { flight: FlightActivity }) {
   const from = placeLabel(flight.originLabel, flight.origin);
@@ -197,32 +128,10 @@ function ThingsShortcut({ things }: { things: ThingsActivity }) {
 }
 
 export default function RecentActivitySection() {
-  /*
-   * Storage is read after mount only: the first render must match whatever a
-   * server produced, and a homepage can never depend on localStorage being
-   * readable. loadRecentActivity already returns [] rather than throwing when
-   * the store is missing, unavailable or corrupt.
-   */
-  const [entries, setEntries] = useState<RecentActivityEntry[]>([]);
-
-  useEffect(() => {
-    setEntries(loadRecentActivity());
-  }, []);
-
-  const continuation = useMemo(() => selectContinuationCandidate(entries), [entries]);
-
-  const shortcuts = useMemo(
-    () =>
-      selectRecentItems(
-        entries.filter(entry => entry.kind !== "stay"),
-        continuation,
-        MAX_RECENT_ITEMS,
-      ),
-    [entries, continuation],
-  );
+  const { continuation, shortcuts, hasActivity } = useRecentActivitySurface();
 
   // No history, nothing eligible, or a first visit: the section does not exist.
-  if (!continuation && shortcuts.length === 0) return null;
+  if (!hasActivity) return null;
 
   return (
     <section className="mt-8" aria-labelledby="recent-activity-heading">
