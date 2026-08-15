@@ -26,6 +26,19 @@ export interface NormalizedProduct {
   rating: { average: number | null; count: number | null };
   wheelchairAccessible: boolean | null;
   skipTheLine: boolean | null;
+  /** Upstream tag IDs preserved verbatim (never derived or invented). */
+  tagIds: number[];
+  smartphoneTicket: boolean | null;
+  instantTicketDelivery: boolean | null;
+  promoLabel: string | null;
+  isPackage: boolean | null;
+  duration: string | null;
+  cancellation: string | null;
+  productCheckoutUrl: string | null;
+  city: string | null;
+  country: string | null;
+  cityId: number | null;
+  countryId: number | null;
   minPrice: { amount: number | null; currency: string | null };
   productUrl: string | null;
   /** Single best image for card display (medium > large > small > extra_large) */
@@ -150,8 +163,6 @@ export function normalizeProduct(raw: TiqetsProductRaw): NormalizedProduct {
     tagline: raw.tagline || null,
     description: raw.description || null,
     tagIds: raw.tag_ids?.slice() ?? [],
-    tagline: raw.tagline || null,
-    description: raw.description || null,
     destination: raw.destination
       ? { id: raw.destination.id, name: raw.destination.name, country: raw.destination.country }
       : null,

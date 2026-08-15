@@ -109,6 +109,7 @@ const searchSchema = z
       .max(80)
       .transform((s) => s.trim())
       .optional(),
+    destination_id: z.number().int().positive().optional(),
     page: z.number().int().min(1).max(20).default(1),
     page_size: z.union([z.literal(12), z.literal(24)]).default(12),
     sort: z
@@ -133,8 +134,8 @@ const searchSchema = z
     // ── Activity type / tag IDs ──
     tag_ids: z.array(z.number().int().positive()).max(10).optional(),
   })
-  .refine((d) => d.query || d.city_name, {
-    message: "At least one of query or city_name is required",
+  .refine((d) => d.query || d.city_name || d.destination_id, {
+    message: "At least one of query, city_name, or destination_id is required",
   })
   .refine(
     (d) => {
@@ -455,7 +456,7 @@ Deno.serve(async (req: Request) => {
         page: z.number().int().min(1).max(20).default(1),
         pageSize: z.number().int().min(1).max(50).default(20),
         sort: z.enum(["popularity", "rating", "price_asc"]).default("popularity"),
-      }).safeParse(body);
+      }).safeParse(rawBody);
       if (!parsed.success) return json({ error: "Invalid catalogue search" }, 400, headers);
 
       const q = parsed.data;
@@ -559,28 +560,31 @@ if (!action || typeof action !== "string") {
       const rawResults: TiqetsProductRaw[] =
         upstream.data.products || upstream.data.results || [];
 
-      // Filter: only products with sale_status === "on_sale"
+      // Normalize all products, then apply the same on-sale safety net as search.
       const products = rawResults.map(normalizeProduct);
-      console.log(`[tiqets-public] featured: upstream=${rawResults.length} products=${products.length}`);
+      const safeProducts = products.filter(
+        (p) => !p.saleStatus || p.saleStatus === "on_sale",
+      );
+      console.log(`[tiqets-public] featured: upstream=${rawResults.length} normalized=${products.length} on_sale=${safeProducts.length}`);
       const now = new Date().toISOString();
 
       // Write to cache (best-effort, never blocks response)
       upsertCacheEntry(
         cacheKey,
-        { products },
+        { products: safeProducts },
         FEATURED_TTL_SEC,
         upstream.upstreamRequestId || null,
       );
 
       return json(
         {
-          products,
+          products: safeProducts,
           fetchedAt: now,
           cacheStatus: "miss",
           upstreamRequestId: upstream.upstreamRequestId || null,
           diagnostics: {
             upstreamRawCount: rawResults.length,
-            filteredOnSaleCount: onSale.length,
+            filteredOnSaleCount: safeProducts.length,
             normalizedCount: products.length,
             imageDiagnostics: buildImageDiagnostics(rawResults),
           },
@@ -614,9 +618,9 @@ if (!action || typeof action !== "string") {
 
   // ── Destinations ── (read from durable index, not upstream)
   if (action === "destinations") {
-    const parsed = z.object({ action: z.literal("destinations") }).safeParse(body);
+    const parsed = z.object({ action: z.literal("destinations") }).safeParse(rawBody);
     if (!parsed.success) {
-      return errorResponse("Invalid destinations request", 400);
+      return publicError("Invalid destinations request", 400, headers);
     }
 
     try {
@@ -625,11 +629,7 @@ if (!action || typeof action !== "string") {
       const cacheResult = await getCachedEntry(cacheKey, 3600); // 1 hour TTL
 
       if (cacheResult.type === "hit" && cacheResult.entry) {
-        return jsonResponse({
-          destinations: cacheResult.entry.payload,
-          fetchedAt: cacheResult.entry.fetched_at,
-          cacheStatus: "hit" as const,
-        });
+        return json({ destinations: cacheResult.entry.payload, fetchedAt: cacheResult.entry.fetched_at, cacheStatus: "hit" }, 200, headers);
       }
 
       // Read from durable index
@@ -641,7 +641,7 @@ if (!action || typeof action !== "string") {
         .limit(200);
 
       if (error || !rows) {
-        return jsonResponse({ destinations: [], fetchedAt: new Date().toISOString(), cacheStatus: "miss" });
+        return json({ destinations: [], fetchedAt: new Date().toISOString(), cacheStatus: "miss" }, 200, headers);
       }
 
       const destinations = rows.map((r: Record<string, unknown>) => ({
@@ -660,14 +660,10 @@ if (!action || typeof action !== "string") {
       // Cache the result
       await upsertCacheEntry(cacheKey, { destinations } as any, 3600, null);
 
-      return jsonResponse({
-        destinations,
-        fetchedAt: new Date().toISOString(),
-        cacheStatus: "miss" as const,
-      });
+      return json({ destinations, fetchedAt: new Date().toISOString(), cacheStatus: "miss" }, 200, headers);
     } catch (err) {
       console.error("[tiqets-public] destinations error:", err);
-      return jsonResponse({ destinations: [], fetchedAt: new Date().toISOString(), cacheStatus: "miss" });
+      return json({ destinations: [], fetchedAt: new Date().toISOString(), cacheStatus: "miss" }, 200, headers);
     }
   }
 
@@ -723,7 +719,8 @@ if (action === "search") {
 
     if (body.query) params.set("search", body.query);
     if (body.city_name) params.set("destination", body.city_name);
-    if (body.min_rating) params.set("min_rating", String(body.min_rating));
+    if (body.destination_id) params.set("destination_id", String(body.destination_id));
+    if (body.min_rating) params.set("min_rating", String(body.min_rating));
 
     // ── Price filter (AUD cents) ──
     if (body.price_min !== undefined) params.set("price_min", String(body.price_min));
