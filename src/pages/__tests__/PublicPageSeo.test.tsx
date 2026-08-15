@@ -66,10 +66,19 @@ describe("Sitemap-listed pages canonicalise to themselves", () => {
 describe("Sitemap-listed pages are not noindex", () => {
   it.each([
     ["src/pages/TripCostPlannerPage.tsx"],
-    ["src/pages/ThingsToDo.tsx"],
     ["src/pages/HotelResults.tsx"],
   ])("%s emits no noindex directive", (file) => {
     expect(read(file)).not.toMatch(/noindex/i);
+  });
+
+  it("ThingsToDo gates noindex behind non-published destinations; the hub stays indexable", () => {
+    const source = read("src/pages/ThingsToDo.tsx");
+    // The hub (/things-to-do) remains sitemap-listed and indexable: its
+    // canonical is unconditional and it renders no robots meta of its own.
+    expect(source).toContain('<link rel="canonical" href="https://bookingsfinder.com/things-to-do" />');
+    // The only noindex in the file is the draft-destination gate: a destination
+    // page emits robots noindex,follow only while publicationStatus !== published.
+    expect(source).toMatch(/publicationStatus !== "published"[\s\S]*?content="noindex,follow"/);
   });
 
   it("RoutePage keeps its intentional noindex for unpublished routes", () => {

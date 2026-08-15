@@ -117,7 +117,13 @@ async function fetchTiqetsPublic(filters: ExperienceSearchFilters): Promise<Tiqe
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Viator placeholder — mocked until Sandbox key replaced
+// Viator public adapter - real, server-controlled
+//
+// viator-public is a real deployed Edge Function. VIATOR_PUBLIC_ENABLED is
+// the authoritative server-side kill switch: the frontend calls viator-public
+// unconditionally and the server answers disabled/enabled. Verified upstream
+// access is sandbox-only - production Viator access remains NOT PROVEN, and
+// replacing the API key does not by itself make production ready.
 // ═══════════════════════════════════════════════════════════════
 
 interface ViatorPublicResult {

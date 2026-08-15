@@ -58,6 +58,40 @@ export function searchDestinations(
 }
 
 /* ------------------------------------------------------------------ */
+/*  Provider-neutral display label                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Display label for a destination suggestion.
+ *
+ * Provider-neutral and fixture-free:
+ * - Tiqets-shaped destinations carry a genuine `country` field, rendered as
+ *   "City, Country"; a missing or self-referential country falls back to the
+ *   bare name, so nothing is invented.
+ * - Viator-shaped destinations carry no `country` field; the country is
+ *   resolved through the supplied taxonomy index's parent chain when one is
+ *   present.
+ */
+export function displayDestination(
+  dest: ExperienceDestination,
+  all: readonly ExperienceDestination[] = [],
+): string {
+  const name = dest.name.trim();
+  const countryName = dest.country?.trim();
+  if (countryName && countryName.toLocaleLowerCase() !== name.toLocaleLowerCase()) {
+    return `${name}, ${countryName}`;
+  }
+  const parent = all.find((d) => d.destinationId === dest.parentDestinationId);
+  const country = parent
+    ? parent.type === "COUNTRY"
+      ? parent
+      : all.find((d) => d.destinationId === parent.parentDestinationId)
+    : null;
+  if (country && country.type === "COUNTRY") return `${name}, ${country.name}`;
+  return name;
+}
+
+/* ------------------------------------------------------------------ */
 /*  React Query hook — cached destination index                        */
 /* ------------------------------------------------------------------ */
 

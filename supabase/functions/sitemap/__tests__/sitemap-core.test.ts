@@ -297,3 +297,18 @@ describe("Edge function source contract", () => {
     expect(source).not.toMatch(/console\.(log|error)\([^)]*SERVICE_ROLE/);
   });
 });
+
+describe("Things destinations stay out of the sitemap", () => {
+  it("never advertises the draft Rome destination URL", () => {
+    const xml = build([]);
+    expect(xml).not.toContain("/things-to-do/rome");
+  });
+
+  it("static hub /things-to-do remains the only Things sitemap entry", () => {
+    const xml = build([]);
+    const things = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)]
+      .map((m) => m[1])
+      .filter((loc) => loc.includes("/things-to-do"));
+    expect(things).toEqual([`${SITE_URL}/things-to-do`]);
+  });
+});
