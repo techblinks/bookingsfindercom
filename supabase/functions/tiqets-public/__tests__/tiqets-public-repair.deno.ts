@@ -1,0 +1,245 @@
+/**
+ * T2C-B2A regression tests for the tiqets-public runtime repair.
+ *
+ * These are Deno tests (not Vitest): the function imports https:// URLs
+ * (zod, supabase-js) that the repo's Vitest runner cannot resolve.
+ *
+ * Run with:
+ *   npx deno test --allow-env supabase/functions/tiqets-public/__tests__/tiqets-public-repair.deno.ts
+ *
+ * Coverage: destinations/catalogue-search no undefined-body crash,
+ * featured no onSale ReferenceError + real diagnostics, search schema
+ * (city_name / destination_id / refine), CORS on every response path,
+ * OPTIONS allowlist (production / www / preview-not-allowlisted).
+ */
+
+import { assertEquals, assert } from "jsr:@std/assert@1";
+
+// ── Environment must exist before the module import reads it ──
+Deno.env.set("SUPABASE_URL", "https://example.supabase.co");
+Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "test-service-role");
+Deno.env.set("TIQETS_API_TOKEN", "test-tiqets-token");
+Deno.env.set("TIQETS_API_BASE_URL", "https://api.tiqets.com/v2");
+
+// ── Capture the Deno.serve handler instead of starting a real server ──
+let handler: ((req: Request) => Promise<Response>) | null = null;
+(Deno as unknown as { serve: unknown }).serve = (
+  h: (req: Request) => Promise<Response>,
+): unknown => {
+  handler = h;
+  return {};
+};
+
+// ── fetch stub: Tiqets upstream vs Supabase REST ──
+let upstreamMode: "ok" | "unauthorized" = "ok";
+let upstreamProducts: unknown[] = [];
+let capturedUpstreamUrl: string | null = null;
+
+globalThis.fetch = ((
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> => {
+  let url: string;
+  if (typeof input === "string") url = input;
+  else if (input instanceof Request) url = input.url;
+  else url = String(input);
+
+  if (url.startsWith("https://api.tiqets.com")) {
+    capturedUpstreamUrl = url;
+    if (upstreamMode === "unauthorized") {
+      return Promise.resolve(
+        new Response('{"error":"unauthorized"}', { status: 401 }),
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          products: upstreamProducts,
+          count: upstreamProducts.length,
+          next: null,
+          previous: null,
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "x-request-id": "upstream-req-123",
+          },
+        },
+      ),
+    );
+  }
+
+  // Supabase REST: reads -> [] (empty), writes -> {}
+  const method = (init?.method || "GET").toUpperCase();
+  if (method === "GET") {
+    return Promise.resolve(
+      new Response("[]", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
+  return Promise.resolve(
+    new Response("{}", {
+      status: 201,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+}) as typeof fetch;
+
+// ── Import the module AFTER stubbing env / serve / fetch ──
+await import("../index.ts");
+
+assert(handler !== null, "Deno.serve handler must be captured");
+
+const ORIGIN = "https://bookingsfinder.com";
+const URL = "https://bookingsfinder.com/functions/v1/tiqets-public";
+const PREVIEW = "https://feat-things-canonical-url-migration-bookingsfindercom.bookingsfinder.workers.dev";
+
+function post(body: unknown, origin: string = ORIGIN): Promise<Response> {
+  assert(handler, "handler required");
+  return handler(
+    new Request(URL, {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+function options(origin: string): Promise<Response> {
+  assert(handler, "handler required");
+  return handler(
+    new Request(URL, { method: "OPTIONS", headers: { Origin: origin } }),
+  );
+}
+
+function acao(res: Response): string | null {
+  return res.headers.get("Access-Control-Allow-Origin");
+}
+
+// ── OPTIONS / CORS ──
+
+Deno.test("OPTIONS: production origin returns 204 with echoed ACAO", async () => {
+  const res = await options("https://bookingsfinder.com");
+  assertEquals(res.status, 204);
+  assertEquals(acao(res), "https://bookingsfinder.com");
+});
+
+Deno.test("OPTIONS: www production origin returns echoed ACAO", async () => {
+  const res = await options("https://www.bookingsfinder.com");
+  assertEquals(res.status, 204);
+  assertEquals(acao(res), "https://www.bookingsfinder.com");
+});
+
+Deno.test("OPTIONS: Cloudflare branch-preview origin is NOT allowlisted (falls back)", async () => {
+  const res = await options(PREVIEW);
+  assertEquals(res.status, 204);
+  assertEquals(acao(res), "https://bookingsfinder.com");
+  assert(acao(res) !== PREVIEW, "preview origin must not be echoed");
+});
+
+// ── destinations ──
+
+Deno.test("destinations: POST {action:destinations} returns 200 + CORS (no ReferenceError)", async () => {
+  const res = await post({ action: "destinations" });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assert(Array.isArray(body.destinations), "destinations must be an array");
+  assertEquals(body.cacheStatus, "miss");
+});
+
+// ── catalogue-search ──
+
+Deno.test("catalogue-search: reaches DB path (no undefined-body crash)", async () => {
+  const res = await post({ action: "catalogue-search", query: "colosseum" });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assert(Array.isArray(body.products), "products must be an array");
+});
+
+// ── featured ──
+
+Deno.test("featured: successful response has real diagnostics and on-sale filtering", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [
+    { id: "1", title: "On Sale Tour", sale_status: "on_sale" },
+    { id: "2", title: "Sold Out Tour", sale_status: "sold_out" },
+  ];
+  const res = await post({ action: "featured" });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assertEquals(body.products.length, 1, "sold_out product must be filtered");
+  assertEquals(body.products[0].id, "1");
+  assertEquals(body.diagnostics.upstreamRawCount, 2);
+  assertEquals(body.diagnostics.normalizedCount, 2);
+  assertEquals(body.diagnostics.filteredOnSaleCount, 1);
+  assertEquals(body.cacheStatus, "miss");
+});
+
+// ── search ──
+
+Deno.test("search: city_name still valid and maps to upstream destination", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [{ id: "1", title: "Rome Tour", sale_status: "on_sale" }];
+  const res = await post({
+    action: "search",
+    city_name: "Rome",
+    page: 1,
+    page_size: 24,
+    sort: "popularity_desc",
+  });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assertEquals(body.products.length, 1);
+  assert(
+    capturedUpstreamUrl !== null && capturedUpstreamUrl.includes("destination=Rome"),
+    "city_name must map to upstream destination param",
+  );
+});
+
+Deno.test("search: genuine destination_id accepted and mapped upstream", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [{ id: "10", title: "Vatican", sale_status: "on_sale" }];
+  const res = await post({ action: "search", destination_id: 123, page: 1, page_size: 24 });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assertEquals(body.products.length, 1);
+  assert(
+    capturedUpstreamUrl !== null && capturedUpstreamUrl.includes("destination_id=123"),
+    "destination_id must reach upstream",
+  );
+});
+
+Deno.test("search: invalid (non-positive) destination_id rejected with 400 + CORS", async () => {
+  const res = await post({ action: "search", destination_id: -5, page: 1, page_size: 24 });
+  assertEquals(res.status, 400);
+  assertEquals(acao(res), ORIGIN);
+});
+
+Deno.test("search: no destination/query/city -> 400 (refine) with CORS", async () => {
+  const res = await post({ action: "search", page: 1, page_size: 24 });
+  assertEquals(res.status, 400);
+  assertEquals(acao(res), ORIGIN);
+});
+
+Deno.test("search: upstream auth failure -> 502 retaining CORS headers", async () => {
+  upstreamMode = "unauthorized";
+  const res = await post({ action: "search", city_name: "Rome", page: 1, page_size: 24 });
+  assertEquals(res.status, 502);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assertEquals(body.error, "Upstream authentication failed");
+});
+
+Deno.test("unknown action -> 400 with CORS", async () => {
+  const res = await post({ action: "nope" });
+  assertEquals(res.status, 400);
+  assertEquals(acao(res), ORIGIN);
+});
