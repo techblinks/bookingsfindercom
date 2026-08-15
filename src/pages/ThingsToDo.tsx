@@ -3,7 +3,11 @@ import type { ExperienceDestination } from "@/types/experiences";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { thingsDestinationViatorId } from "@/lib/thingsDestinations";
+import {
+  resolveThingsDestinationFromLegacyCity,
+  thingsDestinationPath,
+  thingsDestinationViatorId,
+} from "@/lib/thingsDestinations";
 import type { ThingsDestination } from "@/types/thingsDestination";
 import {
   Search,
@@ -447,11 +451,10 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
    */
   const retrySearch = useCallback(() => setRetryNonce((n) => n + 1), []);
 
-  /* --- sync URL <-> state --- */
-  const syncUrl = useCallback(
-    (overrides?: Record<string, string | number | boolean | undefined>) => {
+  /* --- URL parameter serialisation (shared by syncUrl and canonical commits) --- */
+  const buildSearchParams = useCallback(
+    (overrides?: Record<string, string | number | boolean | undefined>): URLSearchParams => {
       const merged = {
-        city: destination,
         q: queryText,
         activity: selectedActivity,
         priceRange: selectedPriceRange,
@@ -463,26 +466,36 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
         ...overrides,
       };
 
-      const params: Record<string, string> = {};
-      if (merged.q) params.q = String(merged.q);
-      // On a canonical destination route the destination identity comes from
-      // the path - never redundantly write ?city= beside the canonical slug.
-      if (merged.city && !destinationProp) params.city = String(merged.city);
-      if (merged.activity) params.activity = String(merged.activity);
+      const params = new URLSearchParams();
+      if (merged.q) params.set("q", String(merged.q));
+      if (merged.activity) params.set("activity", String(merged.activity));
       const range = PRICE_RANGES.find((p) => p.id === merged.priceRange);
       if (range) {
-        params.minPrice = String(range.min);
-        params.maxPrice = String(range.max);
+        params.set("minPrice", String(range.min));
+        params.set("maxPrice", String(range.max));
       }
-      if (merged.rating && merged.rating !== "any") params.rating = String(merged.rating);
-      if (merged.accessible) params.accessible = "1";
-      if (merged.skipLine) params.skipLine = "1";
-      if (merged.sort && merged.sort !== "popularity_desc") params.sort = String(merged.sort);
-      if (merged.page && Number(merged.page) > 1) params.page = String(merged.page);
+      if (merged.rating && merged.rating !== "any") params.set("rating", String(merged.rating));
+      if (merged.accessible) params.set("accessible", "1");
+      if (merged.skipLine) params.set("skipLine", "1");
+      if (merged.sort && merged.sort !== "popularity_desc") params.set("sort", String(merged.sort));
+      if (merged.page && Number(merged.page) > 1) params.set("page", String(merged.page));
+      return params;
+    },
+    [queryText, selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort, page]
+  );
+
+  /* --- sync URL <-> state --- */
+  const syncUrl = useCallback(
+    (overrides?: Record<string, string | number | boolean | undefined>) => {
+      const params = buildSearchParams(overrides);
+      // On a canonical destination route the destination identity comes from
+      // the path - never redundantly write ?city= beside the canonical slug.
+      const city = overrides?.city ?? destination;
+      if (city && !destinationProp) params.set("city", String(city));
 
       setSearchParams(params, { replace: true });
     },
-    [destination, destinationProp, queryText, selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort, page, setSearchParams]
+    [buildSearchParams, destination, destinationProp, setSearchParams]
   );
 
   /* --- handlers --- */
@@ -490,28 +503,60 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
     (overrides?: { city?: string; query?: string }) => {
       const nextCity = overrides?.city ?? cityInput;
       const nextQuery = overrides?.query ?? activityInput;
+      const canonicalDestination = resolveThingsDestinationFromLegacyCity(nextCity);
 
       /*
-       * Canonical destination routes are semantically bound to their
-       * destination. Committing a DIFFERENT city must leave the canonical
-       * route and continue on the legacy hub search URL, so /things-to-do/rome
-       * can never represent a Paris search. This is the pre-T2B integrity
-       * escape hatch, not the atomic T2B migration.
+       * Registry-driven T2B routing contract (this replaces the temporary
+       * pre-T2B integrity escape hatch). A committed city that resolves to a
+       * canonical BookingsFinder destination is expressed as a canonical path:
+       *
+       *   hub  Rome        → /things-to-do/rome
+       *   hub  Paris       → /things-to-do?city=Paris   (no registry entry)
+       *   rome Rome        → /things-to-do/rome         (same identity)
+       *   rome Paris       → /things-to-do?city=Paris   (leaves the route)
+       *
+       * Future registry entries resolve through the same code — this is
+       * registry-driven, not Rome-hardcoded.
        */
-      if (destinationProp) {
-        const sameCity =
-          nextCity.trim().toLocaleLowerCase() === destinationProp.displayName.trim().toLocaleLowerCase();
-        if (!sameCity) {
-          if (nextCity.trim()) {
-            recordActivity({ kind: "things", city: nextCity, query: nextQuery || undefined });
-          }
-          const params = new URLSearchParams();
-          if (nextCity.trim()) params.set("city", nextCity.trim());
-          if (nextQuery.trim()) params.set("q", nextQuery.trim());
+      if (canonicalDestination) {
+        if (destinationProp && destinationProp.slug === canonicalDestination.slug) {
+          // Same canonical identity: stay on the route and update the filters.
+          setDestination(canonicalDestination.displayName);
+          setQueryText(nextQuery);
+          setPage(1);
+          syncUrl({ city: canonicalDestination.displayName, q: nextQuery, page: 1 });
+        } else {
+          // A canonical destination (from the hub, or from a different route):
+          // navigate to its canonical path, preserving every active filter.
+          setDestination(canonicalDestination.displayName);
+          setQueryText(nextQuery);
+          setPage(1);
+          const params = buildSearchParams({ q: nextQuery, page: 1 });
           const search = params.toString();
-          navigate(`/things-to-do${search ? `?${search}` : ""}`);
-          return;
+          navigate(`${thingsDestinationPath(canonicalDestination)}${search ? `?${search}` : ""}`);
         }
+
+        if (nextCity.trim()) {
+          recordActivity({ kind: "things", city: nextCity, query: nextQuery || undefined });
+        }
+        window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+        return;
+      }
+
+      // Non-canonical city — the legacy hub query contract.
+      if (destinationProp) {
+        // Committing a DIFFERENT, non-canonical city from a canonical route
+        // must leave the route: /things-to-do/rome can never represent a Paris
+        // search. Continue on the legacy hub search URL.
+        if (nextCity.trim()) {
+          recordActivity({ kind: "things", city: nextCity, query: nextQuery || undefined });
+        }
+        const params = new URLSearchParams();
+        if (nextCity.trim()) params.set("city", nextCity.trim());
+        if (nextQuery.trim()) params.set("q", nextQuery.trim());
+        const search = params.toString();
+        navigate(`/things-to-do${search ? `?${search}` : ""}`);
+        return;
       }
 
       setDestination(nextCity);
@@ -532,7 +577,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
 
       window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     },
-    [cityInput, activityInput, syncUrl, destinationProp, navigate]
+    [cityInput, activityInput, buildSearchParams, syncUrl, destinationProp, navigate]
   );
 
   const handleShortcutClick = useCallback(

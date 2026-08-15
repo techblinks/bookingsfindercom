@@ -22,6 +22,8 @@ import {
 import {
   getThingsDestinationBySlug,
   getThingsDestinationByProviderRef,
+  resolveThingsDestinationFromLegacyCity,
+  thingsDestinationPath,
   thingsDestinationViatorId,
   isThingsDestinationPublished,
   getAllThingsDestinations,
@@ -236,5 +238,102 @@ describe("Things destination registry — no fixture leakage", () => {
     const src = readRoot("src/components/search/DestinationAutocomplete.tsx");
     expect(src).not.toMatch(/from\s+["'][^"']*__fixtures__/);
     expect(src).toMatch(/from "@\/services\/destinations"/);
+  });
+});
+
+// ── Legacy city → canonical resolver (T2B) ─────────────────────
+
+describe("Things destination — legacy city resolver", () => {
+  it("resolves canonical Rome from exact legacy city text", () => {
+    expect(resolveThingsDestinationFromLegacyCity("Rome")?.slug).toBe("rome");
+  });
+
+  it("is case-insensitive for an exact match", () => {
+    expect(resolveThingsDestinationFromLegacyCity("rome")?.slug).toBe("rome");
+    expect(resolveThingsDestinationFromLegacyCity("ROME")?.slug).toBe("rome");
+    expect(resolveThingsDestinationFromLegacyCity(" rOmE ")?.slug).toBe("rome");
+  });
+
+  it("tolerates surrounding whitespace", () => {
+    expect(resolveThingsDestinationFromLegacyCity("  Rome  ")?.slug).toBe("rome");
+    expect(resolveThingsDestinationFromLegacyCity(" ROME " )?.slug).toBe("rome");
+  });
+
+  it("returns null for non-canonical cities", () => {
+    expect(resolveThingsDestinationFromLegacyCity("Paris")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("Sydney")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("Melbourne")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("London")).toBeNull();
+  });
+
+  it("never matches qualified or fuzzy variants of a canonical display name", () => {
+    expect(resolveThingsDestinationFromLegacyCity("Rome Italy")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("Rome, Italy")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("Roma")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("Romee")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("rome-italy")).toBeNull();
+  });
+
+  it("never invents a slug from free text", () => {
+    // Slug-shaped text still cannot resolve: identity comes from the registry
+    // display name, never from slugifying arbitrary user text.
+    expect(resolveThingsDestinationFromLegacyCity("paris")?.slug).toBeUndefined();
+    expect(resolveThingsDestinationFromLegacyCity("new-york")).toBeNull();
+  });
+
+  it("performs no provider lookup or provider-ID interpretation", () => {
+    // "511" is the genuine Viator ref for Rome, but the resolver matches city
+    // TEXT only — a ref-shaped input can never resolve.
+    expect(resolveThingsDestinationFromLegacyCity("511")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("66342")).toBeNull();
+  });
+
+  it("a fixture taxonomy ID never resolves through the legacy resolver", () => {
+    for (const fixture of TAXONOMY_DESTINATIONS) {
+      expect(
+        resolveThingsDestinationFromLegacyCity(String(fixture.destinationId)),
+      ).toBeNull();
+    }
+  });
+
+  it("rejects empty and non-string input", () => {
+    expect(resolveThingsDestinationFromLegacyCity("")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("   ")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity(null)).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity(undefined)).toBeNull();
+  });
+
+  it("fails closed when an exact display name is ambiguous across the registry", () => {
+    const ambiguous: readonly ThingsDestination[] = [
+      rome!,
+      { ...rome!, slug: "rome-2", providerRefs: { viator: "999" } },
+    ];
+    // Two registry entries share displayName "Rome": resolution must NOT
+    // silently pick one — it returns null.
+    expect(resolveThingsDestinationFromLegacyCity("Rome", ambiguous)).toBeNull();
+  });
+
+  it("resolves only against the registry supplied — the production registry stays Rome-only", () => {
+    // The resolver is registry-driven: an entry that genuinely exists in a
+    // supplied registry resolves, while the production registry cannot
+    // resolve Paris by construction.
+    expect(resolveThingsDestinationFromLegacyCity("Paris")).toBeNull();
+    const extended: readonly ThingsDestination[] = [
+      ...THINGS_DESTINATIONS,
+      { ...rome!, slug: "paris", displayName: "Paris", providerRefs: {} },
+    ];
+    expect(resolveThingsDestinationFromLegacyCity("Paris", extended)?.slug).toBe("paris");
+  });
+});
+
+// ── Canonical path helper (T2B) ────────────────────────────────
+
+describe("Things destination — canonical path helper", () => {
+  it("builds the canonical path from the registry slug", () => {
+    expect(thingsDestinationPath(rome!)).toBe("/things-to-do/rome");
+  });
+
+  it("keeps the path contract tight — no trailing slash, no query", () => {
+    expect(thingsDestinationPath(rome!)).toMatch(/^\/things-to-do\/[a-z0-9-]+$/);
   });
 });

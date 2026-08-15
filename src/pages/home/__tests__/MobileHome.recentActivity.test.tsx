@@ -336,11 +336,30 @@ describe("Pick up where you left off — navigation", () => {
     }
   });
 
-  it("a things shortcut with no query carries the city alone", async () => {
+  it("a canonical Rome shortcut restores to the canonical path", async () => {
     seed({ kind: "things", city: "Rome" });
     await renderAndSettle();
 
-    expect(shortcutLinks()[0].getAttribute("href")).toBe("/things-to-do?city=Rome");
+    expect(shortcutLinks()[0].getAttribute("href")).toBe("/things-to-do/rome");
+  });
+
+  it("a canonical Rome shortcut with a query restores to the canonical path", async () => {
+    seed({ kind: "things", city: "Rome", query: "colosseum tour" });
+    await renderAndSettle();
+
+    expect(shortcutLinks()[0].getAttribute("href")).toBe("/things-to-do/rome?q=colosseum+tour");
+  });
+
+  it("non-canonical cities keep the legacy hub contract", async () => {
+    seed({ kind: "things", city: "Paris" }, daysFromNow(-2));
+    seed({ kind: "things", city: "Sydney", query: "harbour cruise" }, daysFromNow(-1));
+    await renderAndSettle();
+
+    const hrefs = shortcutLinks().map(a => a.getAttribute("href"));
+    expect(hrefs).toContain("/things-to-do?city=Paris");
+    expect(hrefs).toContain("/things-to-do?city=Sydney&q=harbour+cruise");
+    expect(hrefs).not.toContain("/things-to-do/paris");
+    expect(hrefs).not.toContain("/things-to-do/sydney");
   });
 
   it("excludes the continuation from the shortcut list", async () => {
@@ -349,7 +368,7 @@ describe("Pick up where you left off — navigation", () => {
     await renderAndSettle();
 
     const shortcutHrefs = shortcutLinks().map(a => a.getAttribute("href"));
-    expect(shortcutHrefs).toEqual(["/things-to-do?city=Rome"]);
+    expect(shortcutHrefs).toEqual(["/things-to-do/rome"]);
     expect(shortcutHrefs).not.toContain("/flights?origin=SYD&destination=MEL");
   });
 

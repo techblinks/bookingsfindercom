@@ -1589,6 +1589,57 @@ describe("recentActivity — selectors are pure", () => {
   });
 });
 
+// T2B storage immutability
+
+describe("recentActivity - T2B storage immutability", () => {
+  it("RECENT_ACTIVITY_VERSION stays 1 - T2B is URL migration, not a storage migration", () => {
+    expect(RECENT_ACTIVITY_VERSION).toBe(1);
+  });
+
+  it("a stored Rome things entry carries only the allowlisted fields", () => {
+    recordActivity({ kind: "things", city: "Rome", query: "colosseum tour" }, NOW);
+
+    const stored = storedItems()[0] as Record<string, unknown>;
+    expect(Object.keys(stored).sort()).toEqual(["at", "city", "key", "kind", "label", "query"]);
+
+    const serialised = JSON.stringify(stored);
+    for (const forbidden of ["slug", "providerRefs", "viator", "destinationId", "href", "url"]) {
+      expect(serialised).not.toContain(forbidden);
+    }
+  });
+
+  it("existing version-1 Rome storage loads with no rewrite", () => {
+    // A version-1 entry already stored as city "Rome" — exactly what T2A
+    // would have written before T2B shipped.
+    seed([
+      {
+        kind: "things",
+        key: "things:rome|",
+        label: "Rome",
+        at: isoDaysAgo(1),
+        city: "Rome",
+      },
+    ]);
+
+    const before = store[RECENT_ACTIVITY_STORAGE_KEY];
+    const entries = loadRecentActivity(NOW);
+
+    expect(entries).toHaveLength(1);
+    expect((entries[0] as ThingsActivity).city).toBe("Rome");
+
+    // needsRepair is false: the loader returns the entry without rewriting it,
+    // so the canonical URL can be rebuilt at render time from unchanged data.
+    expect(localStorageMock.setItem).not.toHaveBeenCalled();
+    expect(store[RECENT_ACTIVITY_STORAGE_KEY]).toBe(before);
+  });
+
+  it("recording a Rome city writes no slug or provider ref", () => {
+    recordActivity({ kind: "things", city: "Rome" }, NOW);
+
+    expect(store[RECENT_ACTIVITY_STORAGE_KEY]).not.toMatch(/slug|providerRefs|viator|destinationId/i);
+  });
+});
+
 describe("recentActivity — module isolation", () => {
   it("imports nothing, so it can never pull in TripContext, Trip Cost, React, Supabase or a network client", () => {
     // The zero-dependency design cannot be observed at runtime, so this is the

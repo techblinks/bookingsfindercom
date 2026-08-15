@@ -49,6 +49,53 @@ export function isThingsDestinationPublished(
 }
 
 /**
+ * Resolve a legacy hub `?city=` TEXT to a canonical registry destination, or
+ * null when there is no deterministic mapping.
+ *
+ * This is a LEGACY MIGRATION BRIDGE, not a general name-to-identity mechanism.
+ * It matches the trimmed, case-insensitive legacy city text exactly against
+ * the `displayName` of destinations ALREADY in the canonical registry:
+ *
+ *   "Rome" / "rome" / " ROME "  →  canonical Rome
+ *   "Rome, Italy" / "Roma"      →  null (no exact match — no fuzziness)
+ *   "Paris" / "Sydney"          →  null (not in the registry)
+ *
+ * Deliberately absent: fuzzy matching, substring matching, slug generation,
+ * provider lookup and provider-ID interpretation. Identity is never invented
+ * from free text, and a provider ref (e.g. Viator's "511") is provider data,
+ * not a city name.
+ *
+ * Ambiguity fails closed: if an exact display-name match ever refers to more
+ * than one registry entry, null is returned rather than silently choosing one.
+ * `registry` is injectable so the fail-closed rule is testable without
+ * mutating the production registry.
+ */
+export function resolveThingsDestinationFromLegacyCity(
+  city: string | null | undefined,
+  registry: readonly ThingsDestination[] = THINGS_DESTINATIONS,
+): ThingsDestination | null {
+  if (typeof city !== "string") return null;
+  // Surrounding whitespace is trimmed and inner whitespace collapsed; the
+  // comparison itself stays an exact, case-insensitive equality.
+  const normalized = city.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!normalized) return null;
+  const matches = registry.filter(
+    (d) => d.displayName.trim().replace(/\s+/g, " ").toLowerCase() === normalized,
+  );
+  // Exactly one exact match, or nothing. Ambiguity fails closed.
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/**
+ * Canonical client-side path for a Things destination. The single place that
+ * turns a registry entry into a route path, so `/things-to-do/${slug}` is
+ * never hand-assembled across the codebase.
+ */
+export function thingsDestinationPath(destination: ThingsDestination): string {
+  return `/things-to-do/${destination.slug}`;
+}
+
+/**
  * The Viator destination ID to use for Viator searches, derived ONLY from the
  * canonical registry's provider ref. Returns undefined when the destination
  * has no verified Viator ref, or when the ref is not a usable positive
