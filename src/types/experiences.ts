@@ -7,8 +7,10 @@
  *   should treat `null` as "we don't know" rather than "absent".
  * - All provider-specific data is normalised into `ExperienceProduct`.
  *   No provider-specific fields leak into the shared model.
- * - `VIATOR_PUBLIC_ENABLED` is a compile‑time flag; Viator integration is
- *   disabled until the Sandbox API key is replaced with a production key.
+ * - Viator public integration is real but controlled server-side:
+ *   `VIATOR_PUBLIC_ENABLED` is the authoritative runtime kill switch read
+ *   from the Supabase Edge Function environment. Current verified upstream
+ *   access is sandbox-only; production Viator access is not yet proven.
  */
 
 export type ExperienceProvider = "tiqets" | "viator";
@@ -78,7 +80,14 @@ export interface ExperienceTag {
 }
 
 export interface ExperienceSearchFilters {
+  /** Free-text destination (provider-neutral; also Tiqets city_name). */
   destination?: string;
+  /**
+   * Provider-scoped destination ID for Viator. Must be a genuine Viator
+   * destination ID from the BookingsFinder canonical Things registry - never
+   * a Tiqets destination ID, a test fixture ID, or a value derived from city
+   * text. Absent on hub searches.
+   */
   destinationId?: number;
   query?: string;
   activityTags?: string[];

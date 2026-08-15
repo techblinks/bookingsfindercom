@@ -36,6 +36,7 @@ import AdminSiteMedia from "./pages/AdminSiteMedia";
 import AdminTiqets from "./pages/AdminTiqets";
 import AdminViator from "./pages/AdminViator";
 import ThingsToDo from "./pages/ThingsToDo";
+import ThingsToDoDestinationPage from "./pages/ThingsToDoDestinationPage";
 import AboutUs from "./pages/AboutUs";
 import Careers from "./pages/Careers";
 import HelpCenter from "./pages/HelpCenter";
@@ -137,6 +138,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin/tiqets" element={<AdminTiqets />} />
         <Route path="/admin/viator" element={<AdminViator />} />
         <Route path="/things-to-do" element={<ThingsToDo />} />
+        <Route path="/things-to-do/:destinationSlug" element={<ThingsToDoDestinationPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     );
@@ -212,6 +214,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/tiqets" element={<AdminTiqets />} />
           <Route path="/admin/viator" element={<AdminViator />} />
           <Route path="/things-to-do" element={<ThingsToDo />} />
+          <Route path="/things-to-do/:destinationSlug" element={<ThingsToDoDestinationPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>

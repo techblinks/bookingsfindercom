@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MapPin, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDestinations } from "@/services/destinations";
-import { searchDestinations, displayDestination } from "@/__fixtures__/viator-taxonomy";
+import { useDestinations, searchDestinations, displayDestination } from "@/services/destinations";
 import type { ExperienceDestination } from "@/types/experiences";
 
 // ── Props ───────────────────────────────────────────────────────

@@ -2,7 +2,9 @@ import DestinationAutocomplete from "@/components/search/DestinationAutocomplete
 import type { ExperienceDestination } from "@/types/experiences";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Helmet } from "react-helmet-async";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import { thingsDestinationViatorId } from "@/lib/thingsDestinations";
+import type { ThingsDestination } from "@/types/thingsDestination";
 import {
   Search,
   Star,
@@ -293,19 +295,29 @@ function ExperienceCard({ product }: { product: ExperienceProduct }) {
 
 /* ─────────────────────────── MAIN COMPONENT ───────────────────── */
 
-export default function ThingsToDo() {
+interface ThingsToDoProps {
+  /**
+   * Canonical BookingsFinder Things destination when this page renders from
+   * /things-to-do/:destinationSlug. Absent on the hub (/things-to-do).
+   */
+  destination?: ThingsDestination;
+}
+
+export default function ThingsToDo({ destination: destinationProp }: ThingsToDoProps = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   /* --- hero search draft (uncommitted text inputs) --- */
   // cityInput is the single hero-city draft: the autocomplete controls it and
   // commitSearch reads it. A separate draft would let the typed city and the
   // committed city drift apart, which is exactly what used to happen.
-  const [selectedDestinationId, setSelectedDestinationId] = useState("");
-  const [cityInput, setCityInput] = useState(searchParams.get("city") || "");
+  // On the destination route the canonical display name seeds the draft; the
+  // hub keeps hydrating from ?city= exactly as before.
+  const [cityInput, setCityInput] = useState(destinationProp?.displayName ?? searchParams.get("city") ?? "");
   const [activityInput, setActivityInput] = useState(searchParams.get("q") || "");
 
   /* --- committed filter state (drives fetch + URL) --- */
-  const [destination, setDestination] = useState(searchParams.get("city") || "");
+  const [destination, setDestination] = useState(destinationProp?.displayName ?? searchParams.get("city") ?? "");
   const [queryText, setQueryText] = useState(searchParams.get("q") || "");
   const [selectedActivity, setSelectedActivity] = useState(searchParams.get("activity") || "");
   const [selectedPriceRange, setSelectedPriceRange] = useState(
@@ -353,7 +365,33 @@ export default function ThingsToDo() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  /* --- canonical route URL hygiene --- */
+  // A canonical destination route owns its identity via the path. A
+  // conflicting legacy ?city= param must not alter identity or search, and is
+  // stripped from the URL so it cannot claim a different destination.
+  useEffect(() => {
+    if (destinationProp && searchParams.get("city")) {
+      const params = new URLSearchParams(searchParams);
+      params.delete("city");
+      setSearchParams(params, { replace: true });
+    }
+  }, [destinationProp, searchParams, setSearchParams]);
+
   const hasSearchContext = Boolean(destination.trim() || queryText.trim() || selectedActivity);
+
+  /* --- Viator destination identity (route-driven, registry-owned) --- */
+  // The Viator destinationId exists ONLY when this page is a canonical
+  // destination route AND the committed destination text still matches that
+  // route identity. A city the traveller types or selects cannot inherit the
+  // route provider ref: no Tiqets ID and no free text ever becomes a Viator
+  // destinationId.
+  const viatorDestinationId = useMemo(() => {
+    if (!destinationProp) return undefined;
+    const committed = destination.trim().toLocaleLowerCase();
+    const canonical = destinationProp.displayName.trim().toLocaleLowerCase();
+    if (!committed || committed !== canonical) return undefined;
+    return thingsDestinationViatorId(destinationProp);
+  }, [destinationProp, destination]);
 
   /* --- fetch filters --- */
   const filters: ExperienceSearchFilters = useMemo(() => {
@@ -361,6 +399,7 @@ export default function ThingsToDo() {
     const range = PRICE_RANGES.find((p) => p.id === selectedPriceRange);
     return {
       destination: destination.trim() || undefined,
+      destinationId: viatorDestinationId,
       query: queryText.trim() || undefined,
       activityTags: activityLabel ? [activityLabel] : undefined,
       minPrice: range?.min,
@@ -372,7 +411,7 @@ export default function ThingsToDo() {
       page,
       pageSize: PAGE_SIZE,
     };
-  }, [destination, queryText, selectedActivity, selectedPriceRange, selectedRating, skipLineOnly, wheelchairOnly, sort, page]);
+  }, [destination, viatorDestinationId, queryText, selectedActivity, selectedPriceRange, selectedRating, skipLineOnly, wheelchairOnly, sort, page]);
 
   /* --- fetch on filter change --- */
   useEffect(() => {
@@ -426,7 +465,9 @@ export default function ThingsToDo() {
 
       const params: Record<string, string> = {};
       if (merged.q) params.q = String(merged.q);
-      if (merged.city) params.city = String(merged.city);
+      // On a canonical destination route the destination identity comes from
+      // the path - never redundantly write ?city= beside the canonical slug.
+      if (merged.city && !destinationProp) params.city = String(merged.city);
       if (merged.activity) params.activity = String(merged.activity);
       const range = PRICE_RANGES.find((p) => p.id === merged.priceRange);
       if (range) {
@@ -441,7 +482,7 @@ export default function ThingsToDo() {
 
       setSearchParams(params, { replace: true });
     },
-    [destination, queryText, selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort, page, setSearchParams]
+    [destination, destinationProp, queryText, selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort, page, setSearchParams]
   );
 
   /* --- handlers --- */
@@ -449,6 +490,30 @@ export default function ThingsToDo() {
     (overrides?: { city?: string; query?: string }) => {
       const nextCity = overrides?.city ?? cityInput;
       const nextQuery = overrides?.query ?? activityInput;
+
+      /*
+       * Canonical destination routes are semantically bound to their
+       * destination. Committing a DIFFERENT city must leave the canonical
+       * route and continue on the legacy hub search URL, so /things-to-do/rome
+       * can never represent a Paris search. This is the pre-T2B integrity
+       * escape hatch, not the atomic T2B migration.
+       */
+      if (destinationProp) {
+        const sameCity =
+          nextCity.trim().toLocaleLowerCase() === destinationProp.displayName.trim().toLocaleLowerCase();
+        if (!sameCity) {
+          if (nextCity.trim()) {
+            recordActivity({ kind: "things", city: nextCity, query: nextQuery || undefined });
+          }
+          const params = new URLSearchParams();
+          if (nextCity.trim()) params.set("city", nextCity.trim());
+          if (nextQuery.trim()) params.set("q", nextQuery.trim());
+          const search = params.toString();
+          navigate(`/things-to-do${search ? `?${search}` : ""}`);
+          return;
+        }
+      }
+
       setDestination(nextCity);
       setQueryText(nextQuery);
       setPage(1);
@@ -467,7 +532,7 @@ export default function ThingsToDo() {
 
       window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     },
-    [cityInput, activityInput, syncUrl]
+    [cityInput, activityInput, syncUrl, destinationProp, navigate]
   );
 
   const handleShortcutClick = useCallback(
@@ -661,24 +726,51 @@ export default function ThingsToDo() {
       <Header />
 
       <Helmet>
-        <title>Things To Do | BookingsFinder.com</title>
-        <meta
-          name="description"
-          content="Find things to do, tours, attractions and experiences. Compare experience details from our partners and continue to book when you're ready."
-        />
-        {/* Non-www is the site's canonical host (index.html, robots.txt sitemap
-            URL and the sitemap function all use it). This was the only www
-            canonical in the codebase and disagreed with its own JSON-LD url. */}
-        <link rel="canonical" href="https://bookingsfinder.com/things-to-do" />
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            name: "Things to Do | BookingsFinder",
-            description: "Discover attractions, museums, tours and experiences wherever you're going.",
-            url: "https://bookingsfinder.com/things-to-do",
-          })}
-        </script>
+        {destinationProp ? (
+          <>
+            <title>Things to do in {destinationProp.displayName} | BookingsFinder</title>
+            <meta
+              name="description"
+              content={`Find things to do, tours, attractions and experiences in ${destinationProp.displayName}${destinationProp.countryName ? `, ${destinationProp.countryName}` : ""}. Compare experience details from our partners and continue to book when you're ready.`}
+            />
+            {/* Non-www is the site's canonical host; the route owns the path. */}
+            <link rel="canonical" href={`https://bookingsfinder.com/things-to-do/${destinationProp.slug}`} />
+            {/* Draft destinations are never indexable or sitemap-published. */}
+            {destinationProp.publicationStatus !== "published" && (
+              <meta name="robots" content="noindex,follow" />
+            )}
+            <script type="application/ld+json">
+              {JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                name: `Things to do in ${destinationProp.displayName} | BookingsFinder`,
+                description: `Discover attractions, museums, tours and experiences in ${destinationProp.displayName}${destinationProp.countryName ? `, ${destinationProp.countryName}` : ""}.`,
+                url: `https://bookingsfinder.com/things-to-do/${destinationProp.slug}`,
+              })}
+            </script>
+          </>
+        ) : (
+          <>
+            <title>Things To Do | BookingsFinder.com</title>
+            <meta
+              name="description"
+              content="Find things to do, tours, attractions and experiences. Compare experience details from our partners and continue to book when you're ready."
+            />
+            {/* Non-www is the site's canonical host (index.html, robots.txt sitemap
+                URL and the sitemap function all use it). This was the only www
+                canonical in the codebase and disagreed with its own JSON-LD url. */}
+            <link rel="canonical" href="https://bookingsfinder.com/things-to-do" />
+            <script type="application/ld+json">
+              {JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                name: "Things to Do | BookingsFinder",
+                description: "Discover attractions, museums, tours and experiences wherever you're going.",
+                url: "https://bookingsfinder.com/things-to-do",
+              })}
+            </script>
+          </>
+        )}
         {structuredData && <script type="application/ld+json">{JSON.stringify(structuredData)}</script>}
       </Helmet>
 
@@ -702,7 +794,7 @@ export default function ThingsToDo() {
               <DestinationAutocomplete
                 value={cityInput}
                 onChange={setCityInput}
-                onSelect={(dest: ExperienceDestination) => { setCityInput(dest.name); setSelectedDestinationId(dest.destinationId); }}
+                onSelect={(dest: ExperienceDestination) => { setCityInput(dest.name); }}
                 placeholder="Search a city or destination"
                 className="w-full"
               />
