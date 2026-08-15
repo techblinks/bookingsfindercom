@@ -217,6 +217,18 @@ describe("Things destination route — canonical route integrity", () => {
     expect(lastFilters().destinationId).toBe(511);
   });
 
+  it("committing the same city never writes a redundant city param", async () => {
+    renderRoutes("/things-to-do/rome?rating=4");
+    await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: /^Search$/i }));
+
+    // T2B: the path owns the identity — /things-to-do/rome?city=Rome is never
+    // produced, and the existing filter survives the commit.
+    await waitFor(() => expect(location()).toBe("/things-to-do/rome?rating=4"));
+    expect(location()).not.toContain("city=");
+  });
+
   it("filter updates on the Rome route do not add a redundant city param", async () => {
     renderRoutes("/things-to-do/rome");
     await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalled());

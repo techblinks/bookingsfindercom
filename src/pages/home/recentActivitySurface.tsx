@@ -9,6 +9,10 @@ import {
   type ThingsActivity,
 } from "@/lib/recentActivity";
 import { logInternalNavigation } from "@/lib/analytics";
+import {
+  resolveThingsDestinationFromLegacyCity,
+  thingsDestinationPath,
+} from "@/lib/thingsDestinations";
 
 /**
  * Shared contract behind "Pick up where you left off".
@@ -105,8 +109,21 @@ export function buildRouteUrl(flight: FlightActivity): string {
   return `/flights?${params.toString()}`;
 }
 
-/** City, plus the query if there was one. No filters, sort or pagination. */
+/**
+ * City, plus the query if there was one. No filters, sort or pagination.
+ *
+ * T2B: a stored city that resolves to a canonical registry destination
+ * restores to its canonical path; every other city keeps the legacy hub
+ * ?city= contract. Storage is untouched — the URL is rebuilt at render time.
+ */
 export function buildThingsUrl(things: ThingsActivity): string {
+  const destination = resolveThingsDestinationFromLegacyCity(things.city);
+  if (destination) {
+    const params = new URLSearchParams();
+    if (things.query) params.set("q", things.query);
+    const search = params.toString();
+    return `${thingsDestinationPath(destination)}${search ? `?${search}` : ""}`;
+  }
   const params = new URLSearchParams({ city: things.city });
   if (things.query) params.set("q", things.query);
   return `/things-to-do?${params.toString()}`;
