@@ -1,12 +1,20 @@
 /**
- * Things V2 (T2D-A) — canonical activity route shell.
+ * Things V2 (T2D-A/T2D-B1) — canonical activity route.
  *
- * The /things-to-do/:destinationSlug/:activitySlug route is recognised but
- * fails closed: while the canonical activity registry is empty, every
- * activity URL renders the existing not-found experience (noindex,follow)
- * with no provider call, no affiliate redirect, no fake content and no
- * self-canonical. Also proves the existing Rome destination route behaviour
- * is unchanged (S/T).
+ * T2D-A established the fail-closed shell; T2D-B1 replaced it with the
+ * resolver-driven detail page. This suite locks the route-level contract in
+ * both worlds:
+ *
+ *   - a resolver not-found (unknown or archived activity) renders the
+ *     existing NotFound experience: noindex,follow, no self-canonical, no
+ *     provider call, no affiliate redirect, no fake content/availability
+ *   - an unknown destination fails closed immediately (no resolver call)
+ *   - an infrastructure failure is NEVER rendered as "no such activity" — it
+ *     renders the honest unavailable state with retry
+ *   - Rome destination / hub routes and their SEO contracts are unchanged
+ *   - App.tsx keeps both route trees registered
+ *
+ * The resolver service is mocked at the module boundary; no network calls.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
@@ -18,10 +26,15 @@ import ThingsToDoDestinationPage from "@/pages/ThingsToDoDestinationPage";
 import ThingsToDoHubRoute from "@/pages/ThingsToDoHubRoute";
 
 const { searchExperiencesMock } = vi.hoisted(() => ({ searchExperiencesMock: vi.fn() }));
+const { resolveActivityDetailMock } = vi.hoisted(() => ({ resolveActivityDetailMock: vi.fn() }));
 
 vi.mock("@/services/experiences", () => ({
   searchExperiences: searchExperiencesMock,
   fetchProviderAvailability: vi.fn(() => Promise.resolve({ tiqets: "available", viator: "disabled" })),
+}));
+
+vi.mock("@/services/thingsActivityDetail", () => ({
+  resolveThingsActivityDetail: (...args: unknown[]) => resolveActivityDetailMock(...args),
 }));
 
 vi.mock("@/components/layout/Header", () => ({ default: () => <header /> }));
@@ -65,10 +78,13 @@ beforeEach(() => {
   document.head.querySelectorAll('link[rel="canonical"], meta[name="robots"]').forEach((n) => n.remove());
 });
 
-// ── Route recognition + fail-closed ────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Route recognition + fail-closed (resolver not-found)
+// ═══════════════════════════════════════════════════════════════
 
-describe("Things activity route — fail-closed shell", () => {
+describe("Things activity route — fail-closed contract", () => {
   it("recognises the 3-segment shape and fails closed for an unresolved activity", async () => {
+    resolveActivityDetailMock.mockResolvedValue({ state: "not-found" });
     renderRoutes("/things-to-do/rome/vatican-museums-guided-tour");
 
     expect(await screen.findByText("Oops! Page not found")).toBeTruthy();
@@ -79,17 +95,19 @@ describe("Things activity route — fail-closed shell", () => {
     expect(searchExperiencesMock).not.toHaveBeenCalled();
   });
 
-  it("fails closed for an unknown destination too", async () => {
+  it("fails closed for an unknown destination too (no resolver call)", async () => {
     renderRoutes("/things-to-do/not-a-city/any-activity");
 
     expect(await screen.findByText("Oops! Page not found")).toBeTruthy();
     await waitFor(() => expect(robots()).toBe("noindex,follow"));
     expect(canonical()).toBeNull();
+    expect(resolveActivityDetailMock).not.toHaveBeenCalled();
     expect(searchExperiencesMock).not.toHaveBeenCalled();
   });
 
   it("never manufactures identity from arbitrary URL text", async () => {
     // A provider product ID in the URL is just another unresolved slug.
+    resolveActivityDetailMock.mockResolvedValue({ state: "not-found" });
     renderRoutes("/things-to-do/rome/3731VATICAN");
 
     expect(await screen.findByText("Oops! Page not found")).toBeTruthy();
@@ -97,7 +115,8 @@ describe("Things activity route — fail-closed shell", () => {
     expect(canonical()).toBeNull();
   });
 
-  it("never emits an affiliate redirect or provider link on the shell", async () => {
+  it("never emits an affiliate redirect or provider link on a not-found route", async () => {
+    resolveActivityDetailMock.mockResolvedValue({ state: "not-found" });
     renderRoutes("/things-to-do/rome/anything");
     await screen.findByText("Oops! Page not found");
 
@@ -106,7 +125,8 @@ describe("Things activity route — fail-closed shell", () => {
     expect(screen.getByRole("link", { name: /return to home/i })).toBeTruthy();
   });
 
-  it("no fake content or fake availability is ever rendered for an activity URL", async () => {
+  it("no fake content or fake availability is ever rendered for an unresolved activity", async () => {
+    resolveActivityDetailMock.mockResolvedValue({ state: "not-found" });
     renderRoutes("/things-to-do/rome/vatican-museums-guided-tour");
     await screen.findByText("Oops! Page not found");
 
@@ -115,7 +135,29 @@ describe("Things activity route — fail-closed shell", () => {
   });
 });
 
-// ── Existing Things behaviour unchanged (S/T) ──────────────────
+// ═══════════════════════════════════════════════════════════════
+// Infrastructure failure != not-found
+// ═══════════════════════════════════════════════════════════════
+
+describe("Things activity route — infrastructure failure is NOT not-found", () => {
+  it("renders the honest unavailable state (with retry) instead of NotFound", async () => {
+    resolveActivityDetailMock.mockResolvedValue({ state: "unavailable" });
+    renderRoutes("/things-to-do/rome/vatican-museums-guided-tour");
+
+    expect(
+      await screen.findByText("We couldn't load this experience right now."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Oops! Page not found")).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    // Unavailable is still non-indexable.
+    await waitFor(() => expect(robots()).toBe("noindex,follow"));
+    expect(canonical()).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Existing Things behaviour unchanged (S/T)
+// ═══════════════════════════════════════════════════════════════
 
 describe("Things activity route — existing routes unchanged", () => {
   it("S. /things-to-do/rome still renders the destination page, not not-found", async () => {
@@ -147,7 +189,9 @@ describe("Things activity route — existing routes unchanged", () => {
   });
 });
 
-// ── Route registration parity ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Route registration parity
+// ═══════════════════════════════════════════════════════════════
 
 describe("Things activity route — App.tsx registration", () => {
   const src = readFileSync("src/App.tsx", "utf8");

@@ -43,6 +43,21 @@ export function thingsActivityPath(activity: ThingsActivityIdentity): string {
 }
 
 /**
+ * OPTIONAL internal-link capability (T2D-B1).
+ *
+ * Renders the canonical activity-detail path WHEN a real ThingsActivity
+ * identity is genuinely supplied. It must NEVER be handed a provider search
+ * result (ExperienceProduct): a provider product has no canonical identity
+ * until it is persisted as a ThingsActivity with an offer mapping, and
+ * manufacturing a slug from a provider title at render-time would create
+ * unstable SEO identity. `activityDetailHref` therefore accepts only a
+ * canonical activity - the same fail-closed contract as thingsActivityPath.
+ */
+export function activityDetailHref(activity: ThingsActivity): string {
+  return thingsActivityPath(activity);
+}
+
+/**
  * Exact, strict lookup of a canonical activity by destination + slug.
  * Case-insensitive on both segments, otherwise strict — no fuzziness, no
  * slug generation, no provider interpretation. Unknown activities resolve to

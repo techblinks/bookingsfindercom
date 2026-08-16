@@ -1,36 +1,40 @@
 /**
- * Things activity route shell — /things-to-do/:destinationSlug/:activitySlug
+ * Things activity route — /things-to-do/:destinationSlug/:activitySlug
  *
- * T2D-A establishes the canonical URL contract and the identity foundation;
- * the final activity-detail product page is deferred to T2D-B. This shell
- * therefore:
+ * T2D-B1: the T2D-A shell becomes a resolver-driven dynamic page.
  *
- *   - recognises the canonical route shape ONLY
- *   - resolves identity strictly against the canonical registries (destination
- *     registry + activity registry) — never against arbitrary URL text
- *   - fails closed: an unknown destination or unknown activity renders the
- *     existing NotFound experience (noindex,follow), with NO provider call,
- *     NO affiliate redirect, NO fake content and NO fake availability
- *   - for a genuinely resolved activity (none exist yet — the canonical
- *     activity registry is empty in this phase) emits a minimal honest shell:
- *     self-canonical, robots noindex,follow unless the activity is genuinely
- *     published, and nothing that pretends to be a live product page.
- *
- * PAGE EXISTS != PAGE INDEXABLE. All activity-detail functionality stays
- * non-indexable by default; publication/indexing comes later, only after a
- * genuine content/value/inventory gate.
+ *   - the destination segment is validated against the canonical destination
+ *     registry ONLY (unknown destination → NotFound, no resolver call)
+ *   - the activity is resolved server-side by the read-only
+ *     things-activity-public Edge Function (exact slug pair only — no
+ *     title-derived fallback, no fuzzy matching, no provider calls)
+ *   - loading / not-found / infrastructure-unavailable are distinct states;
+ *     retry genuinely re-runs the resolver
+ *   - canonical self-link is emitted ONLY after canonical identity genuinely
+ *     resolves; robots stays noindex,follow ALWAYS in this phase (activity
+ *     pages are not yet indexable — rich enrichment and the publication gate
+ *     are still incomplete)
+ *   - no Product/Offer/Review/FAQ structured data is added yet
  */
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import NotFound from "@/pages/NotFound";
 import { getThingsDestinationBySlug } from "@/lib/thingsDestinations";
-import {
-  getThingsActivityBySlug,
-  isThingsActivityPublished,
-  thingsActivityPath,
-} from "@/lib/thingsActivities";
+import { thingsActivityPath } from "@/lib/thingsActivities";
+import { resolveThingsActivityDetail } from "@/services/thingsActivityDetail";
+import type { ThingsActivityDetail } from "@/types/thingsActivityDetail";
+import ActivityDetailPage from "@/components/activity/ActivityDetailPage";
+import ActivityDetailSkeleton from "@/components/activity/ActivityDetailSkeleton";
+import ActivityDetailUnavailable from "@/components/activity/ActivityDetailUnavailable";
 
 const SITE_URL = "https://bookingsfinder.com";
+
+type ActivityView =
+  | { kind: "loading" }
+  | { kind: "unavailable" }
+  | { kind: "not-found" }
+  | { kind: "resolved"; detail: ThingsActivityDetail };
 
 const ThingsToDoActivityRoute = () => {
   const { destinationSlug, activitySlug } = useParams<{
@@ -38,22 +42,48 @@ const ThingsToDoActivityRoute = () => {
     activitySlug: string;
   }>();
 
-  // Identity is resolved against the registries ONLY. No slug is ever
-  // manufactured from the URL text, and a provider product ID is never
-  // interpreted as an activity identity.
+  // Destination identity is registry-owned: no slug is ever manufactured
+  // from URL text, and a provider product ID is never interpreted as
+  // activity identity.
   const destination = destinationSlug
     ? getThingsDestinationBySlug(destinationSlug)
     : null;
-  const activity =
-    destination && activitySlug
-      ? getThingsActivityBySlug(destinationSlug, activitySlug)
-      : null;
 
-  // ── FAIL CLOSED ───────────────────────────────────────────────
-  // Unknown destination or unresolved activity: not-found experience,
-  // noindex, and no identity is emitted. This is the default behaviour for
-  // every activity URL while the canonical registry is empty.
-  if (!destination || !activity) {
+  const [view, setView] = useState<ActivityView>({ kind: "loading" });
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    // Unknown destination fails closed immediately — no resolver call.
+    if (!destination || !destinationSlug || !activitySlug) {
+      setView({ kind: "not-found" });
+      return;
+    }
+
+    let cancelled = false;
+    setView({ kind: "loading" });
+
+    resolveThingsActivityDetail(destinationSlug, activitySlug)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.state === "resolved") {
+          setView({ kind: "resolved", detail: result.detail });
+        } else if (result.state === "not-found") {
+          setView({ kind: "not-found" });
+        } else {
+          setView({ kind: "unavailable" });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setView({ kind: "unavailable" });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [destination, destinationSlug, activitySlug, retryKey]);
+
+  // ── UNKNOWN DESTINATION ──────────────────────────────────────
+  if (!destination) {
     return (
       <>
         <Helmet>
@@ -64,30 +94,59 @@ const ThingsToDoActivityRoute = () => {
     );
   }
 
-  // ── RESOLVED (no canonical activity exists yet in this phase) ─
-  // Minimal honest shell only. No affiliate redirect, no fake availability,
-  // no provider copy. The self-canonical is emitted only because identity is
-  // genuinely resolved; robots stay noindex,follow unless the activity has
-  // passed the real publication gate.
-  const canonicalPath = thingsActivityPath(activity);
-  const published = isThingsActivityPublished(activity);
+  // ── LOADING ──────────────────────────────────────────────────
+  if (view.kind === "loading") {
+    return (
+      <>
+        <Helmet>
+          <meta name="robots" content="noindex,follow" />
+        </Helmet>
+        <ActivityDetailSkeleton />
+      </>
+    );
+  }
+
+  // ── INFRASTRUCTURE UNAVAILABLE (≠ not-found) ─────────────────
+  if (view.kind === "unavailable") {
+    return (
+      <>
+        <Helmet>
+          <title>Experience unavailable | BookingsFinder</title>
+          <meta name="robots" content="noindex,follow" />
+        </Helmet>
+        <ActivityDetailUnavailable onRetry={() => setRetryKey((k) => k + 1)} />
+      </>
+    );
+  }
+
+  // ── NOT FOUND (unknown or archived activity) ─────────────────
+  if (view.kind === "not-found") {
+    return (
+      <>
+        <Helmet>
+          <meta name="robots" content="noindex,follow" />
+        </Helmet>
+        <NotFound />
+      </>
+    );
+  }
+
+  // ── RESOLVED ─────────────────────────────────────────────────
+  // Canonical emitted ONLY because identity genuinely resolved. Robots stays
+  // noindex,follow even if publication_status is published: T2D-B1 is not
+  // the publication phase (rich enrichment, the content/value gate, ingestion
+  // and sitemap publication are all still incomplete).
+  const { detail } = view;
+  const canonicalPath = `${SITE_URL}${thingsActivityPath(detail.activity)}`;
 
   return (
     <>
       <Helmet>
-        <title>{activity.canonicalTitle} | BookingsFinder</title>
-        <link rel="canonical" href={`${SITE_URL}${canonicalPath}`} />
-        {!published && <meta name="robots" content="noindex,follow" />}
+        <title>{detail.activity.canonicalTitle} | BookingsFinder</title>
+        <link rel="canonical" href={canonicalPath} />
+        <meta name="robots" content="noindex,follow" />
       </Helmet>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-muted px-4 text-center">
-        <h1 className="text-2xl font-bold text-[#0F172A]">
-          {activity.canonicalTitle}
-        </h1>
-        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          This experience is being reviewed. Details will appear here when the
-          activity is published.
-        </p>
-      </main>
+      <ActivityDetailPage detail={detail} destination={destination} />
     </>
   );
 };
