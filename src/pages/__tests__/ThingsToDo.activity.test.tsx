@@ -24,6 +24,13 @@ vi.mock("@/services/experiences", () => ({
   searchExperiences: searchExperiencesMock,
 }));
 
+const { mapProviderProductsMock } = vi.hoisted(() => ({ mapProviderProductsMock: vi.fn() }));
+
+vi.mock("@/services/thingsActivityMapping", () => ({
+  mapProviderProducts: mapProviderProductsMock.mockResolvedValue({ status: "unavailable", mappings: [] }),
+  providerScopedKey: (provider: string, providerProductId: string) => `${provider}:${providerProductId}`,
+}));
+
 vi.mock("react-helmet-async", () => ({
   Helmet: () => null,
   HelmetProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,

@@ -47,6 +47,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { searchExperiences } from "@/services/experiences";
+import { mapProviderProducts, providerScopedKey } from "@/services/thingsActivityMapping";
 import { recordActivity } from "@/lib/recentActivity";
 import type { ExperienceProduct, ExperienceSearchFilters, ProviderAvailability } from "@/types/experiences";
 
@@ -209,7 +210,18 @@ function HeroDecoration() {
 
 /* ─────────────────────────── EXPERIENCE CARD ───────────────────── */
 
-function ExperienceCard({ product }: { product: ExperienceProduct }) {
+function ExperienceCard({
+  product,
+  canonicalPath,
+}: {
+  product: ExperienceProduct;
+  /**
+   * Exact canonical BookingsFinder activity path, present ONLY when the
+   * server-backed mapping API returned and validated a mapping for this
+   * product identity. The frontend never manufactures one.
+   */
+  canonicalPath?: string | null;
+}) {
   const price = formatPrice(product.price, product.currency);
   const locationLabel = [product.city, product.country].filter(Boolean).join(", ");
 
@@ -280,7 +292,20 @@ function ExperienceCard({ product }: { product: ExperienceProduct }) {
             )}
             <p className="text-xs text-[#41536A] mt-0.5">Provided by {providerLabel(product.provider)}</p>
           </div>
-          {product.outboundUrl ? (
+          {canonicalPath ? (
+            /*
+             * Mapped card - internal BookingsFinder navigation ONLY. This is
+             * not an affiliate click: same-tab React Router link, no
+             * target="_blank", no sponsored rel, no ExternalLink icon. The
+             * path came from the validated mapping API - never guessed.
+             */
+            <Link
+              to={canonicalPath}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-[#D64A2A] hover:bg-[#B83D22] px-3 py-2 rounded-lg transition-colors shrink-0"
+            >
+              View details
+            </Link>
+          ) : product.outboundUrl ? (
             <a
               href={product.outboundUrl}
               target="_blank"
@@ -340,6 +365,14 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
   /* --- data state --- */
   const [products, setProducts] = useState<ExperienceProduct[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  /**
+   * Canonical activity paths keyed by provider-scoped identity
+   * (`tiqets:1111450`). Belongs ONLY to the current visible result set: it is
+   * reset at the start of every search and repopulated from one validated
+   * mapping batch, so a stale path can never survive into a different
+   * destination/query/filter/page/retry.
+   */
+  const [canonicalMappings, setCanonicalMappings] = useState<ReadonlyMap<string, string>>(new Map());
   const [providersAvailable, setProvidersAvailable] = useState({ tiqets: true, viator: true });
   const [loading, setLoading] = useState(true);
   const [inventoryUnavailable, setInventoryUnavailable] = useState(false);
@@ -422,12 +455,45 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
     const requestId = ++requestIdRef.current;
     setLoading(true);
     setInventoryUnavailable(false);
+    // Canonical mappings belong only to the current visible result set: reset
+    // before every search so no old path can survive into a different
+    // destination/query/filter/sort/page/retry.
+    setCanonicalMappings(new Map());
 
     searchExperiences(filters)
-      .then((result) => {
-        if (requestIdRef.current !== requestId) return; // stale response — ignore
+      .then(async (result) => {
+        if (requestIdRef.current !== requestId) return; // stale search response - ignore
+
+        // ONE canonical mapping batch for the visible products, only when
+        // there is something to map. Mapping failure (including a rejected
+        // call) is enhancement-only: it must never erase the genuine provider
+        // inventory, hide results or break outbound links.
+        let mappingsByKey = new Map<string, string>();
+        if (result.products.length > 0) {
+          try {
+            const mappingResult = await mapProviderProducts(
+              result.products.map((p) => ({
+                provider: p.provider,
+                providerProductId: p.providerProductId,
+              })),
+            );
+            if (requestIdRef.current === requestId && mappingResult?.status === "available") {
+              mappingsByKey = new Map(
+                mappingResult.mappings.map((m) => [
+                  providerScopedKey(m.provider, m.providerProductId),
+                  m.canonicalPath,
+                ]),
+              );
+            }
+          } catch {
+            // Mapping infrastructure failure - keep the provider inventory.
+          }
+        }
+
+        if (requestIdRef.current !== requestId) return; // stale mapping response - ignore
         setProducts(result.products);
         setTotalCount(result.totalCount);
+        setCanonicalMappings(mappingsByKey);
         setProvidersAvailable({
           tiqets: result.providers.tiqets !== "unavailable",
           viator: result.providers.viator !== "unavailable",
@@ -439,6 +505,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
         if (requestIdRef.current !== requestId) return;
         setProducts([]);
         setTotalCount(0);
+        setCanonicalMappings(new Map());
         setInventoryUnavailable(true);
         setLoading(false);
       });
@@ -1127,7 +1194,13 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {products.map((product) => (
-                <ExperienceCard key={`${product.provider}-${product.providerProductId}`} product={product} />
+                <ExperienceCard
+                  key={`${product.provider}-${product.providerProductId}`}
+                  product={product}
+                  canonicalPath={
+                    canonicalMappings.get(providerScopedKey(product.provider, product.providerProductId)) ?? null
+                  }
+                />
               ))}
             </div>
 
