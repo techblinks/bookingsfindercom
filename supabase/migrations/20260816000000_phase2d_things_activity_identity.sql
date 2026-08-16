@@ -17,8 +17,15 @@
 -- Provider IDs never define public URL identity: the canonical URL is built
 -- from things_activities (destination_slug, slug) only.
 --
--- LOCAL DEVELOPMENT ONLY. Do NOT apply remotely in this phase.
--- No deployment, no `supabase db push`, no remote migration.
+-- Originally created as a local-only foundation during T2D-A. Following the
+-- T2D-B2A production-readiness audit, this additive migration is approved for
+-- a controlled production rollout using the explicit authoritative project ref.
+-- Application remains a separate manual production step.
+--
+-- THIS COMMIT DOES NOT APPLY THE MIGRATION. Applying it is a separate manual
+-- production operation that requires the explicit authoritative Supabase
+-- project ref (e.g. `supabase db push --project-ref <explicit-ref>`); no
+-- implicit or stale `supabase link` state may be relied upon.
 
 -- ═══════════════════════════════════════════════════════════════════
 -- 1. things_activities — canonical activity identity
