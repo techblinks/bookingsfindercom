@@ -2,18 +2,21 @@
  * things-activity-public — Public read-only canonical activity resolver.
  *
  * POST only. No authentication required (intentionally public — the same
- * contract as tiqets-public / viator-public). This phase supports exactly
- * one action:
+ * contract as tiqets-public / viator-public). Two read-only actions:
  *
- *   { "action": "resolve", "destinationSlug": "rome", "activitySlug": "..." }
+ *   resolve                — exact destination_slug + slug resolution
+ *   map-provider-products  — exact (provider, provider_product_id) pairs to
+ *                            canonical activity identities (identity bridge
+ *                            only — never title/URL/heuristic matching)
  *
  * WHY SERVER-SIDE: things_activities / things_activity_offers have NO public
  * RLS policies (the phase2d migration locks them down), so public catalogue
  * reads must happen here, with the service-role client.
  *
  * READ-ONLY. This function performs NO writes, NO provider API calls, NO
- * arbitrary URL passthrough and NO arbitrary table/query passthrough. It
- * reads exactly three fixed tables:
+ * arbitrary URL passthrough and NO arbitrary table/query passthrough.
+ *
+ * resolve reads exactly three fixed tables:
  *
  *   1. things_activities        — exact destination_slug + slug resolution
  *   2. things_activity_offers   — provider offers for the resolved activity
@@ -21,11 +24,18 @@
  *                                 (best-effort; a cache read failure never
  *                                 fails the resolve)
  *
+ * map-provider-products reads ONLY the two identity tables (1 and 2) using
+ * fixed .in(...) column filters — never caller-built filter strings.
+ *
  * RESPONSES:
- *   200 { status: "available", activity, offers }
- *   404 { status: "not_found" }     — unknown OR archived (fail closed)
- *   400 { error }                   — invalid input / unknown action
- *   500 { error }                   — generic, no internal details
+ *   resolve:
+ *     200 { status: "available", activity, offers }
+ *     404 { status: "not_found" }     — unknown OR archived (fail closed)
+ *   map-provider-products:
+ *     200 { status: "ok", requestedCount, mappedCount, mappings }
+ *   both actions:
+ *     400 { error }                   — invalid input / unknown action
+ *     500 { error }                   — generic, no internal details
  *
  * SECURITY:
  *   - service-role key is read from the environment only, never returned,
@@ -45,11 +55,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
   buildNotFoundBody,
+  buildProviderMappingBody,
   buildPublicActivityPayload,
   buildPublicOfferPayload,
   buildResolvedBody,
   isArchivedStatus,
+  mapProviderProductsToCanonical,
   sortOffersByProvider,
+  validateProviderMappingInput,
   validateResolveInput,
 } from "./things-activity-core.ts";
 
@@ -152,6 +165,110 @@ async function loadOfferEnrichment(
 // Main handler
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * map-provider-products — exact provider identity → canonical activity
+ * identity bridge (T2D-B2B-5A).
+ *
+ * READ-ONLY. The ONLY join is:
+ *
+ *   (provider, provider_product_id)
+ *     → things_activity_offers.activity_id
+ *     → things_activities.id
+ *
+ * No title similarity, no fuzzy matching, no slugification, no provider URL
+ * matching, no AI/heuristic matching and NO provider API calls. Unknown
+ * pairs are omitted (never manufactured); archived activities fail closed.
+ * The response exposes ONLY public-safe identity fields.
+ */
+async function handleProviderMapping(
+  body: Record<string, unknown>,
+  headers: Record<string, string>,
+): Promise<Response> {
+  const validated = validateProviderMappingInput(body.items);
+  if (!validated.ok) {
+    return publicError(validated.error, 400, headers);
+  }
+
+  try {
+    // 1. Fixed .in(...) offer lookup by product IDs. Provider scope is
+    //    enforced in application code below — never via a caller-built
+    //    filter string.
+    const productIds = Array.from(
+      new Set(validated.items.map((item) => item.providerProductId)),
+    );
+    const { data: offerRows, error: offersError } = await supabaseAdmin
+      .from("things_activity_offers")
+      .select("id, activity_id, provider, provider_product_id")
+      .in("provider_product_id", productIds);
+
+    if (offersError) {
+      console.error("[things-activity-public] mapping offer query failed");
+      return publicError("Unable to map provider products", 500, headers);
+    }
+
+    // 2. Keep ONLY rows whose exact (provider, provider_product_id) pair was
+    //    in the validated request — provider-scoped even when two providers
+    //    happen to share the same product ID.
+    const exactPairs = new Set(
+      validated.items.map((item) => `${item.provider}:${item.providerProductId}`),
+    );
+    const offers = (Array.isArray(offerRows) ? offerRows : []).filter(
+      (offer) =>
+        typeof offer.provider === "string" &&
+        typeof offer.provider_product_id === "string" &&
+        exactPairs.has(`${offer.provider}:${offer.provider_product_id}`),
+    );
+
+    // 3. Fixed .in(...) canonical activity lookup by exact activity IDs.
+    const activityIds = Array.from(
+      new Set(
+        offers
+          .map((offer) => offer.activity_id)
+          .filter((id): id is string => typeof id === "string"),
+      ),
+    );
+
+    if (activityIds.length === 0) {
+      return json(
+        buildProviderMappingBody(validated.items.length, 0, []),
+        200,
+        headers,
+      );
+    }
+
+    const { data: activityRows, error: activitiesError } = await supabaseAdmin
+      .from("things_activities")
+      .select("id, destination_slug, slug, publication_status")
+      .in("id", activityIds);
+
+    if (activitiesError) {
+      console.error("[things-activity-public] mapping activity query failed");
+      return publicError("Unable to map provider products", 500, headers);
+    }
+
+    // 4. Exact activity-ID join in application code. Output order preserves
+    //    the validated deduplicated request order (deterministic).
+    const mappings = mapProviderProductsToCanonical(
+      validated.items,
+      offers,
+      Array.isArray(activityRows) ? activityRows : [],
+    );
+
+    return json(
+      buildProviderMappingBody(validated.items.length, mappings.length, mappings),
+      200,
+      headers,
+    );
+  } catch (err) {
+    // Never expose internal details — log a message only, respond generically.
+    console.error(
+      "[things-activity-public] unexpected error:",
+      err instanceof Error ? err.message : "unknown error",
+    );
+    return publicError("An unexpected error occurred", 500, headers);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const headers = originScopedHeaders(req);
 
@@ -174,12 +291,16 @@ Deno.serve(async (req: Request) => {
     return publicError("Request body must be a JSON object", 400, headers);
   }
 
-  const action = (rawBody as Record<string, unknown>).action;
-  if (action !== "resolve") {
-    return publicError("action is required (resolve)", 400, headers);
+  const body = rawBody as Record<string, unknown>;
+  const action = body.action;
+
+  if (action === "map-provider-products") {
+    return handleProviderMapping(body, headers);
   }
 
-  const body = rawBody as Record<string, unknown>;
+  if (action !== "resolve") {
+    return publicError("action is required (resolve | map-provider-products)", 400, headers);
+  }
   const validated = validateResolveInput(body.destinationSlug, body.activitySlug);
   if (!validated.ok) {
     return publicError(validated.error, 400, headers);

@@ -188,10 +188,11 @@ const coreSrc = readRoot("supabase/functions/things-activity-public/things-activ
 const serviceSrc = readRoot("src/services/thingsActivityDetail.ts").replace(/\r\n/g, "\n");
 
 describe("things-activity-public Edge Function — read-only resolver", () => {
-  it("is POST-only and supports exactly the resolve action", () => {
+  it("is POST-only and supports the resolve and map-provider-products actions", () => {
     expect(indexSrc).toContain('if (req.method !== "POST")');
     expect(indexSrc).toContain('action !== "resolve"');
-    expect(indexSrc).toMatch(/action is required \(resolve\)/);
+    expect(indexSrc).toContain('action === "map-provider-products"');
+    expect(indexSrc).toMatch(/action is required \(resolve \| map-provider-products\)/);
   });
 
   it("uses the service-role client for server-side reads", () => {
