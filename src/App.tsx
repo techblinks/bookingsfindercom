@@ -37,6 +37,7 @@ import AdminTiqets from "./pages/AdminTiqets";
 import AdminViator from "./pages/AdminViator";
 import ThingsToDoHubRoute from "./pages/ThingsToDoHubRoute";
 import ThingsToDoDestinationPage from "./pages/ThingsToDoDestinationPage";
+import ThingsToDoActivityRoute from "./pages/ThingsToDoActivityRoute";
 import AboutUs from "./pages/AboutUs";
 import Careers from "./pages/Careers";
 import HelpCenter from "./pages/HelpCenter";
@@ -139,6 +140,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin/viator" element={<AdminViator />} />
         <Route path="/things-to-do" element={<ThingsToDoHubRoute />} />
         <Route path="/things-to-do/:destinationSlug" element={<ThingsToDoDestinationPage />} />
+        <Route path="/things-to-do/:destinationSlug/:activitySlug" element={<ThingsToDoActivityRoute />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     );
@@ -215,6 +217,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/viator" element={<AdminViator />} />
           <Route path="/things-to-do" element={<ThingsToDoHubRoute />} />
           <Route path="/things-to-do/:destinationSlug" element={<ThingsToDoDestinationPage />} />
+          <Route path="/things-to-do/:destinationSlug/:activitySlug" element={<ThingsToDoActivityRoute />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>
