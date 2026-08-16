@@ -178,6 +178,7 @@ Deno.test("featured: successful response has real diagnostics and on-sale filter
   assertEquals(body.diagnostics.upstreamRawCount, 2);
   assertEquals(body.diagnostics.normalizedCount, 2);
   assertEquals(body.diagnostics.filteredOnSaleCount, 1);
+  assertEquals(body.diagnostics.saleStatusCounts, { on_sale: 1, sold_out: 1 });
   assertEquals(body.cacheStatus, "miss");
 });
 
@@ -242,4 +243,69 @@ Deno.test("unknown action -> 400 with CORS", async () => {
   const res = await post({ action: "nope" });
   assertEquals(res.status, 400);
   assertEquals(acao(res), ORIGIN);
+});
+// ── sale-status diagnostics (T2D-B2B-3C) ──
+
+Deno.test("featured: saleStatusCounts reveals raw provider statuses (incl. (missing))", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [
+    { id: "1", title: "A", sale_status: "available" },
+    { id: "2", title: "B", sale_status: "available" },
+    { id: "3", title: "C", sale_status: "unavailable" },
+    { id: "4", title: "D", sale_status: null },
+  ];
+  const res = await post({ action: "featured" });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  // Aggregate diagnostics reflect exactly what the provider sent.
+  assertEquals(body.diagnostics.saleStatusCounts, {
+    available: 2,
+    unavailable: 1,
+    "(missing)": 1,
+  });
+  // Filter behaviour is UNCHANGED: only on_sale (or absent) survives.
+  assertEquals(body.diagnostics.upstreamRawCount, 4);
+  assertEquals(body.diagnostics.normalizedCount, 4);
+  assertEquals(body.diagnostics.filteredOnSaleCount, 1);
+  assertEquals(body.products.length, 1);
+  assertEquals(body.products[0].id, "4");
+});
+
+Deno.test("featured: diagnostics expose counts only (no ids/titles/urls/tokens)", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [
+    {
+      id: "id-1",
+      title: "TITLE-SECRET",
+      product_url: "https://tiqets.com/URL-SECRET",
+      product_checkout_url: "https://tiqets.com/CHECKOUT-SECRET",
+      token: "TOKEN-SECRET",
+      sale_status: "available",
+    },
+    { id: "id-2", title: "Other", sale_status: "unavailable" },
+  ];
+  const res = await post({ action: "featured" });
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  const diagJson = JSON.stringify(body.diagnostics);
+  assert(!diagJson.includes("SECRET"), "diagnostics must not contain product data");
+  assert(!diagJson.includes("tiqets.com"), "diagnostics must not contain URLs");
+});
+
+Deno.test("search: fresh response includes sale-status aggregate diagnostics", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [
+    { id: "1", title: "Rome", sale_status: "available" },
+    { id: "2", title: "Vatican", sale_status: "on_sale" },
+  ];
+  const res = await post({ action: "search", city_name: "Rome", page: 1, page_size: 24 });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assertEquals(body.products.length, 1, "only on_sale survives the safety filter");
+  assertEquals(body.diagnostics.upstreamRawCount, 2);
+  assertEquals(body.diagnostics.normalizedCount, 2);
+  assertEquals(body.diagnostics.filteredOnSaleCount, 1);
+  assertEquals(body.diagnostics.saleStatusCounts, { available: 1, on_sale: 1 });
 });

@@ -262,3 +262,48 @@ export function buildImageDiagnostics(
       rawImage.credit.trim().length > 0,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Sale-status aggregate diagnostics
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Stable placeholder key for products with no meaningful sale status.
+ */
+export const MISSING_SALE_STATUS = "(missing)";
+
+/**
+ * Build safe sale-status aggregate diagnostics.
+ *
+ * Returns one count per observed sale-status value — counts only. Never
+ * returns product IDs, titles, URLs, descriptions, tokens, or raw product
+ * objects. Accepts both normalized (`saleStatus`) and raw (`sale_status`)
+ * shapes. Status values are trimmed and preserved verbatim; null, empty,
+ * and whitespace-only statuses are aggregated under `(missing)`.
+ */
+export function buildSaleStatusDiagnostics(
+  products: unknown,
+): Record<string, number> {
+  const list = Array.isArray(products) ? products : [];
+  const counts: Record<string, number> = {};
+  for (const item of list) {
+    const label = saleStatusLabel(item);
+    counts[label] = (counts[label] || 0) + 1;
+  }
+  return counts;
+}
+
+function saleStatusLabel(item: unknown): string {
+  if (item && typeof item === "object") {
+    const record = item as Record<string, unknown>;
+    const raw =
+      typeof record.saleStatus === "string"
+        ? record.saleStatus
+        : typeof record.sale_status === "string"
+          ? record.sale_status
+          : "";
+    const trimmed = raw.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return MISSING_SALE_STATUS;
+}

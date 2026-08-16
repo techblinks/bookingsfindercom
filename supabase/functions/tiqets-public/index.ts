@@ -37,6 +37,7 @@ import type { TiqetsError } from "../_shared/tiqets-client.ts";
 import {
   normalizeProduct,
   buildImageDiagnostics,
+  buildSaleStatusDiagnostics,
 } from "../_shared/tiqets-normalizer.ts";
 import type {
   NormalizedProduct,
@@ -586,6 +587,7 @@ if (!action || typeof action !== "string") {
             upstreamRawCount: rawResults.length,
             filteredOnSaleCount: safeProducts.length,
             normalizedCount: products.length,
+            saleStatusCounts: buildSaleStatusDiagnostics(products),
             imageDiagnostics: buildImageDiagnostics(rawResults),
           },
         },
@@ -774,6 +776,12 @@ if (action === "search") {
           cacheStatus: "miss",
           upstreamRequestId: upstream.upstreamRequestId || null,
           pagination: cachePayload.pagination,
+          diagnostics: {
+            upstreamRawCount: rawResults.length,
+            filteredOnSaleCount: safeProducts.length,
+            normalizedCount: products.length,
+            saleStatusCounts: buildSaleStatusDiagnostics(products),
+          },
         },
         200,
         headers,
