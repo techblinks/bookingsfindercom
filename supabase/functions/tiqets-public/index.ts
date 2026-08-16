@@ -20,13 +20,16 @@
  * - Stale-if-error: returns recently-expired data when upstream fails.
  * - Service-role access only (RLS bypassed).
  *
- * FILTERS:
- * - Price: price_min / price_max (AUD cents) — upstream-supported.
- * - Ticket features: skip_line, smartphone_ticket, instant_ticket_delivery —
- *   upstream-supported boolean params (sent only when true).
- * - Accessibility: wheelchair_access — upstream-supported boolean param
- *   (sent only when true).
- * - Activity type: tag_ids — upstream-supported, comma-separated.
+ * FILTERS (PB2A - current official /v2/products contract):
+ * - Location: city_id (official Tiqets city ID, repeatable upstream), city_name
+ *   (official debugging aid; city_id recommended).
+ * - Free-text: query (official full-text search).
+ * - Sort: FAIL CLOSED - the documented sort value syntax is not yet proven, so
+ *   no sort parameter is sent upstream; Tiqets' default/provider order applies.
+ * - Tags: genuine numeric Tiqets tag IDs only, serialized as repeated tag_id.
+ * - Undocumented /products request params (destination_id, destination, search,
+ *   ordering, tag_ids, price_min, price_max, skip_line, smartphone_ticket,
+ *   instant_ticket_delivery, wheelchair_access) are deliberately NOT forwarded.
  */
 
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
@@ -100,64 +103,42 @@ const featuredSchema = z.object({
 const searchSchema = z
   .object({
     action: z.literal("search"),
+    // Provider-correct Tiqets city identity (official /v2/products city_id).
+    // Obtained from Tiqets' /cities endpoint; candidate Rome ID 71631 remains
+    // candidate-only until live scoping is proven.
+    city_id: z.number().int().positive().optional(),
+    // Official /v2/products city_name (documented debugging aid; city_id recommended).
+    city_name: z
+      .string()
+      .max(80)
+      .transform((s) => s.trim())
+      .optional(),
+    // Official /v2/products full-text query.
     query: z
       .string()
       .max(120)
       .transform((s) => s.trim())
       .refine(noControlChars)
       .optional(),
-    city_name: z
-      .string()
-      .max(80)
-      .transform((s) => s.trim())
-      .optional(),
-    destination_id: z.number().int().positive().optional(),
     page: z.number().int().min(1).max(20).default(1),
     page_size: z.union([z.literal(12), z.literal(24)]).default(12),
-    sort: z
-      .enum(["popularity_desc", "price_asc", "title_asc"])
-      .default("popularity_desc"),
     min_rating: z.number().int().min(1).max(5).optional(),
     lang: z.literal("en").default("en"),
     currency: z.literal("AUD").default("AUD"),
-
-    // ── Price filter (AUD cents) ──
-    price_min: z.number().int().min(0).optional(),
-    price_max: z.number().int().min(0).optional(),
-
-    // ── Ticket features (boolean filters) ──
-    skip_line: z.boolean().optional(),
-    smartphone_ticket: z.boolean().optional(),
-    instant_ticket_delivery: z.boolean().optional(),
-
-    // ── Accessibility ──
-    wheelchair_access: z.boolean().optional(),
-
-    // ── Activity type / tag IDs ──
+    // Genuine numeric Tiqets tag IDs only (official repeated tag_id upstream).
+    // Never free-text labels; never converted labels.
     tag_ids: z.array(z.number().int().positive()).max(10).optional(),
   })
-  .refine((d) => d.query || d.city_name || d.destination_id, {
-    message: "At least one of query, city_name, or destination_id is required",
-  })
-  .refine(
-    (d) => {
-      if (d.price_min !== undefined && d.price_max !== undefined) {
-        return d.price_min <= d.price_max;
-      }
-      return true;
-    },
-    { message: "price_min must be less than or equal to price_max" },
-  );
+  .refine((d) => d.query || d.city_name || d.city_id, {
+    message: "At least one of query, city_name, or city_id is required",
+  });
 
 // ═══════════════════════════════════════════════════════════════
-// Sort mapping (our values → Tiqets upstream ordering values)
 // ═══════════════════════════════════════════════════════════════
 
-const SORT_ORDERING: Record<string, string> = {
-  popularity_desc: "-popularity",
-  price_asc: "price",
-  title_asc: "title",
-};
+// Sort: FAIL CLOSED (PB2A). The official /v2/products sort value syntax is not
+// proven (PB1), so no sort parameter is sent upstream; Tiqets' default/provider
+// order applies. The customer-facing frontend sort contract is a PB2B task.
 
 // ═══════════════════════════════════════════════════════════════
 // Cache TTL constants (seconds)
@@ -208,10 +189,11 @@ async function generateCacheKey(
 
 interface CachedPayload {
   products: NormalizedProduct[];
+  /** Official /v2/products pagination shape (pagination.total/page/page_size). */
   pagination?: {
-    count: number;
-    next: string | null;
-    previous: string | null;
+    total: number;
+    page: number;
+    page_size: number;
   };
 }
 
@@ -351,9 +333,12 @@ function publicError(
 interface TiqetsProductsResponse {
   products?: TiqetsProductRaw[];
   results?: TiqetsProductRaw[];
-  count?: number;
-  next?: string | null;
-  previous?: string | null;
+  /** Official /v2/products pagination wrapper (PB1: pagination.total/page/page_size). */
+  pagination?: {
+    total?: number;
+    page?: number;
+    page_size?: number;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -364,14 +349,38 @@ function buildSearchCachePayload(
   products: NormalizedProduct[],
   upstream: TiqetsProductsResponse,
 ): CachedPayload {
+  const pagination = upstream.pagination;
   return {
     products,
     pagination: {
-      count: upstream.count ?? products.length,
-      next: upstream.next || null,
-      previous: upstream.previous || null,
+      total: pagination?.total ?? products.length,
+      page: pagination?.page ?? 1,
+      page_size: pagination?.page_size ?? products.length,
     },
   };
+}
+
+/**
+ * Map the documented upstream pagination shape to the public response.
+ * `count` is retained for the existing frontend contract and equals the genuine
+ * upstream total; `total` is the explicitly named upstream total. This is NEVER
+ * a post-sale-status-filter fabricated number (PB2A Part 4). Old cached entries
+ * with the legacy {count,next,previous} shape are tolerated.
+ */
+function toPublicPagination(
+  p: CachedPayload["pagination"] | null | undefined,
+): { count: number; total: number; page: number; page_size: number } | null {
+  if (!p) return null;
+  const raw = p as unknown as {
+    total?: number;
+    count?: number;
+    page?: number;
+    page_size?: number;
+  };
+  const total = typeof raw.total === "number" ? raw.total : (typeof raw.count === "number" ? raw.count : 0);
+  const page = typeof raw.page === "number" ? raw.page : 1;
+  const pageSize = typeof raw.page_size === "number" ? raw.page_size : 0;
+  return { count: total, total, page, page_size: pageSize };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -689,8 +698,9 @@ if (action === "search") {
 
     // Build cache key from search params (exclude action)
     const { action: _a, ...searchParams } = body;
-    // Ensure numeric params are serialized consistently for cache keys
-    if (searchParams.destination_id) searchParams.destination_id = Number(searchParams.destination_id);
+    // Cache key includes every result-changing field (city_id, city_name, query,
+    // page, page_size, min_rating, tag_ids, lang, currency) so distinct provider
+    // identities never share a cache entry.
     const cacheKey = await generateCacheKey("search", searchParams as Record<string, unknown>);
 
     const cacheResult = await getCachedEntry(cacheKey, SEARCH_TTL_SEC);
@@ -702,7 +712,7 @@ if (action === "search") {
           products: cacheResult.entry.payload.products,
           fetchedAt: cacheResult.entry.fetched_at,
           cacheStatus: "hit",
-          pagination: cacheResult.entry.payload.pagination || null,
+          pagination: toPublicPagination(cacheResult.entry.payload.pagination),
         },
         200,
         headers,
@@ -714,34 +724,27 @@ if (action === "search") {
 
     // Build upstream params
     const params = new URLSearchParams({
-      lang: "en",
+      lang: body.lang,
       page: String(body.page),
       page_size: String(body.page_size),
-      ordering: SORT_ORDERING[body.sort],
-      currency: "AUD",
+      currency: body.currency,
     });
 
-    if (body.query) params.set("search", body.query);
-    if (body.city_name) params.set("destination", body.city_name);
-    if (body.destination_id) params.set("destination_id", String(body.destination_id));
-    if (body.min_rating) params.set("min_rating", String(body.min_rating));
+    // Official /v2/products location + free-text filters (PB1 contract audit).
+    if (body.city_id !== undefined) params.set("city_id", String(body.city_id));
+    if (body.city_name) params.set("city_name", body.city_name);
+    if (body.query) params.set("query", body.query);
+    if (body.min_rating !== undefined) params.set("min_rating", String(body.min_rating));
 
-    // ── Price filter (AUD cents) ──
-    if (body.price_min !== undefined) params.set("price_min", String(body.price_min));
-    if (body.price_max !== undefined) params.set("price_max", String(body.price_max));
-
-    // ── Ticket features (only send when true) ──
-    if (body.skip_line === true) params.set("skip_line", "true");
-    if (body.smartphone_ticket === true) params.set("smartphone_ticket", "true");
-    if (body.instant_ticket_delivery === true) params.set("instant_ticket_delivery", "true");
-
-    // ── Accessibility ──
-    if (body.wheelchair_access === true) params.set("wheelchair_access", "true");
-
-    // ── Activity type / tag IDs ──
+    // Genuine numeric Tiqets tag IDs serialize as repeated tag_id parameters
+    // (official contract; never free-text labels).
     if (body.tag_ids && body.tag_ids.length > 0) {
-      params.set("tag_ids", body.tag_ids.join(","));
+      for (const tagId of body.tag_ids) params.append("tag_id", String(tagId));
     }
+
+    // PB2A: undocumented /products filters (destination_id, destination, search,
+    // ordering, tag_ids, price_min, price_max, skip_line, smartphone_ticket,
+    // instant_ticket_delivery, wheelchair_access) are deliberately NOT forwarded.
 
     try {
       const upstream = await tiqetsRequest<TiqetsProductsResponse>({
@@ -777,7 +780,7 @@ if (action === "search") {
           fetchedAt: now,
           cacheStatus: "miss",
           upstreamRequestId: upstream.upstreamRequestId || null,
-          pagination: cachePayload.pagination,
+          pagination: toPublicPagination(cachePayload.pagination),
           diagnostics: {
             upstreamRawCount: rawResults.length,
             filteredOnSaleCount: safeProducts.length,
@@ -796,7 +799,7 @@ if (action === "search") {
             products: staleFallback.payload.products,
             fetchedAt: staleFallback.fetched_at,
             cacheStatus: "stale",
-            pagination: staleFallback.payload.pagination || null,
+            pagination: toPublicPagination(staleFallback.payload.pagination),
           },
           200,
           headers,

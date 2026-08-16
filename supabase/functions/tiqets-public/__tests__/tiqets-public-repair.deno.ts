@@ -9,7 +9,7 @@
  *
  * Coverage: destinations/catalogue-search no undefined-body crash,
  * featured no onSale ReferenceError + real diagnostics, search schema
- * (city_name / destination_id / refine), CORS on every response path,
+ * (city_id / city_name / query / refine), CORS on every response path,
  * OPTIONS allowlist (production / www / preview-not-allowlisted).
  */
 
@@ -55,9 +55,11 @@ globalThis.fetch = ((
       new Response(
         JSON.stringify({
           products: upstreamProducts,
-          count: upstreamProducts.length,
-          next: null,
-          previous: null,
+          pagination: {
+            total: upstreamProducts.length,
+            page: 1,
+            page_size: upstreamProducts.length,
+          },
         }),
         {
           status: 200,
@@ -184,7 +186,7 @@ Deno.test("featured: successful response has real diagnostics and availability f
 
 // ── search ──
 
-Deno.test("search: city_name still valid and maps to upstream destination", async () => {
+Deno.test("search: city_name maps to upstream city_name (official param)", async () => {
   upstreamMode = "ok";
   upstreamProducts = [{ id: "1", title: "Rome Tour", sale_status: "available" }];
   const res = await post({
@@ -198,28 +200,35 @@ Deno.test("search: city_name still valid and maps to upstream destination", asyn
   assertEquals(acao(res), ORIGIN);
   const body = await res.json();
   assertEquals(body.products.length, 1);
-  assert(
-    capturedUpstreamUrl !== null && capturedUpstreamUrl.includes("destination=Rome"),
-    "city_name must map to upstream destination param",
-  );
+  const upstream = capturedUpstreamUrl ?? "";
+  assert(upstream.includes("city_name=Rome"), "city_name must map to upstream city_name");
+  assert(!upstream.includes("destination="), "legacy destination param must not be sent");
+  assert(!upstream.includes("ordering="), "ordering must not be sent");
+  assert(!upstream.includes("sort="), "sort must not be sent (fail-closed)");
 });
 
-Deno.test("search: genuine destination_id accepted and mapped upstream", async () => {
+Deno.test("search: destination_id is not a public parameter (400 refine)", async () => {
+  const res = await post({ action: "search", destination_id: 123, page: 1, page_size: 24 });
+  assertEquals(res.status, 400);
+  assertEquals(acao(res), ORIGIN);
+});
+
+Deno.test("search: city_id accepted and mapped upstream as city_id", async () => {
   upstreamMode = "ok";
   upstreamProducts = [{ id: "10", title: "Vatican", sale_status: "available" }];
-  const res = await post({ action: "search", destination_id: 123, page: 1, page_size: 24 });
+  const res = await post({ action: "search", city_id: 71631, page: 1, page_size: 24 });
   assertEquals(res.status, 200);
   assertEquals(acao(res), ORIGIN);
   const body = await res.json();
   assertEquals(body.products.length, 1);
   assert(
-    capturedUpstreamUrl !== null && capturedUpstreamUrl.includes("destination_id=123"),
-    "destination_id must reach upstream",
+    capturedUpstreamUrl !== null && capturedUpstreamUrl.includes("city_id=71631"),
+    "city_id must reach upstream",
   );
 });
 
-Deno.test("search: invalid (non-positive) destination_id rejected with 400 + CORS", async () => {
-  const res = await post({ action: "search", destination_id: -5, page: 1, page_size: 24 });
+Deno.test("search: invalid (non-positive) city_id rejected with 400 + CORS", async () => {
+  const res = await post({ action: "search", city_id: -5, page: 1, page_size: 24 });
   assertEquals(res.status, 400);
   assertEquals(acao(res), ORIGIN);
 });
@@ -228,6 +237,35 @@ Deno.test("search: no destination/query/city -> 400 (refine) with CORS", async (
   const res = await post({ action: "search", page: 1, page_size: 24 });
   assertEquals(res.status, 400);
   assertEquals(acao(res), ORIGIN);
+});
+
+Deno.test("search: query maps to upstream query (official full-text param)", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [{ id: "20", title: "Vatican Museums", sale_status: "available" }];
+  const res = await post({ action: "search", query: "vatican", page: 1, page_size: 24 });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assertEquals(body.products.length, 1);
+  const upstream = capturedUpstreamUrl ?? "";
+  assert(upstream.includes("query=vatican"), "query must map to upstream query");
+  assert(!upstream.includes("search=vatican"), "legacy search param must not be sent");
+});
+
+Deno.test("search: official pagination.total/page/page_size surface as public count/total", async () => {
+  upstreamMode = "ok";
+  upstreamProducts = [
+    { id: "1", title: "Rome A", sale_status: "available" },
+    { id: "2", title: "Rome B", sale_status: "available" },
+  ];
+  const res = await post({ action: "search", city_id: 71631, page: 1, page_size: 24 });
+  assertEquals(res.status, 200);
+  assertEquals(acao(res), ORIGIN);
+  const body = await res.json();
+  assertEquals(body.pagination.total, 2);
+  assertEquals(body.pagination.count, 2);
+  assertEquals(body.pagination.page, 1);
+  assertEquals(body.pagination.page_size, 2);
 });
 
 Deno.test("search: upstream auth failure -> 502 retaining CORS headers", async () => {
