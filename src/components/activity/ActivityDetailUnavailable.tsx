@@ -16,16 +16,16 @@ const ActivityDetailUnavailable = ({ onRetry }: ActivityDetailUnavailableProps) 
     data-testid="activity-detail-unavailable"
   >
     <div className="max-w-md text-center" role="status">
-      <h1 className="text-xl font-bold text-[#0F172A]">
+      <h1 className="text-xl font-bold text-things-text-primary">
         We couldn&apos;t load this experience right now.
       </h1>
-      <p className="mt-2 text-sm text-[#41536A]">
+      <p className="mt-2 text-sm text-things-text-secondary">
         Please try again in a moment. Your destination and search are unchanged.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-5 inline-flex items-center justify-center rounded-lg bg-[#D64A2A] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B83D22] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D64A2A] focus-visible:ring-offset-2"
+        className="mt-5 inline-flex items-center justify-center rounded-lg bg-things-action px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-things-action-hover active:bg-things-action-strong things-focus-ring-action"
       >
         Try again
       </button>

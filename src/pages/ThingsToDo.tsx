@@ -14,9 +14,6 @@ import {
   Star,
   MapPin,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
   Info,
   ListFilter,
   X,
@@ -27,8 +24,9 @@ import {
   Calculator,
   Sparkles,
   ExternalLink,
-  ShieldCheck,
 } from "lucide-react";
+import ThingsPagination from "@/components/things/ThingsPagination";
+import ThingsNoImageState from "@/components/things/ThingsNoImageState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -104,12 +102,12 @@ const PAGE_SIZE = 24;
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EDF4FC] border border-[#D8E0E7] rounded-full text-xs font-medium text-[#0F172A]">
+    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-things-brand-soft border border-things-border rounded-full text-xs font-medium text-things-text-primary">
       {label}
       <button
         type="button"
         onClick={onRemove}
-        className="hover:bg-[#D8E0E7] rounded-full p-0.5"
+        className="hover:bg-things-border rounded-full p-0.5 things-focus-ring"
         aria-label={`Remove ${label} filter`}
       >
         <X className="w-3 h-3" />
@@ -120,7 +118,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-xl border border-[#D8E0E7] overflow-hidden">
+    <div className="bg-things-surface-card rounded-xl border border-things-border overflow-hidden">
       <Skeleton className="aspect-[16/10] w-full rounded-none" />
       <div className="p-4 space-y-3">
         <Skeleton className="h-3 w-24" />
@@ -128,24 +126,6 @@ function SkeletonCard() {
         <Skeleton className="h-3 w-32" />
         <Skeleton className="h-5 w-20" />
       </div>
-    </div>
-  );
-}
-
-const FALLBACK_SVG =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' fill='%23EDF4FC'%3E%3Crect width='400' height='300'/%3E%3Ctext x='200' y='155' text-anchor='middle' fill='%2301367F' font-size='14' font-family='system-ui,sans-serif'%3EBookingsFinder%3C/text%3E%3C/svg%3E";
-
-function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
-  e.currentTarget.src = FALLBACK_SVG;
-}
-
-function ImageFallbackPanel({ label }: { label?: string | null }) {
-  return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-[#EDF4FC]">
-      <MapPin className="w-6 h-6 text-[#01367F]/30 mb-1" aria-hidden="true" />
-      {label ? (
-        <p className="text-[11px] font-medium text-[#41536A] px-2 text-center line-clamp-1">{label}</p>
-      ) : null}
     </div>
   );
 }
@@ -224,37 +204,38 @@ function ExperienceCard({
 }) {
   const price = formatPrice(product.price, product.currency);
   const locationLabel = [product.city, product.country].filter(Boolean).join(", ");
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <div
       role="article"
-      className="group bg-white rounded-xl border border-[#D8E0E7] overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
+      className="group bg-things-surface-card rounded-xl border border-things-border overflow-hidden shadow-card hover:shadow-elevated transition-shadow flex flex-col"
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-[#EDF4FC]">
-        {product.imageUrl ? (
+      <div className="relative aspect-[16/10] overflow-hidden bg-things-surface-subtle">
+        {product.imageUrl && !imageFailed ? (
           <img
             src={product.imageUrl}
             alt={product.imageAlt || product.title || "Experience photo"}
-            onError={handleImgError}
+            onError={() => setImageFailed(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
         ) : (
-          <ImageFallbackPanel label={product.title} />
+          <ThingsNoImageState icon="map-pin" label={product.title} />
         )}
         <div className="absolute top-3 right-3 flex flex-wrap gap-1 justify-end max-w-[80%]">
           {product.features.skipLine === true && (
-            <span className="bg-white/90 text-[#0F172A] text-[10px] px-2 py-0.5 rounded-full font-medium">
+            <span className="bg-white/90 text-things-text-primary text-[10px] px-2 py-0.5 rounded-full font-medium">
               Skip the line
             </span>
           )}
           {product.features.freeCancellation === true && (
-            <span className="bg-white/90 text-[#0F172A] text-[10px] px-2 py-0.5 rounded-full font-medium">
+            <span className="bg-white/90 text-things-text-primary text-[10px] px-2 py-0.5 rounded-full font-medium">
               Free cancellation
             </span>
           )}
           {product.features.instantConfirmation === true && (
-            <span className="bg-white/90 text-[#0F172A] text-[10px] px-2 py-0.5 rounded-full font-medium">
+            <span className="bg-white/90 text-things-text-primary text-[10px] px-2 py-0.5 rounded-full font-medium">
               Instant confirmation
             </span>
           )}
@@ -262,35 +243,35 @@ function ExperienceCard({
       </div>
       <div className="p-4 flex flex-col flex-1">
         {locationLabel && (
-          <div className="flex items-center gap-1 text-xs text-[#41536A] mb-1">
+          <div className="flex items-center gap-1 text-xs text-things-text-secondary mb-1">
             <MapPin className="w-3 h-3" aria-hidden="true" />
             {locationLabel}
           </div>
         )}
-        <h3 className="font-semibold text-[#0F172A] mb-2 line-clamp-2 text-sm leading-snug">
+        <h3 className="font-semibold text-things-text-primary mb-2 line-clamp-2 text-sm leading-snug">
           {product.title || "Experience"}
         </h3>
         {(product.rating !== null || product.reviewCount !== null) && (
           <div className="flex items-center gap-1.5 mb-2">
             {product.rating !== null && (
-              <span className="flex items-center text-xs font-semibold text-[#0F172A]">
+              <span className="flex items-center text-xs font-semibold text-things-text-primary">
                 <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 mr-0.5" aria-hidden="true" />
                 {product.rating.toFixed(1)}
               </span>
             )}
             {product.reviewCount !== null && (
-              <span className="text-xs text-[#41536A]">({product.reviewCount.toLocaleString()} reviews)</span>
+              <span className="text-xs text-things-text-secondary">({product.reviewCount.toLocaleString()} reviews)</span>
             )}
           </div>
         )}
         <div className="mt-auto pt-2 flex items-center justify-between gap-2">
           <div className="min-w-0">
             {price ? (
-              <span className="text-base font-bold text-[#0F172A]">From {price}</span>
+              <span className="text-base font-bold text-things-text-primary">From {price}</span>
             ) : (
-              <span className="text-xs text-[#8BA0B8]">Price on request</span>
+              <span className="text-xs text-things-text-secondary">Price on request</span>
             )}
-            <p className="text-xs text-[#41536A] mt-0.5">Provided by {providerLabel(product.provider)}</p>
+            <p className="text-xs text-things-text-secondary mt-0.5">Provided by {providerLabel(product.provider)}</p>
           </div>
           {canonicalPath ? (
             /*
@@ -301,7 +282,7 @@ function ExperienceCard({
              */
             <Link
               to={canonicalPath}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-[#D64A2A] hover:bg-[#B83D22] px-3 py-2 rounded-lg transition-colors shrink-0"
+              className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-things-surface-card px-3.5 py-2 text-xs font-semibold text-primary transition-colors hover:border-primary/60 hover:bg-primary/5 things-focus-ring shrink-0"
             >
               View details
             </Link>
@@ -310,7 +291,7 @@ function ExperienceCard({
               href={product.outboundUrl}
               target="_blank"
               rel="sponsored nofollow noopener"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-[#D64A2A] hover:bg-[#B83D22] px-3 py-2 rounded-lg transition-colors shrink-0"
+              className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-things-surface-card px-3.5 py-2 text-xs font-semibold text-primary transition-colors hover:border-primary/60 hover:bg-primary/5 things-focus-ring shrink-0"
             >
               View experience
               <ExternalLink className="w-3 h-3" aria-hidden="true" />
@@ -887,10 +868,10 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
       </Helmet>
 
       {/* ─── COMPACT HERO ─── */}
-      <section className="relative bg-[#001D45] overflow-hidden">
+      <section className="relative bg-things-surface-anchor overflow-hidden">
         <HeroDecoration />
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-10">
-          <p className="text-[#D64A2A] text-xs font-bold uppercase tracking-widest mb-1 sm:mb-2">DISCOVER MORE</p>
+          <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1 sm:mb-2">DISCOVER MORE</p>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-1 sm:mb-2 tracking-tight leading-tight">
             Find things to do
           </h1>
@@ -898,9 +879,9 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
             Discover attractions, tours and experiences wherever you're going.
           </p>
 
-          <div className="bg-white rounded-2xl shadow-lg p-2.5 sm:p-3 flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <div className="bg-things-surface-card rounded-2xl shadow-lg p-2.5 sm:p-3 flex flex-col sm:flex-row gap-2 sm:gap-3">
             <div className="flex-1">
-              <label htmlFor="ttd-city" className="text-xs font-semibold text-[#41536A] mb-0.5 sm:mb-1 block">
+              <label htmlFor="ttd-city" className="text-xs font-semibold text-things-text-secondary mb-0.5 sm:mb-1 block">
                 Where are you going?
               </label>
               <DestinationAutocomplete
@@ -912,7 +893,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               />
             </div>
             <div className="flex-1">
-              <label htmlFor="ttd-activity" className="text-xs font-semibold text-[#41536A] mb-0.5 sm:mb-1 block">
+              <label htmlFor="ttd-activity" className="text-xs font-semibold text-things-text-secondary mb-0.5 sm:mb-1 block">
                 What do you want to do?
               </label>
               <input
@@ -921,13 +902,13 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                 value={activityInput}
                 onChange={(e) => setActivityInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && commitSearch()}
-                className="w-full px-4 py-3 rounded-xl border border-[#D8E0E7] focus:border-[#01367F] focus:ring-2 focus:ring-[#01367F]/20 outline-none text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-things-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm"
               />
             </div>
             <button
               type="button"
               onClick={() => commitSearch()}
-              className="bg-[#D64A2A] hover:bg-[#B83D22] text-white rounded-xl px-6 py-3 font-semibold flex items-center justify-center gap-2 shrink-0 transition-colors"
+              className="bg-things-action hover:bg-things-action-hover active:bg-things-action-strong text-white rounded-xl px-6 py-3 font-semibold flex items-center justify-center gap-2 shrink-0 transition-colors things-focus-ring-action"
             >
               <Search className="w-4 h-4" aria-hidden="true" /> Search
             </button>
@@ -940,7 +921,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                 key={city}
                 type="button"
                 onClick={() => handleShortcutClick(city)}
-                className="text-white/90 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full transition-colors"
+                className="text-white/90 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full transition-colors things-focus-ring-on-dark"
               >
                 {city}
               </button>
@@ -950,28 +931,20 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
       </section>
 
       {/* ─── TRUST STRIP (provider-neutral) ─── */}
-      <section className="bg-[#F7F9FC] border-b border-[#D8E0E7]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-xs text-[#41536A] font-medium">
+      <section className="bg-things-surface-page border-b border-things-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-xs text-things-text-secondary font-medium">
           <span className="flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-[#01367F]" aria-hidden="true" /> Experience details from our partners
+            <Info className="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Experience details from our partners
           </span>
           <span className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#01367F]" aria-hidden="true" /> No booking fee added by
-            BookingsFinder
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-[#01367F]" aria-hidden="true" /> Current availability confirmed with
-            the provider
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-[#01367F]" aria-hidden="true" /> Payment and tickets handled by the
+            <Check className="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Payment and tickets handled by the
             provider
           </span>
         </div>
       </section>
 
       {/* ─── CATEGORY CHIPS ─── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 border-b border-[#EDF4FC]">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 border-b border-things-brand-soft">
         <div className="flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1 -mx-1 px-1" role="group" aria-label="Activity categories">
           {ACTIVITY_TYPES.map((a) => (
             <button
@@ -979,10 +952,10 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               type="button"
               aria-pressed={selectedActivity === a.id}
               onClick={() => handleActivityToggle(a.id)}
-              className={`shrink-0 whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-medium border transition-colors ${
+              className={`shrink-0 whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-medium border transition-colors things-focus-ring ${
                 selectedActivity === a.id
-                  ? "bg-[#01367F] border-[#01367F] text-white"
-                  : "bg-white border-[#D8E0E7] text-[#0F172A] hover:border-[#01367F]"
+                  ? "bg-primary border-primary text-white"
+                  : "bg-things-surface-card border-things-border text-things-text-primary hover:border-primary"
               }`}
             >
               {a.label}
@@ -994,9 +967,9 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
       {/* ─── RESULTS ─── */}
       <section ref={resultsRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A]">{resultsHeading}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-things-text-primary">{resultsHeading}</h2>
           {hasSearchContext && !loading && totalCount > 0 && (
-            <p className="text-sm text-[#41536A] mt-1">
+            <p className="text-sm text-things-text-secondary mt-1">
               {totalCount.toLocaleString()} {totalCount === 1 ? "experience" : "experiences"}
             </p>
           )}
@@ -1049,7 +1022,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                 <Button variant="outline" size="sm" className="h-9 text-sm gap-1.5" aria-label="Features filter">
                   Features
                   {(skipLineOnly || wheelchairOnly) && (
-                    <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-[#D64A2A]">
+                    <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-things-action">
                       {[skipLineOnly, wheelchairOnly].filter(Boolean).length}
                     </Badge>
                   )}
@@ -1067,18 +1040,18 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                           type="checkbox"
                           checked={isActive}
                           onChange={(e) => handler(e.target.checked)}
-                          className="rounded border-[#D8E0E7] text-[#01367F] focus:ring-[#01367F]"
+                          className="rounded border-things-border text-primary focus:ring-primary"
                         />
                         {f.label}
                       </label>
                     );
                   })}
-                  <label className="flex items-center gap-2 cursor-pointer text-sm pt-1 border-t border-[#EDF4FC]">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm pt-1 border-t border-things-brand-soft">
                     <input
                       type="checkbox"
                       checked={wheelchairOnly}
                       onChange={(e) => handleWheelchairToggle(e.target.checked)}
-                      className="rounded border-[#D8E0E7] text-[#01367F] focus:ring-[#01367F]"
+                      className="rounded border-things-border text-primary focus:ring-primary"
                     />
                     Wheelchair accessible
                   </label>
@@ -1107,7 +1080,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
             <Button variant="outline" onClick={openMobileSheet} className="flex-1">
               <ListFilter className="w-4 h-4 mr-2" aria-hidden="true" /> Filters
               {hasActiveFilters && (
-                <Badge className="ml-2 bg-[#D64A2A] text-white text-[10px] h-5 px-1.5">{activeFilterCount}</Badge>
+                <Badge className="ml-2 bg-things-action text-white text-[10px] h-5 px-1.5">{activeFilterCount}</Badge>
               )}
             </Button>
             <Select value={sort} onValueChange={handleSortChange}>
@@ -1133,7 +1106,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
             {selectedRating !== "any" && <Chip label={`Rating ${selectedRating}+`} onRemove={() => handleRatingChange("any")} />}
             {wheelchairOnly && <Chip label="Wheelchair accessible" onRemove={() => handleWheelchairToggle(false)} />}
             {skipLineOnly && <Chip label="Skip the line" onRemove={() => handleSkipLineToggle(false)} />}
-            <button type="button" onClick={clearAllFilters} className="text-xs text-[#01367F] hover:underline ml-1">
+            <button type="button" onClick={clearAllFilters} className="text-xs text-primary hover:underline ml-1 things-focus-ring">
               Clear all
             </button>
           </div>
@@ -1154,16 +1127,19 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
             */
           <div
             role="status"
-            className="text-center py-14 border border-dashed border-[#D8E0E7] rounded-2xl"
+            className="text-center py-14 border border-dashed border-things-border rounded-2xl"
           >
-            <Info className="w-10 h-10 text-[#D8E0E7] mx-auto mb-3" aria-hidden="true" />
-            <h3 className="text-base font-semibold text-[#0F172A] mb-1">
+            <Info className="w-10 h-10 text-things-info mx-auto mb-3" aria-hidden="true" />
+            <h3 className="text-base font-semibold text-things-text-primary mb-1">
               Experiences are temporarily unavailable
             </h3>
-            <p className="text-sm text-[#41536A] mb-4">
+            <p className="text-sm text-things-text-secondary mb-4">
               We're having trouble loading activities right now. This is on our side — please try again shortly.
             </p>
-            <Button variant="outline" onClick={retrySearch}>
+            <Button
+              onClick={retrySearch}
+              className="bg-things-action hover:bg-things-action-hover active:bg-things-action-strong text-white things-focus-ring-action"
+            >
               Try again
             </Button>
           </div>
@@ -1171,13 +1147,13 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
           /* A provider answered healthily and genuinely had nothing to match. */
           <div
             role="status"
-            className="text-center py-14 border border-dashed border-[#D8E0E7] rounded-2xl"
+            className="text-center py-14 border border-dashed border-things-border rounded-2xl"
           >
-            <Info className="w-10 h-10 text-[#D8E0E7] mx-auto mb-3" aria-hidden="true" />
+            <Info className="w-10 h-10 text-things-info mx-auto mb-3" aria-hidden="true" />
             {hasSearchContext ? (
               <>
-                <h3 className="text-base font-semibold text-[#0F172A] mb-1">No experiences matched your search</h3>
-                <p className="text-sm text-[#41536A] mb-4">
+                <h3 className="text-base font-semibold text-things-text-primary mb-1">No experiences matched your search</h3>
+                <p className="text-sm text-things-text-secondary mb-4">
                   Try a different destination or activity, or remove some filters.
                 </p>
                 {hasActiveFilters && (
@@ -1187,7 +1163,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                 )}
               </>
             ) : (
-              <p className="text-sm text-[#41536A]">Search a destination to explore tours, attractions and experiences.</p>
+              <p className="text-sm text-things-text-secondary">Search a destination to explore tours, attractions and experiences.</p>
             )}
           </div>
         ) : (
@@ -1205,39 +1181,12 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
             </div>
 
             {hasSearchContext && totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-8">
-                <button
-                  type="button"
-                  onClick={() => goToPage(Math.max(1, page - 1))}
-                  disabled={page <= 1}
-                  className="p-2 rounded-lg border border-[#D8E0E7] hover:bg-[#F7F9FC] disabled:opacity-40 disabled:cursor-not-allowed"
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    type="button"
-                    key={p}
-                    onClick={() => goToPage(p)}
-                    aria-current={p === page ? "page" : undefined}
-                    className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
-                      p === page ? "bg-[#01367F] text-white" : "border border-[#D8E0E7] hover:bg-[#F7F9FC] text-[#0F172A]"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => goToPage(Math.min(totalPages, page + 1))}
-                  disabled={page >= totalPages}
-                  className="p-2 rounded-lg border border-[#D8E0E7] hover:bg-[#F7F9FC] disabled:opacity-40 disabled:cursor-not-allowed"
-                  aria-label="Next page"
-                >
-                  <ChevronRight className="w-4 h-4" aria-hidden="true" />
-                </button>
-              </div>
+              <ThingsPagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={goToPage}
+                className="mt-8"
+              />
             )}
           </>
         )}
@@ -1245,19 +1194,19 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
         {/* ─── Other destinations seen in these results (compact) ─── */}
         {destinationsFromResults.length > 0 && (
           <div className="mt-14">
-            <h2 className="text-lg sm:text-xl font-bold text-[#0F172A] mb-4">Other destinations in these results</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-things-text-primary mb-4">Other destinations in these results</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {destinationsFromResults.map((d) => (
                 <button
                   key={d.name}
                   type="button"
                   onClick={() => handleShortcutClick(d.name)}
-                  className="group relative rounded-xl overflow-hidden aspect-[3/2] bg-[#EDF4FC] border border-[#D8E0E7] hover:border-[#01367F] transition-colors"
+                  className="group relative rounded-xl overflow-hidden aspect-[3/2] bg-things-brand-soft border border-things-border hover:border-primary transition-colors things-focus-ring"
                 >
                   <div className="w-full h-full flex flex-col items-center justify-center p-3">
-                    <MapPin className="w-5 h-5 text-[#01367F]/40 mb-1.5" aria-hidden="true" />
-                    <p className="text-sm font-semibold text-[#0F172A]">{d.name}</p>
-                    {d.country && <p className="text-xs text-[#41536A]">{d.country}</p>}
+                    <MapPin className="w-5 h-5 text-primary/40 mb-1.5" aria-hidden="true" />
+                    <p className="text-sm font-semibold text-things-text-primary">{d.name}</p>
+                    {d.country && <p className="text-xs text-things-text-secondary">{d.country}</p>}
                   </div>
                 </button>
               ))}
@@ -1266,8 +1215,8 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
         )}
 
         {/* ─── How it works (compact, supporting) ─── */}
-        <div className="mt-14 bg-[#F7F9FC] rounded-2xl p-5 sm:p-6">
-          <h2 className="text-lg font-bold text-[#0F172A] mb-4 text-center">How it works</h2>
+        <div className="mt-14 bg-things-surface-page rounded-2xl p-5 sm:p-6">
+          <h2 className="text-lg font-bold text-things-text-primary mb-4 text-center">How it works</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {[
               { step: "1", title: "Search", desc: "Find attractions and experiences for your destination." },
@@ -1279,62 +1228,62 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="w-8 h-8 rounded-full bg-[#01367F] text-white flex items-center justify-center mx-auto mb-2 font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center mx-auto mb-2 font-bold text-xs">
                   {item.step}
                 </div>
-                <h3 className="font-semibold text-[#0F172A] mb-1 text-sm">{item.title}</h3>
-                <p className="text-xs text-[#41536A]">{item.desc}</p>
+                <h3 className="font-semibold text-things-text-primary mb-1 text-sm">{item.title}</h3>
+                <p className="text-xs text-things-text-secondary">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* ─── Plan your entire trip (restrained) ─── */}
-        <div className="mt-8 bg-white border border-[#D8E0E7] rounded-2xl p-5 sm:p-6">
+        <div className="mt-8 bg-things-surface-card border border-things-border rounded-2xl p-5 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Building2 className="w-4 h-4 text-[#01367F]" aria-hidden="true" />
-            <h2 className="text-base font-bold text-[#0F172A]">Plan your entire trip</h2>
+            <Building2 className="w-4 h-4 text-primary" aria-hidden="true" />
+            <h2 className="text-base font-bold text-things-text-primary">Plan your entire trip</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Link
               to="/flights"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[#D8E0E7] hover:border-[#01367F] hover:bg-[#EDF4FC] transition-colors text-center"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
             >
-              <Plane className="w-5 h-5 text-[#01367F]" aria-hidden="true" />
-              <span className="text-sm font-semibold text-[#0F172A]">Flights</span>
-              <span className="text-xs text-[#41536A]">Compare flight deals</span>
+              <Plane className="w-5 h-5 text-primary" aria-hidden="true" />
+              <span className="text-sm font-semibold text-things-text-primary">Flights</span>
+              <span className="text-xs text-things-text-secondary">Compare flight deals</span>
             </Link>
             <Link
               to="/"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[#D8E0E7] hover:border-[#01367F] hover:bg-[#EDF4FC] transition-colors text-center"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
             >
-              <Hotel className="w-5 h-5 text-[#01367F]" aria-hidden="true" />
-              <span className="text-sm font-semibold text-[#0F172A]">Stays</span>
-              <span className="text-xs text-[#41536A]">Find accommodation</span>
+              <Hotel className="w-5 h-5 text-primary" aria-hidden="true" />
+              <span className="text-sm font-semibold text-things-text-primary">Stays</span>
+              <span className="text-xs text-things-text-secondary">Find accommodation</span>
             </Link>
             <Link
               to="/trip-cost"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[#D8E0E7] hover:border-[#01367F] hover:bg-[#EDF4FC] transition-colors text-center"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
             >
-              <Calculator className="w-5 h-5 text-[#01367F]" aria-hidden="true" />
-              <span className="text-sm font-semibold text-[#0F172A]">Trip Cost</span>
-              <span className="text-xs text-[#41536A]">Estimate your budget</span>
+              <Calculator className="w-5 h-5 text-primary" aria-hidden="true" />
+              <span className="text-sm font-semibold text-things-text-primary">Trip Cost</span>
+              <span className="text-xs text-things-text-secondary">Estimate your budget</span>
             </Link>
             <Link
               to="/optimizer"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[#D8E0E7] hover:border-[#01367F] hover:bg-[#EDF4FC] transition-colors text-center"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
             >
-              <Sparkles className="w-5 h-5 text-[#01367F]" aria-hidden="true" />
-              <span className="text-sm font-semibold text-[#0F172A]">Optimizer</span>
+              <Sparkles className="w-5 h-5 text-primary" aria-hidden="true" />
+              <span className="text-sm font-semibold text-things-text-primary">Optimizer</span>
               {/* The optimizer analyses one route — it does not order an itinerary. */}
-              <span className="text-xs text-[#41536A]">Cost, timing and layovers</span>
+              <span className="text-xs text-things-text-secondary">Cost, timing and layovers</span>
             </Link>
           </div>
         </div>
 
         {/* ─── Affiliate disclosure (provider-neutral) ─── */}
         <div className="mt-8 text-center">
-          <p className="text-xs text-[#8BA0B8] max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xs text-things-text-muted max-w-2xl mx-auto leading-relaxed">
             Experience information is provided by our partners. BookingsFinder may earn a commission when you
             continue through an affiliate link, at no additional cost to you. Final prices, availability and
             booking terms are confirmed by the provider.
@@ -1346,24 +1295,24 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
       {isMobile && mobileSheetOpen && (
         <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setMobileSheetOpen(false)}>
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto p-6 animate-slide-up"
+            className="absolute bottom-0 left-0 right-0 bg-things-surface-card rounded-t-2xl max-h-[85vh] overflow-y-auto p-6 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#0F172A]">Filters</h3>
+              <h3 className="text-lg font-bold text-things-text-primary">Filters</h3>
               <button
                 type="button"
                 onClick={() => setMobileSheetOpen(false)}
-                className="p-1 hover:bg-[#F7F9FC] rounded-full"
+                className="p-1 hover:bg-things-surface-page rounded-full things-focus-ring"
                 aria-label="Close filters"
               >
-                <X className="w-5 h-5 text-[#41536A]" aria-hidden="true" />
+                <X className="w-5 h-5 text-things-text-secondary" aria-hidden="true" />
               </button>
             </div>
 
             <div className="space-y-5">
               <div>
-                <label className="text-xs font-semibold text-[#41536A] mb-1.5 block">Activity</label>
+                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Activity</label>
                 <Select
                   value={mobileDraft.selectedActivity}
                   onValueChange={(v) => setMobileDraft({ ...mobileDraft, selectedActivity: v })}
@@ -1382,7 +1331,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#41536A] mb-1.5 block">Price range</label>
+                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Price range</label>
                 <Select
                   value={mobileDraft.selectedPriceRange}
                   onValueChange={(v) => setMobileDraft({ ...mobileDraft, selectedPriceRange: v })}
@@ -1401,7 +1350,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#41536A] mb-1.5 block">Minimum rating</label>
+                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Minimum rating</label>
                 <Select
                   value={mobileDraft.selectedRating}
                   onValueChange={(v) => setMobileDraft({ ...mobileDraft, selectedRating: v })}
@@ -1420,14 +1369,14 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#41536A] mb-1.5 block">Features</label>
+                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Features</label>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={mobileDraft.skipLineOnly}
                       onChange={(e) => setMobileDraft({ ...mobileDraft, skipLineOnly: e.target.checked })}
-                      className="rounded border-[#D8E0E7] text-[#01367F] focus:ring-[#01367F]"
+                      className="rounded border-things-border text-primary focus:ring-primary"
                     />
                     <span className="text-sm">Skip the line</span>
                   </label>
@@ -1435,20 +1384,20 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#41536A] mb-1.5 block">Accessibility</label>
+                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Accessibility</label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={mobileDraft.wheelchairOnly}
                     onChange={(e) => setMobileDraft({ ...mobileDraft, wheelchairOnly: e.target.checked })}
-                    className="rounded border-[#D8E0E7] text-[#01367F] focus:ring-[#01367F]"
+                    className="rounded border-things-border text-primary focus:ring-primary"
                   />
                   <span className="text-sm">Wheelchair accessible</span>
                 </label>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#41536A] mb-1.5 block">Sort by</label>
+                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Sort by</label>
                 <Select value={mobileDraft.sort} onValueChange={(v) => setMobileDraft({ ...mobileDraft, sort: v })}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -1464,7 +1413,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6 pt-4 border-t border-[#D8E0E7]">
+            <div className="flex gap-3 mt-6 pt-4 border-t border-things-border">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -1481,7 +1430,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               >
                 Clear all
               </Button>
-              <Button className="flex-1 bg-[#D64A2A] hover:bg-[#B83D22] text-white" onClick={applyMobileFilters}>
+              <Button className="flex-1 bg-things-action hover:bg-things-action-hover active:bg-things-action-strong text-white things-focus-ring-action" onClick={applyMobileFilters}>
                 Show results
               </Button>
             </div>

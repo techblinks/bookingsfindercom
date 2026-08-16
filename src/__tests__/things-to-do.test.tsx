@@ -460,10 +460,10 @@ describe("Active filter chips", () => {
 });
 
 describe("Provider-neutral trust strip", () => {
-  it("makes no blanket cancellation/confirmation guarantee and doesn't single out Tiqets", async () => {
+  it("keeps only architecture-supported claims and doesn't single out Tiqets", async () => {
     renderPage();
     await waitFor(() => expect(mockSearchExperiences).toHaveBeenCalled());
-    const strip = screen.getByText("No booking fee added by BookingsFinder").closest("section");
+    const strip = screen.getByText("Experience details from our partners").closest("section");
     expect(strip).toBeTruthy();
     const stripText = (strip as HTMLElement).textContent || "";
     expect(stripText).not.toContain("Tiqets");
@@ -471,6 +471,8 @@ describe("Provider-neutral trust strip", () => {
     expect(stripText).not.toContain("Instant confirmation");
     expect(stripText).toContain("our partners");
     expect(stripText).toContain("the provider");
+    expect(stripText).not.toContain("No booking fee");
+    expect(stripText).not.toContain("Current availability confirmed");
   });
 });
 
@@ -520,7 +522,7 @@ describe("ExperienceProduct cards", () => {
     expect(within(article).queryByRole("img")).toBeNull();
   });
 
-  it("swaps to the branded fallback image when a real image URL errors", async () => {
+  it("swaps to the premium no-image state when a real image URL errors", async () => {
     mockSearchExperiences.mockResolvedValue(emptyResult({ products: [makeTiqetsProduct()], totalCount: 1 }));
     renderPage();
     await waitFor(() =>
@@ -528,7 +530,11 @@ describe("ExperienceProduct cards", () => {
     );
     const img = screen.getByRole("img", { name: "Sydney Harbour Cruise" }) as HTMLImageElement;
     fireEvent.error(img);
-    expect(img.src).toContain("data:image/svg+xml");
+    // T3B: onError swaps to the shared premium no-image state (never a
+    // data-URL swap, never a broken-image glyph).
+    await waitFor(() => expect(screen.queryByRole("img")).toBeNull());
+    const article = screen.getByRole("article");
+    expect(within(article).getByTestId("things-no-image-state")).toBeTruthy();
   });
 
   it("malformed/sparse product (no image, rating, price, location or outbound URL) renders without crashing", async () => {

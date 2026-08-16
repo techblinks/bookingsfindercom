@@ -71,6 +71,52 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        /* Things V2 (T3B): Things-scoped semantic tokens. Only the Things
+           experience consumes these; non-Things products keep the globals. */
+        things: {
+          action: {
+            DEFAULT: "hsl(var(--things-action))",
+            hover: "hsl(var(--things-action-hover))",
+            strong: "hsl(var(--things-action-strong))",
+            soft: "hsl(var(--things-action-soft))",
+          },
+          brand: {
+            soft: "hsl(var(--things-brand-soft))",
+          },
+          text: {
+            primary: "hsl(var(--things-text-primary))",
+            secondary: "hsl(var(--things-text-secondary))",
+            muted: "hsl(var(--things-text-muted))",
+          },
+          surface: {
+            page: "hsl(var(--things-surface-page))",
+            card: "hsl(var(--things-surface-card))",
+            subtle: "hsl(var(--things-surface-subtle))",
+            anchor: "hsl(var(--things-surface-anchor))",
+          },
+          border: {
+            DEFAULT: "hsl(var(--things-border-default))",
+            subtle: "hsl(var(--things-border-subtle))",
+            strong: "hsl(var(--things-border-strong))",
+          },
+          skeleton: "hsl(var(--things-skeleton))",
+          success: {
+            DEFAULT: "hsl(var(--things-success))",
+            soft: "hsl(var(--things-success-soft))",
+          },
+          info: {
+            DEFAULT: "hsl(var(--things-info))",
+            soft: "hsl(var(--things-info-soft))",
+          },
+          warning: {
+            DEFAULT: "hsl(var(--things-warning))",
+            soft: "hsl(var(--things-warning-soft))",
+          },
+          error: {
+            DEFAULT: "hsl(var(--things-error))",
+            soft: "hsl(var(--things-error-soft))",
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
