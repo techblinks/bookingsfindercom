@@ -163,6 +163,15 @@ const VIATOR_SORT: Record<string, "relevance" | "rating_high" | "price_low" | un
   title_asc: undefined,
 };
 
+/**
+ * viator-public enforces pageSize <= 20 (its Zod search schema). The app's
+ * global Things PAGE_SIZE is 24 - a Tiqets contract - so forwarding it to
+ * Viator would make viator-public reject the whole search with HTTP 400.
+ * The page size is therefore bounded here, in the Viator adapter, to the
+ * provider contract. Tiqets keeps its own page size; this cap is Viator-local.
+ */
+const VIATOR_MAX_PAGE_SIZE = 20;
+
 async function fetchViatorPublic(filters: ExperienceSearchFilters): Promise<ViatorPublicResult> {
   try {
     const { data, error } = await supabase.functions.invoke("viator-public", {
@@ -178,7 +187,7 @@ async function fetchViatorPublic(filters: ExperienceSearchFilters): Promise<Viat
         maxPrice: filters.maxPrice,
         freeCancellation: filters.freeCancellation,
         sort: filters.sort ? VIATOR_SORT[filters.sort] : undefined,
-        pageSize: filters.pageSize || 10,
+        pageSize: Math.min(filters.pageSize || 10, VIATOR_MAX_PAGE_SIZE),
       },
     });
     if (error || !data) return { products: [], status: "unavailable" };
