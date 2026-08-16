@@ -38,6 +38,7 @@ import {
   normalizeProduct,
   buildImageDiagnostics,
   buildSaleStatusDiagnostics,
+  isTiqetsSaleStatusAvailable,
 } from "../_shared/tiqets-normalizer.ts";
 import type {
   NormalizedProduct,
@@ -561,12 +562,13 @@ if (!action || typeof action !== "string") {
       const rawResults: TiqetsProductRaw[] =
         upstream.data.products || upstream.data.results || [];
 
-      // Normalize all products, then apply the same on-sale safety net as search.
+      // Normalize all products, then apply the shared Tiqets availability
+      // predicate — only currently available products are public.
       const products = rawResults.map(normalizeProduct);
-      const safeProducts = products.filter(
-        (p) => !p.saleStatus || p.saleStatus === "on_sale",
+      const safeProducts = products.filter((p) =>
+        isTiqetsSaleStatusAvailable(p.saleStatus),
       );
-      console.log(`[tiqets-public] featured: upstream=${rawResults.length} normalized=${products.length} on_sale=${safeProducts.length}`);
+      console.log(`[tiqets-public] featured: upstream=${rawResults.length} normalized=${products.length} available=${safeProducts.length}`);
       const now = new Date().toISOString();
 
       // Write to cache (best-effort, never blocks response)
@@ -752,10 +754,10 @@ if (action === "search") {
 
       const products = rawResults.map(normalizeProduct);
 
-      // Filter out sold-out / cancelled if the user didn't explicitly ask for them
-      // (Search returns on_sale by default from Tiqets; this is a safety net.)
-      const safeProducts = products.filter(
-        (p) => !p.saleStatus || p.saleStatus === "on_sale",
+      // Tiqets sale-status safety filter: only currently available Tiqets
+      // products are public (fail-closed — unknown/missing statuses excluded).
+      const safeProducts = products.filter((p) =>
+        isTiqetsSaleStatusAvailable(p.saleStatus),
       );
 
       const cachePayload = buildSearchCachePayload(safeProducts, upstream.data);
