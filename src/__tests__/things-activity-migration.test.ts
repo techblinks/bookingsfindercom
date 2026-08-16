@@ -118,8 +118,10 @@ describe("Phase 2D migration — security / RLS", () => {
     expect(sql).not.toMatch(/DROP COLUMN/i);
   });
 
-  it("documents that the migration is local-only in this phase", () => {
-    expect(sql).toMatch(/LOCAL DEVELOPMENT ONLY/i);
-    expect(sql).toMatch(/Do NOT apply remotely/i);
+  it("documents the controlled-production rollout intent: manual application, explicit project ref", () => {
+    expect(sql).toMatch(/approved for\s+--\s+a controlled production rollout/i);
+    expect(sql).toMatch(/explicit authoritative project ref/i);
+    expect(sql).toMatch(/THIS COMMIT DOES NOT APPLY THE MIGRATION/i);
+    expect(sql).toMatch(/no\s+--\s+implicit or stale `supabase link` state may be relied upon/i);
   });
 });

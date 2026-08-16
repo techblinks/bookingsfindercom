@@ -182,7 +182,10 @@ describe("resolveThingsActivityDetail — frontend service contract", () => {
 
 const indexSrc = readRoot("supabase/functions/things-activity-public/index.ts");
 const coreSrc = readRoot("supabase/functions/things-activity-public/things-activity-core.ts");
-const serviceSrc = readRoot("src/services/thingsActivityDetail.ts");
+// Normalize line endings: the repo is checked out with CRLF on Windows, while
+// the multi-line source-contract assertion below expects a literal LF string.
+// Normalizing keeps the identical contract on LF and CRLF checkouts.
+const serviceSrc = readRoot("src/services/thingsActivityDetail.ts").replace(/\r\n/g, "\n");
 
 describe("things-activity-public Edge Function — read-only resolver", () => {
   it("is POST-only and supports exactly the resolve action", () => {
