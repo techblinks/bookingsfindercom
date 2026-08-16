@@ -23,12 +23,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  CheckCircle2,
   ExternalLink,
-  ImageOff,
   MapPin,
   Star,
 } from "lucide-react";
+import ThingsFactChip from "@/components/things/ThingsFactChip";
+import ThingsNoImageState from "@/components/things/ThingsNoImageState";
+import ThingsSectionHeader from "@/components/things/ThingsSectionHeader";
 import { thingsDestinationPath } from "@/lib/thingsDestinations";
 import {
   getActivityLevelFacts,
@@ -76,27 +77,27 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       {/* ── Breadcrumb ─────────────────────────────────────────── */}
       <nav aria-label="Breadcrumb">
-        <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-[#41536A]">
+        <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-things-text-secondary">
           <li>
-            <Link to="/things-to-do" className="hover:text-[#D64A2A] hover:underline">
+            <Link to="/things-to-do" className="hover:text-primary hover:underline things-focus-ring">
               Things to do
             </Link>
           </li>
-          <li aria-hidden="true" className="text-[#8BA0B8]">
+          <li aria-hidden="true" className="text-things-text-muted">
             /
           </li>
           <li>
             <Link
               to={thingsDestinationPath(destination)}
-              className="hover:text-[#D64A2A] hover:underline"
+              className="hover:text-primary hover:underline things-focus-ring"
             >
               {destination.displayName}
             </Link>
           </li>
-          <li aria-hidden="true" className="text-[#8BA0B8]">
+          <li aria-hidden="true" className="text-things-text-muted">
             /
           </li>
-          <li aria-current="page" className="max-w-[16rem] truncate sm:max-w-xs">
+          <li aria-current="page" className="max-w-[16rem] truncate text-things-text-primary sm:max-w-xs">
             {activity.canonicalTitle}
           </li>
         </ol>
@@ -106,10 +107,10 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
         {/* ── Main column ──────────────────────────────────────── */}
         <div className="min-w-0">
           <header>
-            <h1 className="break-words text-2xl font-bold leading-tight text-[#0F172A] sm:text-3xl">
+            <h1 className="break-words text-2xl font-bold leading-tight text-things-text-primary sm:text-3xl">
               {activity.canonicalTitle}
             </h1>
-            <p className="mt-2 flex items-center gap-1.5 text-sm text-[#41536A]">
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-things-text-secondary">
               <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
               {locationText}
             </p>
@@ -125,10 +126,10 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
                     className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400"
                     aria-hidden="true"
                   />
-                  <dd className="font-semibold text-[#0F172A]">
+                  <dd className="font-semibold text-things-text-primary">
                     {ratingSummary.rating.toFixed(1)}
                   </dd>
-                  <dd className="text-[#41536A]">
+                  <dd className="text-things-text-secondary">
                     {ratingSummary.reviewCount.toLocaleString("en-AU")} reviews
                   </dd>
                 </div>
@@ -136,7 +137,7 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
               {priceSummary && (
                 <div className="flex items-center gap-1.5">
                   <dt className="sr-only">From price</dt>
-                  <dd className="font-semibold text-[#0F172A]">
+                  <dd className="font-semibold text-things-text-primary">
                     From{" "}
                     {formatSummaryPrice(priceSummary.price, priceSummary.currency)}
                   </dd>
@@ -156,21 +157,10 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
           {/* ── Feature facts (only genuinely known) ───────────── */}
           {facts.length > 0 && (
             <section aria-labelledby="facts-heading" className="mt-8">
-              <h2 id="facts-heading" className="text-lg font-semibold text-[#0F172A]">
-                Good to know
-              </h2>
+              <ThingsSectionHeader id="facts-heading" heading="Good to know" />
               <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {facts.map((fact) => (
-                  <li
-                    key={fact}
-                    className="flex items-center gap-2 rounded-lg border border-[#D8E0E7] bg-white px-3 py-2.5 text-sm text-[#41536A]"
-                  >
-                    <CheckCircle2
-                      className="h-4 w-4 shrink-0 text-emerald-600"
-                      aria-hidden="true"
-                    />
-                    {THINGS_ACTIVITY_FACT_LABELS[fact]}
-                  </li>
+                  <ThingsFactChip key={fact} fact={THINGS_ACTIVITY_FACT_LABELS[fact]} />
                 ))}
               </ul>
             </section>
@@ -179,16 +169,11 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
           {/* ── About this experience (attributed, single-offer) ─ */}
           {about && (
             <section aria-labelledby="about-heading" className="mt-8">
-              <h2
-                id="about-heading"
-                className="text-lg font-semibold text-[#0F172A]"
-              >
-                About this experience
-              </h2>
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[#41536A]">
+              <ThingsSectionHeader id="about-heading" heading="About this experience" />
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-things-text-secondary">
                 {about.description}
               </p>
-              <p className="mt-3 text-xs text-[#8BA0B8]">
+              <p className="mt-3 text-xs text-things-text-secondary">
                 Description provided by {providerDisplayName(about.provider)}.
               </p>
             </section>
@@ -197,13 +182,13 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
 
         {/* ── Booking panel (provider-neutral) ─────────────────── */}
         <aside aria-label="Booking options" className="lg:mt-0">
-          <div className="rounded-xl border border-[#D8E0E7] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#0F172A]">
+          <div className="rounded-xl border border-things-border bg-things-surface-card p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-things-text-primary">
               {sortedOffers.length > 1 ? "Booking options" : "Book this experience"}
             </h2>
 
             {sortedOffers.length === 0 ? (
-              <p className="mt-4 text-sm text-[#41536A]">
+              <p className="mt-4 text-sm text-things-text-secondary">
                 No booking options are available yet.
               </p>
             ) : (
@@ -214,7 +199,7 @@ const ActivityDetailPage = ({ detail, destination }: ActivityDetailPageProps) =>
               </div>
             )}
 
-            <p className="mt-5 border-t border-[#D8E0E7] pt-4 text-xs leading-relaxed text-[#8BA0B8]">
+            <p className="mt-5 border-t border-things-border pt-4 text-xs leading-relaxed text-things-text-muted">
               {SITE_NAME} may earn a commission when you book with a provider.
               Availability and prices are set by the provider.
             </p>
@@ -251,7 +236,7 @@ function ActivityHeroImage({
   const showImage = Boolean(imageUrl) && !failed;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[#D8E0E7] bg-[#F5F1EC]">
+    <div className="overflow-hidden rounded-xl border border-things-border bg-things-surface-subtle">
       {showImage ? (
         <img
           src={imageUrl as string}
@@ -261,15 +246,12 @@ function ActivityHeroImage({
           onError={() => setFailed(true)}
         />
       ) : (
-        <div className="flex h-56 w-full flex-col items-center justify-center gap-3 px-6 text-center sm:h-72 lg:h-80">
-          <ImageOff className="h-8 w-8 text-[#8BA0B8]" aria-hidden="true" />
-          <p className="max-w-sm text-sm text-[#41536A]">
-            No image is available for this experience yet.
-          </p>
+        <div className="h-56 w-full sm:h-72 lg:h-80">
+          <ThingsNoImageState variant="detail" />
         </div>
       )}
       {offer?.imageCredit && (
-        <p className="px-3 py-1.5 text-right text-[11px] text-[#8BA0B8]">
+        <p className="px-3 py-1.5 text-right text-[11px] text-things-text-muted">
           Image: {offer.imageCredit}
         </p>
       )}
@@ -287,13 +269,13 @@ function OfferCard({ offer }: { offer: ThingsActivityOfferDetail }) {
   const hasCta = isValidProviderUrl(offer.providerUrl);
 
   return (
-    <div className="rounded-lg border border-[#D8E0E7] p-4">
+    <div className="rounded-lg border border-things-border p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-sm font-semibold text-[#0F172A]">
+        <span className="text-sm font-semibold text-things-text-primary">
           {providerDisplayName(offer.provider)}
         </span>
         {priceLabel && (
-          <span className="text-sm font-bold text-[#0F172A]">From {priceLabel}</span>
+          <span className="text-sm font-bold text-things-text-primary">From {priceLabel}</span>
         )}
       </div>
 
@@ -303,17 +285,17 @@ function OfferCard({ offer }: { offer: ThingsActivityOfferDetail }) {
             href={offer.providerUrl as string}
             target="_blank"
             rel="sponsored nofollow noopener"
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#D64A2A] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B83D22] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D64A2A] focus-visible:ring-offset-2"
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-things-action px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-things-action-hover active:bg-things-action-strong things-focus-ring-action"
           >
             Check availability
             <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
           </a>
-          <p className="mt-2 text-xs text-[#8BA0B8]">
+          <p className="mt-2 text-xs text-things-text-secondary">
             Booking and payment handled by {providerDisplayName(offer.provider)}.
           </p>
         </>
       ) : (
-        <p className="mt-3 text-sm text-[#41536A]">
+        <p className="mt-3 text-sm text-things-text-secondary">
           Check availability with the provider
         </p>
       )}

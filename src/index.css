@@ -103,6 +103,50 @@
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 215 20% 88%;
     --sidebar-ring: 215 42% 50%;
+
+    /*
+     * Things V2 (T3B) - Things-scoped semantic token foundation
+     *
+     * Approved by docs/THINGS_V2_DESIGN_SYSTEM.md section 6.2. These tokens
+     * are scoped to the Things experience on purpose: the global --accent
+     * (#D64A2A) stays untouched because Flights/Homepage/Stays and shared
+     * ui/* primitives depend on it, and changing it would silently restyle
+     * unrelated product surfaces. Brand blue reuses the global --primary
+     * (#01367F) because its semantics and value already match the approved
+     * Things system.
+     *
+     * Action orange: #D14525 (white text ~4.58:1, WCAG AA normal text).
+     * #D64A2A (4.3:1) is never used as a Things filled CTA.
+     */
+    --things-action: 11 70% 48%;          /* action orange #D14525 */
+    --things-action-hover: 11 69% 43%;    /* #B83D22 */
+    --things-action-strong: 10 71% 38%;   /* #A8331C */
+    --things-action-soft: 16 79% 94%;     /* #FCEBE5 */
+    --things-brand-soft: 212 72% 96%;     /* brand-primary-soft #EDF4FC */
+
+    --things-text-primary: 222 47% 11%;   /* #0F172A */
+    --things-text-secondary: 214 24% 34%; /* #41536A */
+    --things-text-muted: 212 24% 63%;     /* #8BA0B8 */
+
+    --things-surface-page: 215 40% 98%;   /* #F7F9FC */
+    --things-surface-card: 0 0% 100%;     /* #FFFFFF */
+    --things-surface-subtle: 216 20% 95%; /* #F0F2F5 */
+    --things-surface-anchor: 215 98% 12%; /* #001D45 */
+
+    --things-border-default: 208 24% 88%; /* #D8E0E7 */
+    --things-border-subtle: 213 21% 92%;  /* #E5E9EE */
+    --things-border-strong: 215 23% 79%;  /* #BEC8D6 */
+
+    --things-skeleton: 213 21% 92%;       /* #E5E9EE */
+
+    --things-success: 149 46% 34%;        /* #2E7D54 */
+    --things-success-soft: 147 35% 94%;   /* #EAF5EF */
+    --things-info: 212 59% 44%;           /* #2E6DB4 */
+    --things-info-soft: 212 68% 95%;      /* #EAF2FB */
+    --things-warning: 34 60% 45%;         /* #B57A2E */
+    --things-warning-soft: 36 71% 95%;    /* #FBF3E7 */
+    --things-error: 0 53% 50%;            /* #C23B3B */
+    --things-error-soft: 0 67% 95%;       /* #FBEBEB */
   }
 
   .dark {
@@ -297,6 +341,25 @@
 @layer utilities {
   .transition-base {
     @apply transition-all duration-200 ease-in-out;
+  }
+
+  /* Things V2 (T3B) - Things-safe focus-visible foundation.
+     Keyboard focus is visibly obvious: 2px ring, 2px offset, brand-primary
+     for normal Things controls and action-orange for filled orange action
+     controls. :focus-visible only - pointer users do not get the ring.
+     The global .focus-ring stays untouched for non-Things surfaces. */
+  .things-focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+
+  .things-focus-ring-action {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-things-action focus-visible:ring-offset-2;
+  }
+
+  /* Dark-surface controls (hero/navy): white ring so keyboard focus stays
+     visible on brand-navy without leaking into non-Things surfaces. */
+  .things-focus-ring-on-dark {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-things-surface-anchor;
   }
 
   .focus-ring {
