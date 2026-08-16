@@ -312,3 +312,30 @@ describe("Things destinations stay out of the sitemap", () => {
     expect(things).toEqual([`${SITE_URL}/things-to-do`]);
   });
 });
+
+describe("Things activities stay out of the sitemap (T2D-A)", () => {
+  it("never advertises any /things-to-do/:destination/:activity URL", () => {
+    const xml = build([PUBLISHED_ROW]);
+    // Representative canonical activity URLs must never appear.
+    for (const url of [
+      `${SITE_URL}/things-to-do/rome/vatican-museums-guided-tour`,
+      `${SITE_URL}/things-to-do/rome/vatican-museums-sistine-chapel-guided-tour`,
+    ]) {
+      expect(xml).not.toContain(url);
+    }
+  });
+
+  it("static hub /things-to-do remains the only Things sitemap entry", () => {
+    const xml = build([PUBLISHED_ROW]);
+    const things = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)]
+      .map((m) => m[1])
+      .filter((loc) => loc.includes("/things-to-do"));
+    expect(things).toEqual([`${SITE_URL}/things-to-do`]);
+  });
+
+  it("the sitemap edge function never queries things_activities", () => {
+    const source = readFileSync("supabase/functions/sitemap/index.ts", "utf-8");
+    expect(source).not.toContain("things_activities");
+    expect(source).not.toContain("things_activity_offers");
+  });
+});
