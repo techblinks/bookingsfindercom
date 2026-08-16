@@ -163,22 +163,22 @@ Deno.test("catalogue-search: reaches DB path (no undefined-body crash)", async (
 
 // ── featured ──
 
-Deno.test("featured: successful response has real diagnostics and on-sale filtering", async () => {
+Deno.test("featured: successful response has real diagnostics and availability filtering", async () => {
   upstreamMode = "ok";
   upstreamProducts = [
-    { id: "1", title: "On Sale Tour", sale_status: "on_sale" },
-    { id: "2", title: "Sold Out Tour", sale_status: "sold_out" },
+    { id: "1", title: "Available Tour", sale_status: "available" },
+    { id: "2", title: "Unavailable Tour", sale_status: "unavailable" },
   ];
   const res = await post({ action: "featured" });
   assertEquals(res.status, 200);
   assertEquals(acao(res), ORIGIN);
   const body = await res.json();
-  assertEquals(body.products.length, 1, "sold_out product must be filtered");
+  assertEquals(body.products.length, 1, "unavailable product must be filtered");
   assertEquals(body.products[0].id, "1");
   assertEquals(body.diagnostics.upstreamRawCount, 2);
   assertEquals(body.diagnostics.normalizedCount, 2);
   assertEquals(body.diagnostics.filteredOnSaleCount, 1);
-  assertEquals(body.diagnostics.saleStatusCounts, { on_sale: 1, sold_out: 1 });
+  assertEquals(body.diagnostics.saleStatusCounts, { available: 1, unavailable: 1 });
   assertEquals(body.cacheStatus, "miss");
 });
 
@@ -186,7 +186,7 @@ Deno.test("featured: successful response has real diagnostics and on-sale filter
 
 Deno.test("search: city_name still valid and maps to upstream destination", async () => {
   upstreamMode = "ok";
-  upstreamProducts = [{ id: "1", title: "Rome Tour", sale_status: "on_sale" }];
+  upstreamProducts = [{ id: "1", title: "Rome Tour", sale_status: "available" }];
   const res = await post({
     action: "search",
     city_name: "Rome",
@@ -206,7 +206,7 @@ Deno.test("search: city_name still valid and maps to upstream destination", asyn
 
 Deno.test("search: genuine destination_id accepted and mapped upstream", async () => {
   upstreamMode = "ok";
-  upstreamProducts = [{ id: "10", title: "Vatican", sale_status: "on_sale" }];
+  upstreamProducts = [{ id: "10", title: "Vatican", sale_status: "available" }];
   const res = await post({ action: "search", destination_id: 123, page: 1, page_size: 24 });
   assertEquals(res.status, 200);
   assertEquals(acao(res), ORIGIN);
@@ -264,12 +264,13 @@ Deno.test("featured: saleStatusCounts reveals raw provider statuses (incl. (miss
     unavailable: 1,
     "(missing)": 1,
   });
-  // Filter behaviour is UNCHANGED: only on_sale (or absent) survives.
+  // Only products with sale_status "available" survive the predicate.
   assertEquals(body.diagnostics.upstreamRawCount, 4);
   assertEquals(body.diagnostics.normalizedCount, 4);
-  assertEquals(body.diagnostics.filteredOnSaleCount, 1);
-  assertEquals(body.products.length, 1);
-  assertEquals(body.products[0].id, "4");
+  assertEquals(body.diagnostics.filteredOnSaleCount, 2);
+  assertEquals(body.products.length, 2);
+  assertEquals(body.products[0].id, "1");
+  assertEquals(body.products[1].id, "2");
 });
 
 Deno.test("featured: diagnostics expose counts only (no ids/titles/urls/tokens)", async () => {
@@ -303,7 +304,7 @@ Deno.test("search: fresh response includes sale-status aggregate diagnostics", a
   assertEquals(res.status, 200);
   assertEquals(acao(res), ORIGIN);
   const body = await res.json();
-  assertEquals(body.products.length, 1, "only on_sale survives the safety filter");
+  assertEquals(body.products.length, 1, "only available survives the availability predicate");
   assertEquals(body.diagnostics.upstreamRawCount, 2);
   assertEquals(body.diagnostics.normalizedCount, 2);
   assertEquals(body.diagnostics.filteredOnSaleCount, 1);

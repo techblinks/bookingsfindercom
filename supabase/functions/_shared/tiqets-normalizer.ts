@@ -273,6 +273,28 @@ export function buildImageDiagnostics(
 export const MISSING_SALE_STATUS = "(missing)";
 
 /**
+ * Fail-closed Tiqets sale-status availability predicate.
+ *
+ * Production evidence (T2D-B2B-3E) shows Tiqets currently returns
+ * `"available"` for sellable products and `"unavailable"` for temporarily
+ * unavailable ones; long-term unpublished products are no longer returned.
+ *
+ * Only the trimmed exact provider value `"available"` is accepted:
+ *   - `"available"` / `" available "`    -> true
+ *   - `"unavailable"`                    -> false
+ *   - legacy `"on_sale"`                 -> false (no current evidence)
+ *   - null / undefined / "" / whitespace -> false
+ *   - unknown values (e.g. "sold_out")   -> false
+ *
+ * Do not add speculative provider statuses without documented evidence.
+ */
+export function isTiqetsSaleStatusAvailable(
+  saleStatus: string | null | undefined,
+): boolean {
+  return typeof saleStatus === "string" && saleStatus.trim() === "available";
+}
+
+/**
  * Build safe sale-status aggregate diagnostics.
  *
  * Returns one count per observed sale-status value — counts only. Never

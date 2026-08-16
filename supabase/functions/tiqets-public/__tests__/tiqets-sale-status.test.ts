@@ -1,10 +1,11 @@
 /**
- * T2D-B2B-3C — Tiqets sale-status diagnostic contract tests.
+ * T2D-B2B-3F — Tiqets sale-status contract tests.
  *
- * Unit-tests the safe aggregate helper `buildSaleStatusDiagnostics` (added
- * to the shared tiqets normalizer) and statically locks the source-level
- * contract:
- *   - the existing on-sale safety filter is UNCHANGED in this phase
+ * Unit-tests the safe aggregate helper `buildSaleStatusDiagnostics` and the
+ * shared availability predicate `isTiqetsSaleStatusAvailable` (both in the
+ * shared tiqets normalizer), and statically locks the source-level contract:
+ *   - featured and search both use the shared availability predicate
+ *   - only the exact provider value "available" is public (fail-closed)
  *   - diagnostics expose counts only (never ids/titles/urls/tokens)
  *
  * The normalizer is a pure TS module (no https imports) so it runs directly
@@ -18,6 +19,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import {
   buildSaleStatusDiagnostics,
+  isTiqetsSaleStatusAvailable,
   MISSING_SALE_STATUS,
 } from "../../_shared/tiqets-normalizer.ts";
 
@@ -109,11 +111,55 @@ describe("buildSaleStatusDiagnostics", () => {
   });
 });
 
+describe("isTiqetsSaleStatusAvailable", () => {
+  it('accepts only the exact provider value "available"', () => {
+    expect(isTiqetsSaleStatusAvailable("available")).toBe(true);
+  });
+
+  it('accepts "available" with surrounding whitespace (trims)', () => {
+    expect(isTiqetsSaleStatusAvailable(" available ")).toBe(true);
+    expect(isTiqetsSaleStatusAvailable("\tavailable\n")).toBe(true);
+  });
+
+  it('rejects "unavailable"', () => {
+    expect(isTiqetsSaleStatusAvailable("unavailable")).toBe(false);
+  });
+
+  it('rejects legacy "on_sale"', () => {
+    expect(isTiqetsSaleStatusAvailable("on_sale")).toBe(false);
+  });
+
+  it("rejects null", () => {
+    expect(isTiqetsSaleStatusAvailable(null)).toBe(false);
+  });
+
+  it("rejects undefined", () => {
+    expect(isTiqetsSaleStatusAvailable(undefined)).toBe(false);
+  });
+
+  it("rejects empty and whitespace-only strings", () => {
+    expect(isTiqetsSaleStatusAvailable("")).toBe(false);
+    expect(isTiqetsSaleStatusAvailable("   ")).toBe(false);
+    expect(isTiqetsSaleStatusAvailable("\t")).toBe(false);
+  });
+
+  it("rejects unknown values (e.g. sold_out) — no speculative acceptance", () => {
+    expect(isTiqetsSaleStatusAvailable("sold_out")).toBe(false);
+    expect(isTiqetsSaleStatusAvailable("cancelled")).toBe(false);
+    expect(isTiqetsSaleStatusAvailable("weird_status")).toBe(false);
+  });
+});
+
 describe("tiqets-public sale-status contract (source-level)", () => {
-  it("keeps the existing on-sale safety filter UNCHANGED (featured + search)", () => {
-    const filter = '!p.saleStatus || p.saleStatus === "on_sale"';
-    const occurrences = indexSrc.split(filter).length - 1;
+  it("both featured and search use the shared availability predicate", () => {
+    const predicateRef = "isTiqetsSaleStatusAvailable(p.saleStatus)";
+    const occurrences = indexSrc.split(predicateRef).length - 1;
     expect(occurrences).toBe(2);
+  });
+
+  it("no longer accepts on_sale / missing statuses (fail-closed)", () => {
+    expect(indexSrc).not.toContain('p.saleStatus === "on_sale"');
+    expect(indexSrc).not.toContain("!p.saleStatus ||");
   });
 
   it("still maps raw sale_status into saleStatus verbatim", () => {
