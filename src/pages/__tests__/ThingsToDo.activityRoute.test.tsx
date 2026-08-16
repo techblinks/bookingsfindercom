@@ -33,6 +33,13 @@ vi.mock("@/services/experiences", () => ({
   fetchProviderAvailability: vi.fn(() => Promise.resolve({ tiqets: "available", viator: "disabled" })),
 }));
 
+const { mapProviderProductsMock } = vi.hoisted(() => ({ mapProviderProductsMock: vi.fn() }));
+
+vi.mock("@/services/thingsActivityMapping", () => ({
+  mapProviderProducts: mapProviderProductsMock.mockResolvedValue({ status: "unavailable", mappings: [] }),
+  providerScopedKey: (provider: string, providerProductId: string) => `${provider}:${providerProductId}`,
+}));
+
 vi.mock("@/services/thingsActivityDetail", () => ({
   resolveThingsActivityDetail: (...args: unknown[]) => resolveActivityDetailMock(...args),
 }));

@@ -189,6 +189,11 @@ vi.mock("@/services/experiences", () => ({
   searchExperiences: (...args: unknown[]) => mockSearchExperiences(...args),
 }));
 
+vi.mock("@/services/thingsActivityMapping", () => ({
+  mapProviderProducts: vi.fn(async () => ({ status: "unavailable", mappings: [] })),
+  providerScopedKey: (provider: string, providerProductId: string) => `${provider}:${providerProductId}`,
+}));
+
 // Imported after the mocks above so ThingsToDo picks up the mocked module graph.
 import ThingsToDo from "@/pages/ThingsToDo";
 
