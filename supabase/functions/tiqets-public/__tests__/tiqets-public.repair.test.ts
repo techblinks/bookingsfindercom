@@ -51,18 +51,28 @@ describe("tiqets-public repair contract", () => {
     expect(indexSrc).not.toContain("errorResponse(");
   });
 
-  it("declares destination_id in searchSchema and maps it upstream", () => {
+  it("declares city_id in searchSchema and maps it upstream (official /v2/products)", () => {
     expect(indexSrc).toContain(
+      "city_id: z.number().int().positive().optional(),",
+    );
+    expect(indexSrc).toContain("d.query || d.city_name || d.city_id");
+    expect(indexSrc).toContain(
+      'params.set("city_id", String(body.city_id))',
+    );
+    // PB2A: destination_id is NOT part of the public search schema.
+    expect(indexSrc).not.toContain(
       "destination_id: z.number().int().positive().optional(),",
     );
-    expect(indexSrc).toContain("d.query || d.city_name || d.destination_id");
-    expect(indexSrc).toContain(
+    expect(indexSrc).not.toContain(
       'params.set("destination_id", String(body.destination_id))',
     );
   });
 
-  it("keeps city_name supported", () => {
+  it("city_name maps to upstream city_name (official param, not destination)", () => {
     expect(indexSrc).toContain(
+      'params.set("city_name", body.city_name)',
+    );
+    expect(indexSrc).not.toContain(
       'params.set("destination", body.city_name)',
     );
   });
