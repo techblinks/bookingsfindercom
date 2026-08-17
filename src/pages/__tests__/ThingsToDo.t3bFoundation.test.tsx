@@ -11,7 +11,9 @@
  *   - the premium no-image state renders in the card image slot
  *   - pagination uses the bounded window with a non-interactive ellipsis
  *   - essential "price on request" copy no longer uses muted contrast
- *   - the hero eyebrow uses the approved action-orange token
+ *   - identity type in the hero is never dressed as an action, and Search is
+ *     the single orange control of the hero viewport (restated for the T3C
+ *     light masthead, which replaced the navy band and its eyebrow)
  *
  * searchExperiences / mapProviderProducts are mocked at the module boundary;
  * no network calls.
@@ -288,12 +290,25 @@ describe("T3B - essential muted-text corrections", () => {
     expect(priceCopy.className).not.toContain("text-things-text-muted");
   });
 
-  it("the hero eyebrow uses an on-dark neutral treatment, never action-orange", async () => {
+  /*
+   * T3C superseded the navy hero band and its "DISCOVER MORE" eyebrow. The
+   * eyebrow's contract was "identity type is never dressed as an action" —
+   * that rule survives its element, and is now asserted against the light
+   * destination masthead that replaced it: the heading is not orange, and
+   * Search remains the ONE orange control in the hero viewport.
+   */
+  it("orange appears exactly once in the hero, on Search", async () => {
     mockSearchExperiences.mockResolvedValue(result([]));
     renderPage();
 
-    const eyebrow = await screen.findByText("DISCOVER MORE");
-    expect(eyebrow.className).toContain("text-white/70");
-    expect(eyebrow.className).not.toMatch(/D64A2A|D14525|things-action/);
+    const heading = await screen.findByRole("heading", { level: 1 });
+    expect(heading.className).not.toMatch(ORANGE);
+
+    const hero = heading.closest("section") as HTMLElement;
+    const orangeControls = Array.from(hero.querySelectorAll("button, a")).filter((el) =>
+      /things-action/.test(el.className),
+    );
+    expect(orangeControls).toHaveLength(1);
+    expect(orangeControls[0].textContent).toContain("Search");
   });
 });

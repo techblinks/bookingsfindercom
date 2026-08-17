@@ -1,4 +1,3 @@
-import DestinationAutocomplete from "@/components/search/DestinationAutocomplete";
 import type { ExperienceDestination } from "@/types/experiences";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Helmet } from "react-helmet-async";
@@ -11,22 +10,18 @@ import {
 } from "@/lib/thingsDestinations";
 import type { ThingsDestination } from "@/types/thingsDestination";
 import {
-  Search,
   Star,
   MapPin,
   Info,
   ListFilter,
   X,
   Check,
-  Building2,
-  Plane,
-  Hotel,
-  Calculator,
-  Sparkles,
   ExternalLink,
 } from "lucide-react";
 import ThingsPagination from "@/components/things/ThingsPagination";
 import ThingsNoImageState from "@/components/things/ThingsNoImageState";
+import ThingsDestinationHero from "@/components/things/ThingsDestinationHero";
+import ThingsDiscoveryRail from "@/components/things/ThingsDiscoveryRail";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -88,15 +83,15 @@ const PAGE_SIZE = 24;
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-things-brand-soft border border-things-border rounded-full text-xs font-medium text-things-text-primary">
+    <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-things-brand-soft py-1 pl-3 pr-1 text-[13px] font-medium text-things-text-primary">
       {label}
       <button
         type="button"
         onClick={onRemove}
-        className="hover:bg-things-border rounded-full p-0.5 things-focus-ring"
+        className="flex h-7 w-7 items-center justify-center rounded-full text-things-text-secondary transition-colors hover:bg-primary/10 hover:text-primary things-focus-ring"
         aria-label={`Remove ${label} filter`}
       >
-        <X className="w-3 h-3" />
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </span>
   );
@@ -104,7 +99,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-things-surface-card rounded-xl border border-things-border overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-things-border bg-things-surface-card">
       <Skeleton className="aspect-[16/10] w-full rounded-none" />
       <div className="p-4 space-y-3">
         <Skeleton className="h-3 w-24" />
@@ -154,26 +149,6 @@ function providerLabel(provider: ExperienceProduct["provider"]): string {
   return provider === "viator" ? "Viator" : "Tiqets";
 }
 
-/* ─────────────────────────── HERO DECORATION ──────────────────── */
-
-function HeroDecoration() {
-  return (
-    <svg
-      className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none"
-      viewBox="0 0 1200 300"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path d="M0 150 Q 200 120, 400 140 T 800 160 T 1200 145" stroke="white" strokeWidth="2" fill="none" />
-      <path d="M0 190 Q 250 210, 500 195 T 1000 205 T 1200 190" stroke="white" strokeWidth="1.5" fill="none" />
-      <circle cx="200" cy="150" r="4" fill="white" />
-      <circle cx="600" cy="140" r="3" fill="white" />
-      <circle cx="900" cy="160" r="4" fill="white" />
-    </svg>
-  );
-}
-
 /* ─────────────────────────── EXPERIENCE CARD ───────────────────── */
 
 function ExperienceCard({
@@ -195,7 +170,7 @@ function ExperienceCard({
   return (
     <div
       role="article"
-      className="group bg-things-surface-card rounded-xl border border-things-border overflow-hidden shadow-card hover:shadow-elevated transition-shadow flex flex-col"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-things-border bg-things-surface-card shadow-card motion-safe:transition-all motion-safe:duration-200 hover:border-primary/25 hover:shadow-elevated motion-safe:hover:-translate-y-0.5"
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-things-surface-subtle">
         {product.imageUrl && !imageFailed ? (
@@ -203,7 +178,7 @@ function ExperienceCard({
             src={product.imageUrl}
             alt={product.imageAlt || product.title || "Experience photo"}
             onError={() => setImageFailed(true)}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="h-full w-full object-cover motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover:scale-[1.04]"
             loading="lazy"
           />
         ) : (
@@ -660,6 +635,67 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
     setMobileSheetOpen(false);
   }, [mobileDraft, syncUrl]);
 
+  /*
+   * Sheet dialog behaviour (T3C).
+   *
+   * The sheet now declares `role="dialog" aria-modal="true"`, and that claim
+   * has to be true: while it is open, Escape closes it, the page behind cannot
+   * scroll, focus starts inside it and cannot Tab out, and focus returns to
+   * the Filters trigger on close. Announcing a modal without managing focus
+   * would strand a keyboard or screen-reader user behind an overlay they
+   * cannot see.
+   */
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!mobileSheetOpen) return;
+
+    const sheet = sheetRef.current;
+    // Captured now, while the trigger is certainly mounted, so the cleanup
+    // returns focus to the control the traveller actually pressed.
+    const returnFocusTo = filterTriggerRef.current ?? (document.activeElement as HTMLElement | null);
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+
+    const focusable = () =>
+      Array.from(
+        sheet?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => !el.hasAttribute("disabled"));
+
+    focusable()[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setMobileSheetOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !sheet?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
+      returnFocusTo?.focus?.();
+    };
+  }, [mobileSheetOpen]);
+
   /* --- labels --- */
   const getActivityLabel = (id: string) => ACTIVITY_TYPES.find((a) => a.id === id)?.label || id;
 
@@ -667,26 +703,32 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
 
   const activeFilterCount = [selectedActivity, selectedRating !== "any"].filter(Boolean).length;
 
-  /* --- other destinations, derived from currently loaded products --- */
-  const destinationsFromResults = useMemo(() => {
-    const map = new Map<string, { name: string; country: string | null }>();
-    for (const p of products) {
-      if (p.city && !map.has(p.city)) {
-        map.set(p.city, { name: p.city, country: p.country });
-      }
-    }
-    return Array.from(map.values()).slice(0, 8);
-  }, [products]);
+  /*
+   * "Other destinations in these results" is gone (T3C).
+   *
+   * It was derived from whatever products the current page happened to
+   * contain, presented as a grid of destination tiles. On a canonical route it
+   * could only ever echo the destination the traveller is already on, and on
+   * the hub it read as a ranking BookingsFinder has no data to make. The Rome
+   * UX spec §3.1 marks it DEMOTE-or-remove; it did not earn its space.
+   */
 
   /* --- pagination --- */
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  /* --- results heading --- */
-  const resultsHeading = destination.trim()
-    ? `Things to do in ${destination.trim()}`
-    : queryText.trim() || selectedActivity
-      ? "Explore experiences"
-      : "Experiences to explore";
+  /*
+   * Results heading. On a canonical destination route the H1 already reads
+   * "Things to do in Rome", so repeating it verbatim as the H2 would be a
+   * duplicate rather than a hierarchy — the results section names the
+   * inventory instead.
+   */
+  const resultsHeading = destinationProp
+    ? `Experiences in ${destinationProp.displayName}`
+    : destination.trim()
+      ? `Things to do in ${destination.trim()}`
+      : queryText.trim() || selectedActivity
+        ? "Explore experiences"
+        : "Experiences to explore";
 
   /* --- structured data --- */
   const structuredData =
@@ -764,172 +806,149 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
         {structuredData && <script type="application/ld+json">{JSON.stringify(structuredData)}</script>}
       </Helmet>
 
-      {/* ─── COMPACT HERO ─── */}
-      <section className="relative bg-things-surface-anchor overflow-hidden">
-        <HeroDecoration />
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-10">
-          <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1 sm:mb-2">DISCOVER MORE</p>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-1 sm:mb-2 tracking-tight leading-tight">
-            Find things to do
-          </h1>
-          <p className="text-sm sm:text-base text-white/80 max-w-xl mb-1.5 sm:mb-5">
-            Discover attractions, tours and experiences wherever you're going.
-          </p>
+      <main id="main-content" className="bg-things-surface-page">
+        {/* ─── DESTINATION HERO ─── */}
+        <ThingsDestinationHero
+          destination={destinationProp}
+          cityInput={cityInput}
+          onCityInputChange={setCityInput}
+          onCitySelect={(dest: ExperienceDestination) => {
+            setCityInput(dest.name);
+          }}
+          activityInput={activityInput}
+          onActivityInputChange={setActivityInput}
+          onSubmit={() => commitSearch()}
+          cityShortcuts={destinationProp ? undefined : SEARCH_SHORTCUTS}
+          onCityShortcutClick={handleShortcutClick}
+        />
 
-          <div className="bg-things-surface-card rounded-2xl shadow-lg p-2.5 sm:p-3 flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <div className="flex-1">
-              <label htmlFor="ttd-city" className="text-xs font-semibold text-things-text-secondary mb-0.5 sm:mb-1 block">
-                Where are you going?
-              </label>
-              <DestinationAutocomplete
-                value={cityInput}
-                onChange={setCityInput}
-                onSelect={(dest: ExperienceDestination) => { setCityInput(dest.name); }}
-                placeholder="Search a city or destination"
-                className="w-full"
-              />
-            </div>
-            <div className="flex-1">
-              <label htmlFor="ttd-activity" className="text-xs font-semibold text-things-text-secondary mb-0.5 sm:mb-1 block">
-                What do you want to do?
-              </label>
-              <input
-                id="ttd-activity"
-                placeholder="Museums, tours, landmarks..."
-                value={activityInput}
-                onChange={(e) => setActivityInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && commitSearch()}
-                className="w-full px-4 py-3 rounded-xl border border-things-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => commitSearch()}
-              className="bg-things-action hover:bg-things-action-hover active:bg-things-action-strong text-white rounded-xl px-6 py-3 font-semibold flex items-center justify-center gap-2 shrink-0 transition-colors things-focus-ring-action"
-            >
-              <Search className="w-4 h-4" aria-hidden="true" /> Search
-            </button>
+        {/* ─── TRUST LINE (provider-neutral, slim) ───
+            Both claims are architecture-supported and provider-neutral. It is
+            one line now rather than a boxed strip: the disclosure below the
+            results carries the commercial detail, and this only has to set
+            expectations before the traveller starts scanning inventory. */}
+        <section className="border-b border-things-border bg-things-surface-card">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2.5 text-[12.5px] font-medium text-things-text-secondary sm:px-6 lg:px-8">
+            <span className="flex items-center gap-1.5">
+              <Info className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" /> Experience details from our
+              partners
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" /> Payment and tickets handled by
+              the provider
+            </span>
           </div>
+        </section>
 
-          <div className="mt-1.5 sm:mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-white/70 font-medium">Try:</span>
-            {SEARCH_SHORTCUTS.map((city) => (
-              <button
-                key={city}
-                type="button"
-                onClick={() => handleShortcutClick(city)}
-                className="text-white/90 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full transition-colors things-focus-ring-on-dark"
-              >
-                {city}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+        {/* ─── EXPLORE (keyword discovery shortcuts) ─── */}
+        <ThingsDiscoveryRail
+          items={ACTIVITY_TYPES}
+          selectedId={selectedActivity}
+          onToggle={handleActivityToggle}
+          destinationName={destinationProp?.displayName}
+        />
 
-      {/* ─── TRUST STRIP (provider-neutral) ─── */}
-      <section className="bg-things-surface-page border-b border-things-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-xs text-things-text-secondary font-medium">
-          <span className="flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Experience details from our partners
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Payment and tickets handled by the
-            provider
-          </span>
-        </div>
-      </section>
+        {/* ─── RESULTS ─── */}
+        <section
+          ref={resultsRef}
+          aria-labelledby="things-results-heading"
+          className="mx-auto max-w-7xl px-4 pb-14 pt-8 sm:px-6 lg:px-8 lg:pt-10"
+        >
+          {/* Results header: identity and count on the left, the honest filter
+              set on the right. On desktop this is one editorial row with a
+              hairline under it, so the page reads hero → discovery → INVENTORY
+              rather than as four unrelated strips. */}
+          <div className="border-b border-things-border pb-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
+              <div className="min-w-0">
+                <h2
+                  id="things-results-heading"
+                  className="text-[20px] font-bold tracking-tight text-things-text-primary lg:text-2xl"
+                >
+                  {resultsHeading}
+                </h2>
+                {/* Count is the provider's own genuine total for this search —
+                    never a sum of incompatible provider semantics, never an
+                    invented figure, and never shown while a search is in
+                    flight (it would describe the previous result set). */}
+                <p className="mt-1 min-h-[20px] text-sm text-things-text-secondary" aria-live="polite">
+                  {hasSearchContext && !loading && totalCount > 0
+                    ? `${totalCount.toLocaleString()} ${totalCount === 1 ? "experience" : "experiences"}`
+                    : ""}
+                </p>
+              </div>
 
-      {/* ─── CATEGORY CHIPS ─── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 border-b border-things-brand-soft">
-        <div className="flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1 -mx-1 px-1" role="group" aria-label="Activity categories">
-          {ACTIVITY_TYPES.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              aria-pressed={selectedActivity === a.id}
-              onClick={() => handleActivityToggle(a.id)}
-              className={`shrink-0 whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-medium border transition-colors things-focus-ring ${
-                selectedActivity === a.id
-                  ? "bg-primary border-primary text-white"
-                  : "bg-things-surface-card border-things-border text-things-text-primary hover:border-primary"
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      </section>
+              {/* Desktop filter toolbar */}
+              {!isMobile && (
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Select value={selectedActivity} onValueChange={handleActivityToggle}>
+                    <SelectTrigger className="h-10 w-auto min-w-[140px] rounded-xl bg-things-surface-card text-sm" aria-label="Activity filter">
+                      <SelectValue placeholder="Activity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ACTIVITY_TYPES.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-      {/* ─── RESULTS ─── */}
-      <section ref={resultsRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-things-text-primary">{resultsHeading}</h2>
-          {hasSearchContext && !loading && totalCount > 0 && (
-            <p className="text-sm text-things-text-secondary mt-1">
-              {totalCount.toLocaleString()} {totalCount === 1 ? "experience" : "experiences"}
-            </p>
-          )}
-        </div>
-
-        {/* Desktop filter toolbar */}
-        {!isMobile && (
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <Select value={selectedActivity} onValueChange={handleActivityToggle}>
-              <SelectTrigger className="w-auto min-w-[130px] h-9 text-sm" aria-label="Activity filter">
-                <SelectValue placeholder="Activity" />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIVITY_TYPES.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedRating} onValueChange={handleRatingChange}>
-              <SelectTrigger className="w-auto min-w-[120px] h-9 text-sm" aria-label="Rating filter">
-                <SelectValue placeholder="Rating" />
-              </SelectTrigger>
-              <SelectContent>
-                {RATING_OPTIONS.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-          </div>
-        )}
-
-        {/* Mobile Filters row */}
-        {isMobile && (
-          <div className="flex items-center gap-3 mb-4">
-            <Button variant="outline" onClick={openMobileSheet} className="flex-1">
-              <ListFilter className="w-4 h-4 mr-2" aria-hidden="true" /> Filters
-              {hasActiveFilters && (
-                <Badge className="ml-2 bg-things-action text-white text-[10px] h-5 px-1.5">{activeFilterCount}</Badge>
+                  <Select value={selectedRating} onValueChange={handleRatingChange}>
+                    <SelectTrigger className="h-10 w-auto min-w-[132px] rounded-xl bg-things-surface-card text-sm" aria-label="Rating filter">
+                      <SelectValue placeholder="Rating" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RATING_OPTIONS.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
-            </Button>
+            </div>
           </div>
-        )}
 
-        {/* Active filter chips */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            {selectedActivity && <Chip label={getActivityLabel(selectedActivity)} onRemove={() => handleActivityToggle(selectedActivity)} />}
-            {selectedRating !== "any" && <Chip label={`Rating ${selectedRating}+`} onRemove={() => handleRatingChange("any")} />}
-            <button type="button" onClick={clearAllFilters} className="text-xs text-primary hover:underline ml-1 things-focus-ring">
-              Clear all
-            </button>
-          </div>
-        )}
+          {/* Mobile filter row — sticky under the global header so filter
+              access never scrolls away mid-grid. Kept to one row so results
+              start immediately below it. */}
+          {isMobile && (
+            <div className="sticky top-16 z-30 -mx-4 mb-4 border-b border-things-border bg-things-surface-page/95 px-4 py-2.5 backdrop-blur-sm">
+              <Button
+                ref={filterTriggerRef}
+                variant="outline"
+                onClick={openMobileSheet}
+                className="h-11 w-full justify-center rounded-xl border-things-border bg-things-surface-card"
+              >
+                <ListFilter className="mr-2 h-4 w-4" aria-hidden="true" /> Filters
+                {hasActiveFilters && (
+                  <Badge className="ml-2 h-5 bg-things-action px-1.5 text-[10px] text-white">{activeFilterCount}</Badge>
+                )}
+              </Button>
+            </div>
+          )}
 
+          {/* Active filter chips */}
+          {hasActiveFilters && (
+            <div className="mb-5 mt-4 flex flex-wrap items-center gap-2">
+              {selectedActivity && <Chip label={getActivityLabel(selectedActivity)} onRemove={() => handleActivityToggle(selectedActivity)} />}
+              {selectedRating !== "any" && <Chip label={`Rating ${selectedRating}+`} onRemove={() => handleRatingChange("any")} />}
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="ml-1 rounded px-1 text-[13px] font-medium text-primary hover:underline things-focus-ring"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          <div className={hasActiveFilters ? "" : "mt-6"} aria-busy={loading}>
         {/* Results grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -942,18 +961,20 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
             */
           <div
             role="status"
-            className="text-center py-14 border border-dashed border-things-border rounded-2xl"
+            className="rounded-2xl border border-dashed border-things-border bg-things-surface-card px-6 py-16 text-center"
           >
-            <Info className="w-10 h-10 text-things-info mx-auto mb-3" aria-hidden="true" />
-            <h3 className="text-base font-semibold text-things-text-primary mb-1">
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-things-info-soft">
+              <Info className="h-6 w-6 text-things-info" aria-hidden="true" />
+            </span>
+            <h3 className="mb-1.5 text-base font-semibold text-things-text-primary">
               Experiences are temporarily unavailable
             </h3>
-            <p className="text-sm text-things-text-secondary mb-4">
+            <p className="mx-auto mb-5 max-w-md text-sm text-things-text-secondary">
               We're having trouble loading activities right now. This is on our side — please try again shortly.
             </p>
             <Button
               onClick={retrySearch}
-              className="bg-things-action hover:bg-things-action-hover active:bg-things-action-strong text-white things-focus-ring-action"
+              className="h-11 rounded-xl bg-things-action px-6 text-white hover:bg-things-action-hover active:bg-things-action-strong things-focus-ring-action"
             >
               Try again
             </Button>
@@ -962,28 +983,32 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
           /* A provider answered healthily and genuinely had nothing to match. */
           <div
             role="status"
-            className="text-center py-14 border border-dashed border-things-border rounded-2xl"
+            className="rounded-2xl border border-dashed border-things-border bg-things-surface-card px-6 py-16 text-center"
           >
-            <Info className="w-10 h-10 text-things-info mx-auto mb-3" aria-hidden="true" />
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-things-info-soft">
+              <Info className="h-6 w-6 text-things-info" aria-hidden="true" />
+            </span>
             {hasSearchContext ? (
               <>
-                <h3 className="text-base font-semibold text-things-text-primary mb-1">No experiences matched your search</h3>
-                <p className="text-sm text-things-text-secondary mb-4">
+                <h3 className="mb-1.5 text-base font-semibold text-things-text-primary">No experiences matched your search</h3>
+                <p className="mx-auto mb-5 max-w-md text-sm text-things-text-secondary">
                   Try a different destination or activity, or remove some filters.
                 </p>
                 {hasActiveFilters && (
-                  <Button variant="outline" onClick={clearAllFilters}>
+                  <Button variant="outline" className="h-11 rounded-xl px-5" onClick={clearAllFilters}>
                     Clear all filters
                   </Button>
                 )}
               </>
             ) : (
-              <p className="text-sm text-things-text-secondary">Search a destination to explore tours, attractions and experiences.</p>
+              <p className="mx-auto max-w-md text-sm text-things-text-secondary">
+                Search a destination to explore tours, attractions and experiences.
+              </p>
             )}
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {products.map((product) => (
                 <ExperienceCard
                   key={`${product.provider}-${product.providerProductId}`}
@@ -1000,139 +1025,82 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                 currentPage={page}
                 totalPages={totalPages}
                 onPageChange={goToPage}
-                className="mt-8"
+                className="mt-10"
               />
             )}
           </>
         )}
-
-        {/* ─── Other destinations seen in these results (compact) ─── */}
-        {destinationsFromResults.length > 0 && (
-          <div className="mt-14">
-            <h2 className="text-lg sm:text-xl font-bold text-things-text-primary mb-4">Other destinations in these results</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {destinationsFromResults.map((d) => (
-                <button
-                  key={d.name}
-                  type="button"
-                  onClick={() => handleShortcutClick(d.name)}
-                  className="group relative rounded-xl overflow-hidden aspect-[3/2] bg-things-brand-soft border border-things-border hover:border-primary transition-colors things-focus-ring"
-                >
-                  <div className="w-full h-full flex flex-col items-center justify-center p-3">
-                    <MapPin className="w-5 h-5 text-primary/40 mb-1.5" aria-hidden="true" />
-                    <p className="text-sm font-semibold text-things-text-primary">{d.name}</p>
-                    {d.country && <p className="text-xs text-things-text-secondary">{d.country}</p>}
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
-        )}
 
-        {/* ─── How it works (compact, supporting) ─── */}
-        <div className="mt-14 bg-things-surface-page rounded-2xl p-5 sm:p-6">
-          <h2 className="text-lg font-bold text-things-text-primary mb-4 text-center">How it works</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {[
-              { step: "1", title: "Search", desc: "Find attractions and experiences for your destination." },
-              { step: "2", title: "Compare", desc: "Compare prices, ratings and useful experience details." },
-              {
-                step: "3",
-                title: "Continue to book",
-                desc: "Check current availability and complete your booking with the provider.",
-              },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center mx-auto mb-2 font-bold text-xs">
-                  {item.step}
-                </div>
-                <h3 className="font-semibold text-things-text-primary mb-1 text-sm">{item.title}</h3>
-                <p className="text-xs text-things-text-secondary">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+          {/*
+           * T3C removed three sections from the main Rome flow, each measured
+           * against "does this help the traveller understand, decide or act?":
+           *
+           *   Other destinations in these results — a grid derived from the
+           *     current page of products. On /things-to-do/rome it could only
+           *     echo Rome back; anywhere else it read as a ranking we hold no
+           *     data to make.
+           *   How it works — three generic steps repeating what the search box,
+           *     the cards and the disclosure already say in situ.
+           *   The trip-planning cross-sell grid — four tiles duplicating
+           *     navigation the global header and footer both already carry.
+           *
+           * Roughly 700px of page between the last result card and the
+           * disclosure, none of it helping anyone choose an experience in Rome.
+           * The provider/commission disclosure below is required and stays.
+           */}
 
-        {/* ─── Plan your entire trip (restrained) ─── */}
-        <div className="mt-8 bg-things-surface-card border border-things-border rounded-2xl p-5 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Building2 className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h2 className="text-base font-bold text-things-text-primary">Plan your entire trip</h2>
+          {/* ─── Affiliate disclosure (provider-neutral, required) ─── */}
+          <div className="mt-12 border-t border-things-border pt-6">
+            <p className="mx-auto max-w-2xl text-center text-xs leading-relaxed text-things-text-secondary">
+              Experience information is provided by our partners. BookingsFinder may earn a commission when you
+              continue through an affiliate link, at no additional cost to you. Final prices, availability and
+              booking terms are confirmed by the provider.
+            </p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Link
-              to="/flights"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
-            >
-              <Plane className="w-5 h-5 text-primary" aria-hidden="true" />
-              <span className="text-sm font-semibold text-things-text-primary">Flights</span>
-              <span className="text-xs text-things-text-secondary">Compare flight deals</span>
-            </Link>
-            <Link
-              to="/"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
-            >
-              <Hotel className="w-5 h-5 text-primary" aria-hidden="true" />
-              <span className="text-sm font-semibold text-things-text-primary">Stays</span>
-              <span className="text-xs text-things-text-secondary">Find accommodation</span>
-            </Link>
-            <Link
-              to="/trip-cost"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
-            >
-              <Calculator className="w-5 h-5 text-primary" aria-hidden="true" />
-              <span className="text-sm font-semibold text-things-text-primary">Trip Cost</span>
-              <span className="text-xs text-things-text-secondary">Estimate your budget</span>
-            </Link>
-            <Link
-              to="/optimizer"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-things-border hover:border-primary hover:bg-things-brand-soft transition-colors text-center things-focus-ring"
-            >
-              <Sparkles className="w-5 h-5 text-primary" aria-hidden="true" />
-              <span className="text-sm font-semibold text-things-text-primary">Optimizer</span>
-              {/* The optimizer analyses one route — it does not order an itinerary. */}
-              <span className="text-xs text-things-text-secondary">Cost, timing and layovers</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* ─── Affiliate disclosure (provider-neutral) ─── */}
-        <div className="mt-8 text-center">
-          <p className="text-xs text-things-text-muted max-w-2xl mx-auto leading-relaxed">
-            Experience information is provided by our partners. BookingsFinder may earn a commission when you
-            continue through an affiliate link, at no additional cost to you. Final prices, availability and
-            booking terms are confirmed by the provider.
-          </p>
-        </div>
-      </section>
+        </section>
+      </main>
 
       {/* ─── MOBILE FILTER SHEET ─── */}
       {isMobile && mobileSheetOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setMobileSheetOpen(false)}>
+        /* z-[60]: the global mobile BottomNav is fixed at z-50, and at 390px it
+           sat directly over the sheet's own Clear all / Show results row. */
+        <div className="fixed inset-0 z-[60] bg-black/50" onClick={() => setMobileSheetOpen(false)}>
           <div
-            className="absolute bottom-0 left-0 right-0 bg-things-surface-card rounded-t-2xl max-h-[85vh] overflow-y-auto p-6 animate-slide-up"
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="things-filter-sheet-heading"
+            className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-things-surface-card px-5 pt-5 shadow-modal motion-safe:animate-slide-up"
+            /* Bottom padding clears the iOS home indicator / Android gesture bar. */
+            style={{ paddingBottom: "calc(1.25rem + var(--sab))" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-things-text-primary">Filters</h3>
+            <span aria-hidden="true" className="mx-auto mb-4 block h-1 w-10 rounded-full bg-things-border" />
+            <div className="mb-5 flex items-center justify-between">
+              <h3 id="things-filter-sheet-heading" className="text-lg font-bold text-things-text-primary">
+                Filters
+              </h3>
               <button
                 type="button"
                 onClick={() => setMobileSheetOpen(false)}
-                className="p-1 hover:bg-things-surface-page rounded-full things-focus-ring"
+                className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-things-surface-page things-focus-ring"
                 aria-label="Close filters"
               >
-                <X className="w-5 h-5 text-things-text-secondary" aria-hidden="true" />
+                <X className="h-5 w-5 text-things-text-secondary" aria-hidden="true" />
               </button>
             </div>
 
             <div className="space-y-5">
               <div>
-                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Activity</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-things-text-secondary">
+                  Activity
+                </label>
                 <Select
                   value={mobileDraft.selectedActivity}
                   onValueChange={(v) => setMobileDraft({ ...mobileDraft, selectedActivity: v })}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-12 w-full rounded-xl">
                     <SelectValue placeholder="Any activity" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1146,12 +1114,14 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Minimum rating</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-things-text-secondary">
+                  Minimum rating
+                </label>
                 <Select
                   value={mobileDraft.selectedRating}
                   onValueChange={(v) => setMobileDraft({ ...mobileDraft, selectedRating: v })}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-12 w-full rounded-xl">
                     <SelectValue placeholder="Any rating" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1163,18 +1133,20 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                   </SelectContent>
                 </Select>
               </div>
-
             </div>
 
-            <div className="flex gap-3 mt-6 pt-4 border-t border-things-border">
+            <div className="mt-6 flex gap-3 border-t border-things-border pt-4">
               <Button
                 variant="outline"
-                className="flex-1"
+                className="h-12 flex-1 rounded-xl"
                 onClick={() => setMobileDraft({ selectedActivity: "", selectedRating: "any" })}
               >
                 Clear all
               </Button>
-              <Button className="flex-1 bg-things-action hover:bg-things-action-hover active:bg-things-action-strong text-white things-focus-ring-action" onClick={applyMobileFilters}>
+              <Button
+                className="h-12 flex-1 rounded-xl bg-things-action text-white hover:bg-things-action-hover active:bg-things-action-strong things-focus-ring-action"
+                onClick={applyMobileFilters}
+              >
                 Show results
               </Button>
             </div>

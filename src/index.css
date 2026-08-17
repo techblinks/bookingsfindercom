@@ -356,6 +356,26 @@
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-things-action focus-visible:ring-offset-2;
   }
 
+  /* Things V2 (T3C) - horizontal discovery rail.
+     Snap scrolling with no visible scrollbar, so the rail reads as a tactile
+     surface rather than a scrolling form row. Scoped to Things: the class is
+     only applied by Things components. */
+  .things-rail {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .things-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .things-rail > * {
+    scroll-snap-align: start;
+  }
+
   /* Dark-surface controls (hero/navy): white ring so keyboard focus stays
      visible on brand-navy without leaking into non-Things surfaces. */
   .things-focus-ring-on-dark {

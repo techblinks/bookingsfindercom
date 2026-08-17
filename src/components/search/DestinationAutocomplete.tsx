@@ -15,6 +15,20 @@ interface DestinationAutocompleteProps {
   onSelect?: (destination: ExperienceDestination) => void;
   placeholder?: string;
   className?: string;
+  /**
+   * DOM id for the input. Without it a caller's `<label htmlFor="...">` points
+   * at nothing and the field is effectively unlabelled — which is exactly what
+   * the Things hero used to do.
+   */
+  inputId?: string;
+  /** Accessible name when the caller has no visible `<label>` to associate. */
+  ariaLabel?: string;
+  /**
+   * Presentation only. `true` drops the built-in leading MapPin so the field
+   * can sit inside a caller-composed search shell that already supplies its
+   * own icon. Behaviour, semantics and the dropdown are unchanged.
+   */
+  hideLeadingIcon?: boolean;
 }
 
 // ── Component ───────────────────────────────────────────────────
@@ -25,6 +39,9 @@ const DestinationAutocomplete = ({
   onSelect,
   placeholder = "Where are you going?",
   className,
+  inputId,
+  ariaLabel,
+  hideLeadingIcon = false,
 }: DestinationAutocompleteProps) => {
   // ── External data ───────────────────────────────────────────
   const {
@@ -178,9 +195,13 @@ const DestinationAutocomplete = ({
     <div ref={containerRef} className="relative w-full">
       {/* ── Input ─────────────────────────────────────────── */}
       <div className="relative">
-        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#01367F] pointer-events-none z-10" />
+        {!hideLeadingIcon && (
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#01367F] pointer-events-none z-10" />
+        )}
         <input
           ref={inputRef}
+          id={inputId}
+          aria-label={ariaLabel}
           type="text"
           role="combobox"
           aria-expanded={showDropdown}
