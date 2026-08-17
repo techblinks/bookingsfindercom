@@ -6,6 +6,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
   resolveThingsDestinationFromLegacyCity,
   thingsDestinationPath,
+  thingsDestinationTiqetsId,
   thingsDestinationViatorId,
 } from "@/lib/thingsDestinations";
 import type { ThingsDestination } from "@/types/thingsDestination";
@@ -13,7 +14,6 @@ import {
   Search,
   Star,
   MapPin,
-  ChevronDown,
   Info,
   ListFilter,
   X,
@@ -36,11 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -64,36 +59,27 @@ const ACTIVITY_TYPES = [
 // Example destinations, not a popularity ranking — we hold no popularity data.
 const SEARCH_SHORTCUTS = ["Sydney", "Melbourne", "Paris", "Rome"];
 
-// Values are AUD cents — tiqets-public's price_min/price_max contract.
-const PRICE_RANGES = [
-  { id: "under-25", label: "Under A$25", min: 0, max: 2499 },
-  { id: "25-50", label: "A$25–A$50", min: 2500, max: 5000 },
-  { id: "50-100", label: "A$50–A$100", min: 5000, max: 10000 },
-  { id: "100-plus", label: "A$100+", min: 10000, max: 99999999 },
-];
-
+/*
+ * Minimum rating is the one product filter the repaired Tiqets contract
+ * genuinely forwards upstream (min_rating), so it is the one filter of its kind
+ * the page still offers.
+ *
+ * Deliberately absent (T3B-INT-PB2B):
+ *   price range          — tiqets-public does not forward price_min/price_max
+ *   skip the line        — tiqets-public does not forward skip_line
+ *   wheelchair access    — tiqets-public does not forward wheelchair_access
+ *   sort                 — no active provider request carries a sort value
+ *
+ * Each of those looked like a working control while the request quietly
+ * ignored it. Local post-filtering was never an option: it would have made the
+ * provider's totals and pagination untrue. Products may still REPORT skip-line
+ * and accessibility as facts on the card — a reported fact is not a searchable
+ * filter, and PB2B keeps that distinction.
+ */
 const RATING_OPTIONS = [
   { id: "any", label: "Any rating" },
   { id: "3", label: "3+" },
   { id: "4", label: "4+" },
-];
-
-/*
- * "Recommended" implied a BookingsFinder recommendation system. There is none —
- * the order is whatever the provider returns, and the two providers do not even
- * agree on what it means: tiqets-public maps popularity_desc to upstream
- * `ordering=-popularity`, while viator-public's schema has no popularity option
- * at all and defaults to RELEVANCE. Because the semantics genuinely differ, the
- * label names the SOURCE of the order rather than claiming a criterion.
- */
-const SORT_OPTIONS = [
-  { id: "popularity_desc", label: "Provider order" },
-  { id: "price_asc", label: "Price: low to high" },
-  { id: "title_asc", label: "Title: A–Z" },
-];
-
-const FEATURES = [
-  { id: "skipLine", label: "Skip the line" },
 ];
 
 const PAGE_SIZE = 24;
@@ -330,17 +316,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
   const [destination, setDestination] = useState(destinationProp?.displayName ?? searchParams.get("city") ?? "");
   const [queryText, setQueryText] = useState(searchParams.get("q") || "");
   const [selectedActivity, setSelectedActivity] = useState(searchParams.get("activity") || "");
-  const [selectedPriceRange, setSelectedPriceRange] = useState(
-    searchParams.get("minPrice") && searchParams.get("maxPrice")
-      ? PRICE_RANGES.find(
-          (p) => p.min === Number(searchParams.get("minPrice")) && p.max === Number(searchParams.get("maxPrice"))
-        )?.id || ""
-      : ""
-  );
   const [selectedRating, setSelectedRating] = useState(searchParams.get("rating") || "any");
-  const [wheelchairOnly, setWheelchairOnly] = useState(searchParams.get("accessible") === "1");
-  const [skipLineOnly, setSkipLineOnly] = useState(searchParams.get("skipLine") === "1");
-  const [sort, setSort] = useState(searchParams.get("sort") || "popularity_desc");
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
 
   /* --- data state --- */
@@ -368,11 +344,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
   /* --- mobile draft (for sheet) --- */
   const [mobileDraft, setMobileDraft] = useState({
     selectedActivity: "",
-    selectedPriceRange: "",
     selectedRating: "any",
-    wheelchairOnly: false,
-    skipLineOnly: false,
-    sort: "popularity_desc",
   });
 
   /* detect mobile */
@@ -397,39 +369,44 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
 
   const hasSearchContext = Boolean(destination.trim() || queryText.trim() || selectedActivity);
 
-  /* --- Viator destination identity (route-driven, registry-owned) --- */
-  // The Viator destinationId exists ONLY when this page is a canonical
-  // destination route AND the committed destination text still matches that
-  // route identity. A city the traveller types or selects cannot inherit the
-  // route provider ref: no Tiqets ID and no free text ever becomes a Viator
-  // destinationId.
-  const viatorDestinationId = useMemo(() => {
+  /* --- provider destination identity (route-driven, registry-owned) --- */
+  /*
+   * Both provider identities exist ONLY when this page is a canonical
+   * destination route AND the committed destination text still matches that
+   * route identity. Each ID is read from its own provider namespace in the
+   * registry — Rome is Tiqets 71631 AND Viator 511, and neither is derived
+   * from the slug, the display name or the other provider's ref.
+   *
+   * A city the traveller types or selects cannot inherit the route's provider
+   * IDs: committing "Paris" from /things-to-do/rome leaves the canonical route
+   * entirely, and the resulting legacy hub search carries no provider ID at
+   * all. That is why the committed text is compared here rather than trusting
+   * the route prop alone.
+   */
+  const providerDestinationIds = useMemo(() => {
     if (!destinationProp) return undefined;
     const committed = destination.trim().toLocaleLowerCase();
     const canonical = destinationProp.displayName.trim().toLocaleLowerCase();
     if (!committed || committed !== canonical) return undefined;
-    return thingsDestinationViatorId(destinationProp);
+    const tiqets = thingsDestinationTiqetsId(destinationProp);
+    const viator = thingsDestinationViatorId(destinationProp);
+    if (tiqets === undefined && viator === undefined) return undefined;
+    return { tiqets, viator };
   }, [destinationProp, destination]);
 
   /* --- fetch filters --- */
   const filters: ExperienceSearchFilters = useMemo(() => {
     const activityLabel = ACTIVITY_TYPES.find((a) => a.id === selectedActivity)?.label;
-    const range = PRICE_RANGES.find((p) => p.id === selectedPriceRange);
     return {
       destination: destination.trim() || undefined,
-      destinationId: viatorDestinationId,
+      providerDestinationIds,
       query: queryText.trim() || undefined,
       activityTags: activityLabel ? [activityLabel] : undefined,
-      minPrice: range?.min,
-      maxPrice: range?.max,
       minRating: selectedRating !== "any" ? Number(selectedRating) : undefined,
-      skipLine: skipLineOnly || undefined,
-      wheelchairAccessible: wheelchairOnly || undefined,
-      sort,
       page,
       pageSize: PAGE_SIZE,
     };
-  }, [destination, viatorDestinationId, queryText, selectedActivity, selectedPriceRange, selectedRating, skipLineOnly, wheelchairOnly, sort, page]);
+  }, [destination, providerDestinationIds, queryText, selectedActivity, selectedRating, page]);
 
   /* --- fetch on filter change --- */
   useEffect(() => {
@@ -502,14 +479,16 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
   /* --- URL parameter serialisation (shared by syncUrl and canonical commits) --- */
   const buildSearchParams = useCallback(
     (overrides?: Record<string, string | number | boolean | undefined>): URLSearchParams => {
+      /*
+       * Only filters the page can genuinely apply are serialized. The removed
+       * controls' params (minPrice, maxPrice, accessible, skipLine, sort) are
+       * neither read nor written any more, so a shared or bookmarked URL can
+       * no longer promise a filter the provider request ignores.
+       */
       const merged = {
         q: queryText,
         activity: selectedActivity,
-        priceRange: selectedPriceRange,
         rating: selectedRating,
-        accessible: wheelchairOnly,
-        skipLine: skipLineOnly,
-        sort,
         page,
         ...overrides,
       };
@@ -517,19 +496,11 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
       const params = new URLSearchParams();
       if (merged.q) params.set("q", String(merged.q));
       if (merged.activity) params.set("activity", String(merged.activity));
-      const range = PRICE_RANGES.find((p) => p.id === merged.priceRange);
-      if (range) {
-        params.set("minPrice", String(range.min));
-        params.set("maxPrice", String(range.max));
-      }
       if (merged.rating && merged.rating !== "any") params.set("rating", String(merged.rating));
-      if (merged.accessible) params.set("accessible", "1");
-      if (merged.skipLine) params.set("skipLine", "1");
-      if (merged.sort && merged.sort !== "popularity_desc") params.set("sort", String(merged.sort));
       if (merged.page && Number(merged.page) > 1) params.set("page", String(merged.page));
       return params;
     },
-    [queryText, selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort, page]
+    [queryText, selectedActivity, selectedRating, page]
   );
 
   /* --- sync URL <-> state --- */
@@ -646,46 +617,11 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
     [selectedActivity, syncUrl]
   );
 
-  const handlePriceChange = useCallback(
-    (v: string) => {
-      setSelectedPriceRange(v);
-      setPage(1);
-      syncUrl({ priceRange: v, page: 1 });
-    },
-    [syncUrl]
-  );
-
   const handleRatingChange = useCallback(
     (v: string) => {
       setSelectedRating(v);
       setPage(1);
       syncUrl({ rating: v, page: 1 });
-    },
-    [syncUrl]
-  );
-
-  const handleWheelchairToggle = useCallback(
-    (v: boolean) => {
-      setWheelchairOnly(v);
-      setPage(1);
-      syncUrl({ accessible: v, page: 1 });
-    },
-    [syncUrl]
-  );
-
-  const handleSkipLineToggle = useCallback(
-    (v: boolean) => {
-      setSkipLineOnly(v);
-      setPage(1);
-      syncUrl({ skipLine: v, page: 1 });
-    },
-    [syncUrl]
-  );
-
-  const handleSortChange = useCallback(
-    (v: string) => {
-      setSort(v);
-      syncUrl({ sort: v });
     },
     [syncUrl]
   );
@@ -701,51 +637,24 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
 
   const clearAllFilters = useCallback(() => {
     setSelectedActivity("");
-    setSelectedPriceRange("");
     setSelectedRating("any");
-    setWheelchairOnly(false);
-    setSkipLineOnly(false);
-    setSort("popularity_desc");
     setPage(1);
-    syncUrl({
-      activity: "",
-      priceRange: "",
-      rating: "any",
-      accessible: false,
-      skipLine: false,
-      sort: "popularity_desc",
-      page: 1,
-    });
+    syncUrl({ activity: "", rating: "any", page: 1 });
   }, [syncUrl]);
 
   /* --- mobile sheet --- */
   const openMobileSheet = useCallback(() => {
-    setMobileDraft({
-      selectedActivity,
-      selectedPriceRange,
-      selectedRating,
-      wheelchairOnly,
-      skipLineOnly,
-        sort,
-    });
+    setMobileDraft({ selectedActivity, selectedRating });
     setMobileSheetOpen(true);
-  }, [selectedActivity, selectedPriceRange, selectedRating, wheelchairOnly, skipLineOnly, sort]);
+  }, [selectedActivity, selectedRating]);
 
   const applyMobileFilters = useCallback(() => {
     setSelectedActivity(mobileDraft.selectedActivity);
-    setSelectedPriceRange(mobileDraft.selectedPriceRange);
     setSelectedRating(mobileDraft.selectedRating);
-    setWheelchairOnly(mobileDraft.wheelchairOnly);
-    setSkipLineOnly(mobileDraft.skipLineOnly);
-    setSort(mobileDraft.sort);
     setPage(1);
     syncUrl({
       activity: mobileDraft.selectedActivity,
-      priceRange: mobileDraft.selectedPriceRange,
       rating: mobileDraft.selectedRating,
-      accessible: mobileDraft.wheelchairOnly,
-      skipLine: mobileDraft.skipLineOnly,
-      sort: mobileDraft.sort,
       page: 1,
     });
     setMobileSheetOpen(false);
@@ -753,22 +662,10 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
 
   /* --- labels --- */
   const getActivityLabel = (id: string) => ACTIVITY_TYPES.find((a) => a.id === id)?.label || id;
-  const getPriceLabel = (id: string) => PRICE_RANGES.find((p) => p.id === id)?.label || id;
 
-  const hasActiveFilters =
-    Boolean(selectedActivity) ||
-    Boolean(selectedPriceRange) ||
-    selectedRating !== "any" ||
-    wheelchairOnly ||
-    skipLineOnly;
+  const hasActiveFilters = Boolean(selectedActivity) || selectedRating !== "any";
 
-  const activeFilterCount = [
-    selectedActivity,
-    selectedPriceRange,
-    selectedRating !== "any",
-    wheelchairOnly,
-    skipLineOnly,
-  ].filter(Boolean).length;
+  const activeFilterCount = [selectedActivity, selectedRating !== "any"].filter(Boolean).length;
 
   /* --- other destinations, derived from currently loaded products --- */
   const destinationsFromResults = useMemo(() => {
@@ -991,19 +888,6 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </SelectContent>
             </Select>
 
-            <Select value={selectedPriceRange} onValueChange={handlePriceChange}>
-              <SelectTrigger className="w-auto min-w-[120px] h-9 text-sm" aria-label="Price filter">
-                <SelectValue placeholder="Price" />
-              </SelectTrigger>
-              <SelectContent>
-                {PRICE_RANGES.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <Select value={selectedRating} onValueChange={handleRatingChange}>
               <SelectTrigger className="w-auto min-w-[120px] h-9 text-sm" aria-label="Rating filter">
                 <SelectValue placeholder="Rating" />
@@ -1017,64 +901,10 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </SelectContent>
             </Select>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 text-sm gap-1.5" aria-label="Features filter">
-                  Features
-                  {(skipLineOnly || wheelchairOnly) && (
-                    <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-things-action">
-                      {[skipLineOnly, wheelchairOnly].filter(Boolean).length}
-                    </Badge>
-                  )}
-                  <ChevronDown className="w-3 h-3" aria-hidden="true" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3">
-                <div className="space-y-2">
-                  {FEATURES.map((f) => {
-                    const isActive = skipLineOnly;
-                    const handler = handleSkipLineToggle;
-                    return (
-                      <label key={f.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input
-                          type="checkbox"
-                          checked={isActive}
-                          onChange={(e) => handler(e.target.checked)}
-                          className="rounded border-things-border text-primary focus:ring-primary"
-                        />
-                        {f.label}
-                      </label>
-                    );
-                  })}
-                  <label className="flex items-center gap-2 cursor-pointer text-sm pt-1 border-t border-things-brand-soft">
-                    <input
-                      type="checkbox"
-                      checked={wheelchairOnly}
-                      onChange={(e) => handleWheelchairToggle(e.target.checked)}
-                      className="rounded border-things-border text-primary focus:ring-primary"
-                    />
-                    Wheelchair accessible
-                  </label>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            <Select value={sort} onValueChange={handleSortChange}>
-              <SelectTrigger className="w-auto min-w-[150px] h-9 text-sm ml-auto" aria-label="Sort results">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         )}
 
-        {/* Mobile Filters + Sort row */}
+        {/* Mobile Filters row */}
         {isMobile && (
           <div className="flex items-center gap-3 mb-4">
             <Button variant="outline" onClick={openMobileSheet} className="flex-1">
@@ -1083,18 +913,6 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                 <Badge className="ml-2 bg-things-action text-white text-[10px] h-5 px-1.5">{activeFilterCount}</Badge>
               )}
             </Button>
-            <Select value={sort} onValueChange={handleSortChange}>
-              <SelectTrigger className="w-auto min-w-[110px] h-9 text-sm" aria-label="Sort results">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         )}
 
@@ -1102,10 +920,7 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
         {hasActiveFilters && (
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {selectedActivity && <Chip label={getActivityLabel(selectedActivity)} onRemove={() => handleActivityToggle(selectedActivity)} />}
-            {selectedPriceRange && <Chip label={getPriceLabel(selectedPriceRange)} onRemove={() => handlePriceChange("")} />}
             {selectedRating !== "any" && <Chip label={`Rating ${selectedRating}+`} onRemove={() => handleRatingChange("any")} />}
-            {wheelchairOnly && <Chip label="Wheelchair accessible" onRemove={() => handleWheelchairToggle(false)} />}
-            {skipLineOnly && <Chip label="Skip the line" onRemove={() => handleSkipLineToggle(false)} />}
             <button type="button" onClick={clearAllFilters} className="text-xs text-primary hover:underline ml-1 things-focus-ring">
               Clear all
             </button>
@@ -1331,25 +1146,6 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Price range</label>
-                <Select
-                  value={mobileDraft.selectedPriceRange}
-                  onValueChange={(v) => setMobileDraft({ ...mobileDraft, selectedPriceRange: v })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Any price" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRICE_RANGES.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
                 <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Minimum rating</label>
                 <Select
                   value={mobileDraft.selectedRating}
@@ -1368,65 +1164,13 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
                 </Select>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Features</label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={mobileDraft.skipLineOnly}
-                      onChange={(e) => setMobileDraft({ ...mobileDraft, skipLineOnly: e.target.checked })}
-                      className="rounded border-things-border text-primary focus:ring-primary"
-                    />
-                    <span className="text-sm">Skip the line</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Accessibility</label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={mobileDraft.wheelchairOnly}
-                    onChange={(e) => setMobileDraft({ ...mobileDraft, wheelchairOnly: e.target.checked })}
-                    className="rounded border-things-border text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">Wheelchair accessible</span>
-                </label>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-things-text-secondary mb-1.5 block">Sort by</label>
-                <Select value={mobileDraft.sort} onValueChange={(v) => setMobileDraft({ ...mobileDraft, sort: v })}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SORT_OPTIONS.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             <div className="flex gap-3 mt-6 pt-4 border-t border-things-border">
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() =>
-                  setMobileDraft({
-                    selectedActivity: "",
-                    selectedPriceRange: "",
-                    selectedRating: "any",
-                    wheelchairOnly: false,
-                    skipLineOnly: false,
-                    sort: "popularity_desc",
-                  })
-                }
+                onClick={() => setMobileDraft({ selectedActivity: "", selectedRating: "any" })}
               >
                 Clear all
               </Button>

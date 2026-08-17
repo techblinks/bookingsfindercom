@@ -19,8 +19,23 @@ const TIQETS_SEARCH_PAGE_SIZE = 24;
 
 // ═══════════════════════════════════════════════════════════════
 // Tiqets adapter — maps the tiqets-public NormalizedProduct shape
-// (nested destination/venue/image) to the provider-neutral shape
+// to the provider-neutral shape.
+//
+// Location metadata comes from the normalizer's TOP-LEVEL provider fields
+// (city, cityId, country), which is where tiqets-public genuinely publishes
+// it. The nested `destination` / `venue` objects remain as a defensive
+// fallback only — reading them FIRST was the bug: a Rome product carrying
+// city "Rome" / cityId 71631 / country "Italy" at the top level lost that
+// metadata whenever the nested shape was absent.
+//
+// Nothing is manufactured: a missing value stays null, and countryId is never
+// promoted into destinationId — a country is not a city.
 // ═══════════════════════════════════════════════════════════════
+
+/** Reads a top-level normalized string field; null unless genuinely present. */
+function tiqetsText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
 
 function adaptTiqetsPublicProduct(p: Record<string, unknown>): ExperienceProduct {
   const destination = p.destination as { id?: number; name?: string; country?: string } | null | undefined;
@@ -36,9 +51,14 @@ function adaptTiqetsPublicProduct(p: Record<string, unknown>): ExperienceProduct
     title,
     description: typeof p.description === "string" ? p.description : null,
     tagline: typeof p.tagline === "string" ? p.tagline : null,
-    city: destination?.name ?? venue?.city ?? null,
-    country: destination?.country ?? null,
-    destinationId: typeof destination?.id === "number" ? destination.id : null,
+    city: tiqetsText(p.city) ?? destination?.name ?? venue?.city ?? null,
+    country: tiqetsText(p.country) ?? destination?.country ?? null,
+    destinationId:
+      typeof p.cityId === "number" && Number.isFinite(p.cityId)
+        ? p.cityId
+        : typeof destination?.id === "number"
+          ? destination.id
+          : null,
     imageUrl: typeof image?.url === "string" && image.url ? image.url : null,
     imageAlt: typeof image?.altText === "string" && image.altText ? image.altText : title || null,
     imageCredit: typeof image?.credit === "string" ? image.credit : null,
@@ -69,13 +89,22 @@ interface TiqetsPublicResult {
 
 async function fetchTiqetsPublic(filters: ExperienceSearchFilters): Promise<TiqetsPublicResult> {
   const query = (filters.query || "").trim();
-  const city = (filters.destination || "").trim();
+  /**
+   * Tiqets city identity, provider-scoped. A verified registry city ID is the
+   * strongest identity Tiqets accepts, so when one exists it is the ONLY
+   * location parameter sent: city_name is a documented debugging aid and
+   * sending free text beside a proven ID would let the weaker signal muddy a
+   * scoping BookingsFinder has already proven. Legacy hub searches, which have
+   * no verified ID, keep using city_name.
+   */
+  const cityId = filters.providerDestinationIds?.tiqets;
+  const city = cityId === undefined ? (filters.destination || "").trim() : "";
   // No real Tiqets tag IDs are available client-side, so activity chips are
   // sent as free-text search keywords instead of inventing tag_ids.
   const activityKeywords = (filters.activityTags || []).join(" ").trim();
   const effectiveQuery = query || activityKeywords;
 
-  const isSearch = Boolean(effectiveQuery || city);
+  const isSearch = Boolean(effectiveQuery || city || cityId !== undefined);
 
   try {
     if (!isSearch) {
@@ -89,18 +118,20 @@ async function fetchTiqetsPublic(filters: ExperienceSearchFilters): Promise<Tiqe
     }
 
     const { data, error } = await supabase.functions.invoke("tiqets-public", {
+      /*
+       * Only parameters the repaired PB2A /v2/products contract genuinely
+       * forwards upstream. price_min/price_max, skip_line, wheelchair_access
+       * and sort are NOT sent: tiqets-public deliberately drops them, so
+       * sending them would produce results that silently ignore the request.
+       */
       body: {
         action: "search",
         query: effectiveQuery || undefined,
+        city_id: cityId,
         city_name: city || undefined,
         page: filters.page || 1,
         page_size: TIQETS_SEARCH_PAGE_SIZE,
-        sort: filters.sort || undefined,
         min_rating: filters.minRating || undefined,
-        price_min: filters.minPrice,
-        price_max: filters.maxPrice,
-        skip_line: filters.skipLine || undefined,
-        wheelchair_access: filters.wheelchairAccessible || undefined,
       },
     });
     if (error || !data) return { products: [], totalCount: null, status: "unavailable" };
@@ -132,21 +163,15 @@ interface ViatorPublicResult {
 }
 
 /**
- * Customer sort vocabulary → the sort values viator-public accepts.
+ * No sort is sent to Viator.
  *
- * The two providers do not share an ordering vocabulary. The app's default,
- * `popularity_desc`, is a Tiqets value (`ordering=-popularity`); viator-public
- * only accepts relevance | rating_high | price_low, so forwarding the raw
- * customer value would fail its Zod enum and 400 the entire Viator search the
- * moment the provider goes live. Translating here — in the provider adapter —
- * keeps viator-public's contract strict rather than teaching it another
- * provider's vocabulary.
- *
- * `popularity_desc` maps to `relevance`, Viator's own default. That is not a
- * popularity claim: it is the order Viator returns when we express no
- * preference, which is exactly what the customer-facing "Provider order" label
- * says. `title_asc` has no Viator equivalent, so it maps to undefined and
- * Viator applies its default rather than us faking an alphabetical sort.
+ * PB2A made Tiqets sort fail-closed (its upstream sort syntax is unproven), so
+ * PB2B removed the customer-facing sort control entirely rather than leave a
+ * dropdown that changes nothing. With no customer sort vocabulary left to
+ * translate, the former `VIATOR_SORT` mapping had nothing to map: Viator
+ * applies its own default ordering, which is exactly what an unspecified sort
+ * has always meant. viator-public's own sort schema is untouched and still
+ * server-owned.
  */
 /** Keep only genuine numeric Viator tag IDs; undefined when there are none. */
 function viatorTagIds(tags: string[] | undefined): number[] | undefined {
@@ -156,12 +181,6 @@ function viatorTagIds(tags: string[] | undefined): number[] | undefined {
     .filter((n) => Number.isInteger(n) && n > 0);
   return ids.length > 0 ? ids : undefined;
 }
-
-const VIATOR_SORT: Record<string, "relevance" | "rating_high" | "price_low" | undefined> = {
-  popularity_desc: "relevance",
-  price_asc: "price_low",
-  title_asc: undefined,
-};
 
 /**
  * viator-public enforces pageSize <= 20 (its Zod search schema). The app's
@@ -177,16 +196,15 @@ async function fetchViatorPublic(filters: ExperienceSearchFilters): Promise<Viat
     const { data, error } = await supabase.functions.invoke("viator-public", {
       body: {
         action: "search",
-        destinationId: filters.destinationId,
+        // Provider-scoped by construction: the Viator adapter reads the Viator
+        // key and nothing else, so a Tiqets city ID can never arrive here.
+        destinationId: filters.providerDestinationIds?.viator,
         // viator-public requires genuine numeric Viator tag IDs. The UI's
         // activity chips are free-text labels, so forwarding them would fail
-        // the same Zod enum the sort would. Until the real tag taxonomy is
-        // wired to the chips, nothing is sent rather than something invented.
+        // its Zod enum. Until the real tag taxonomy is wired to the chips,
+        // nothing is sent rather than something invented.
         activityTags: viatorTagIds(filters.activityTags),
-        minPrice: filters.minPrice,
-        maxPrice: filters.maxPrice,
         freeCancellation: filters.freeCancellation,
-        sort: filters.sort ? VIATOR_SORT[filters.sort] : undefined,
         pageSize: Math.min(filters.pageSize || 10, VIATOR_MAX_PAGE_SIZE),
       },
     });

@@ -84,14 +84,6 @@ function normalizeTag(raw: Record<string, unknown> | null | undefined) {
   return { tagId, name, parentTagIds: parents.length > 0 ? parents : null };
 }
 
-/** The adapter's translation, replicated from src/services/experiences.ts. */
-const VIATOR_SORT: Record<string, string | undefined> = {
-  popularity_desc: "relevance",
-  price_asc: "price_low",
-  title_asc: undefined,
-};
-const VIATOR_SORT_ENUM = ["relevance", "rating_high", "price_low"];
-
 function viatorTagIds(tags: string[] | undefined): number[] | undefined {
   if (!tags || tags.length === 0) return undefined;
   const ids = tags.map((t) => Number(t)).filter((n) => Number.isInteger(n) && n > 0);
@@ -232,30 +224,6 @@ describe("Viator tags — normalisation", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("Viator request translation", () => {
-  it("never forwards the customer default sort as an unsupported Viator value", () => {
-    expect(VIATOR_SORT.popularity_desc).not.toBe("popularity_desc");
-    expect(VIATOR_SORT_ENUM).toContain(VIATOR_SORT.popularity_desc);
-  });
-
-  it("maps the provider-default order to Viator relevance", () => {
-    expect(VIATOR_SORT.popularity_desc).toBe("relevance");
-  });
-
-  it("maps price ascending to Viator's price_low", () => {
-    expect(VIATOR_SORT.price_asc).toBe("price_low");
-  });
-
-  it("sends no sort when Viator has no equivalent, rather than faking one", () => {
-    expect(VIATOR_SORT.title_asc).toBeUndefined();
-  });
-
-  it("only ever emits a value viator-public's enum accepts", () => {
-    for (const customerSort of ["popularity_desc", "price_asc", "title_asc"]) {
-      const mapped = VIATOR_SORT[customerSort];
-      if (mapped !== undefined) expect(VIATOR_SORT_ENUM).toContain(mapped);
-    }
-  });
-
   it("sends no activityTags when the UI only has free-text labels", () => {
     expect(viatorTagIds(["Museums", "City tours"])).toBeUndefined();
     expect(viatorTagIds([])).toBeUndefined();
@@ -267,10 +235,22 @@ describe("Viator request translation", () => {
     expect(viatorTagIds(["21911", "Museums"])).toEqual([21911]);
   });
 
-  it("the adapter translates rather than forwarding the raw customer sort", () => {
-    expect(adapterSrc).toContain("VIATOR_SORT");
-    expect(adapterSrc).not.toMatch(/sort:\s*filters\.sort,/);
+  /*
+   * PB2B removed the customer sort control entirely (no active provider
+   * request carries a sort), so the adapter no longer has a customer sort to
+   * translate — it sends none at all, which is strictly stronger than the old
+   * "translate, never forward raw" guarantee this test used to hold.
+   */
+  it("the adapter forwards no customer sort or free-text tags to Viator", () => {
+    expect(adapterSrc).not.toMatch(/sort:\s*filters\.sort/);
+    expect(adapterSrc).not.toMatch(/sort:\s*VIATOR_SORT/);
     expect(adapterSrc).not.toMatch(/activityTags:\s*filters\.activityTags,/);
+  });
+
+  it("the Viator adapter reads only its own provider-scoped destination ID", () => {
+    expect(adapterSrc).toContain("filters.providerDestinationIds?.viator");
+    // No generic destinationId remains for a Tiqets ID to slip through.
+    expect(adapterSrc).not.toMatch(/destinationId:\s*filters\.destinationId/);
   });
 });
 
