@@ -84,10 +84,21 @@ describe("Things to Do — visual polish verification", () => {
     expect(s).not.toContain("free cancellation on most");
   });
 
-  it('How It Works is provider-neutral ("Continue to book", not "Continue with Tiqets")', () => {
+  /*
+   * T3C removed the generic three-step "How it works" block from the main
+   * Things flow (Rome UX spec §3): it repeated what the search box, the cards
+   * and the disclosure already say where the traveller actually is.
+   *
+   * The claim this test has always protected is unchanged and still asserted:
+   * the page never names one provider as THE way to book. It is now proved by
+   * absence — no provider-specific continuation copy exists anywhere in the
+   * page, whether or not a how-it-works block is present.
+   */
+  it("never names a single provider as the way to book", () => {
     const s = src();
-    expect(s).toContain("Continue to book");
     expect(s).not.toContain("Continue with Tiqets");
+    expect(s).not.toContain("Continue with Viator");
+    expect(s).not.toMatch(/book (with|through) (Tiqets|Viator)/i);
   });
 
   it("global marketing copy never mentions unrelated competitor providers", () => {
@@ -115,10 +126,21 @@ describe("Things to Do — visual polish verification", () => {
     expect(src()).toContain("onError");
   });
 
-  it("cross-sell section exists", () => {
+  /*
+   * T3C removed the four-tile "Plan your entire trip" cross-sell grid from the
+   * main Things flow. It duplicated navigation the global header and footer
+   * both already carry, and it sat between the last result card and the
+   * disclosure where nothing helps a traveller choose an experience.
+   *
+   * Cross-product navigation is NOT lost — it is asserted where it genuinely
+   * lives (Footer, footerLinks) by that component's own tests. What this test
+   * now locks is that Things does not re-advertise it inside the results flow.
+   */
+  it("does not re-advertise cross-product navigation inside the results flow", () => {
     const s = src();
-    expect(s).toContain("Flights");
-    expect(s).toContain("Stays");
+    expect(s).not.toContain("Plan your entire trip");
+    expect(s).not.toContain('to="/trip-cost"');
+    expect(s).not.toContain('to="/optimizer"');
   });
 
   it("mobile filter sheet exists", () => {
@@ -592,14 +614,26 @@ describe("ExperienceProduct cards", () => {
   });
 });
 
-describe("Cross-sell / Plan your entire trip", () => {
-  it("links to Flights, Stays, Trip Cost and Optimizer", async () => {
+describe("T3C — page ends at the inventory it exists to show", () => {
+  /*
+   * The rendered counterpart of the source assertion above. After the last
+   * result the page owes the traveller exactly one thing: the required
+   * provider/commission disclosure. No filler sections between them.
+   */
+  it("renders no cross-sell or how-it-works filler after the results", async () => {
     renderPage();
     await waitFor(() => expect(mockSearchExperiences).toHaveBeenCalled());
-    expect(screen.getByRole("link", { name: /Flights/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Stays/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Trip Cost/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Optimizer/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Trip Cost/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Optimizer/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "How it works" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Plan your entire trip" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Other destinations/ })).toBeNull();
+  });
+
+  it("still carries the required affiliate disclosure at the end of the flow", async () => {
+    renderPage();
+    await waitFor(() => expect(mockSearchExperiences).toHaveBeenCalled());
+    expect(screen.getByText(/BookingsFinder may earn a commission/)).toBeTruthy();
   });
 
 describe("Phase 1C: search call isolation", function() {
