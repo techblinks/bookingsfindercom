@@ -171,18 +171,23 @@ describe("Things activity route — existing routes unchanged", () => {
     renderRoutes("/things-to-do/rome");
 
     await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalled());
-    const filters = searchExperiencesMock.mock.calls[0][0] as { destination?: string; destinationId?: number };
+    const filters = searchExperiencesMock.mock.calls[0][0] as {
+      destination?: string;
+      providerDestinationIds?: { tiqets?: number; viator?: number };
+    };
     expect(filters.destination).toBe("Rome");
-    expect(filters.destinationId).toBe(511);
+    expect(filters.providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
     expect(screen.queryByText("Oops! Page not found")).toBeNull();
   });
 
-  it("T. /things-to-do hub still renders and searches without a Viator ID", async () => {
+  it("T. /things-to-do hub still renders and searches without any provider ID", async () => {
     renderRoutes("/things-to-do");
 
     await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalled());
-    const filters = searchExperiencesMock.mock.calls[0][0] as { destinationId?: number };
-    expect(filters.destinationId).toBeUndefined();
+    const filters = searchExperiencesMock.mock.calls[0][0] as {
+      providerDestinationIds?: { tiqets?: number; viator?: number };
+    };
+    expect(filters.providerDestinationIds).toBeUndefined();
     expect(screen.queryByText("Oops! Page not found")).toBeNull();
   });
 

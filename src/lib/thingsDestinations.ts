@@ -105,9 +105,37 @@ export function thingsDestinationPath(destination: ThingsDestination): string {
 export function thingsDestinationViatorId(
   destination: ThingsDestination,
 ): number | undefined {
-  const ref = destination.providerRefs.viator;
+  return providerRefAsPositiveInt(destination.providerRefs.viator);
+}
+
+/**
+ * The Tiqets city ID to use for Tiqets searches, derived ONLY from the
+ * canonical registry's Tiqets provider ref. Returns undefined when the
+ * destination has no verified Tiqets ref, or when the ref is not a usable
+ * positive integer.
+ *
+ * The provider namespaces are isolated by construction: this function reads
+ * `providerRefs.tiqets` and nothing else. It can never see the Viator ref, and
+ * it never derives an ID from a slug, a display name or free text — exactly as
+ * `thingsDestinationViatorId` can never see the Tiqets ref.
+ */
+export function thingsDestinationTiqetsId(
+  destination: ThingsDestination,
+): number | undefined {
+  return providerRefAsPositiveInt(destination.providerRefs.tiqets);
+}
+
+/**
+ * A provider ref is usable only as a strictly positive integer. Empty,
+ * malformed, zero, negative and decimal refs all resolve to undefined rather
+ * than to a coerced number — `Number("")` is 0 and `Number(" 12 ")` is 12, so
+ * the integer/positive checks (not the coercion) are what make this safe.
+ */
+function providerRefAsPositiveInt(ref: string | undefined): number | undefined {
   if (typeof ref !== "string") return undefined;
-  const id = Number(ref.trim());
+  const trimmed = ref.trim();
+  if (!trimmed) return undefined;
+  const id = Number(trimmed);
   return Number.isInteger(id) && id > 0 ? id : undefined;
 }
 

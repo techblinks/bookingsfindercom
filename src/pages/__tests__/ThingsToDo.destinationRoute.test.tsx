@@ -5,10 +5,12 @@
  *
  *  SEARCH CONTRACT
  *   /things-to-do/rome produces a search context equivalent to
- *   { destination: "Rome", destinationId: 511 }, where 511 is ONLY the
- *   registry-owned Viator ref.
+ *   { destination: "Rome", providerDestinationIds: { tiqets: 71631,
+ *   viator: 511 } }, where each ID is ONLY the registry-owned ref for that
+ *   provider's own namespace (T3B-INT-PB2B).
  *   The hub, by contrast, never turns a Tiqets autocomplete selection into a
- *   Viator destinationId — the critical cross-contamination regression test.
+ *   provider destination ID — the critical cross-contamination regression
+ *   test.
  *
  *  CANONICAL ROUTE INTEGRITY
  *   Route identity wins over any conflicting legacy ?city= param:
@@ -131,26 +133,30 @@ beforeEach(() => {
 // ── SEARCH CONTRACT ─────────────────────────────────────────────
 
 describe("Things destination route — search context", () => {
-  it("/things-to-do/rome produces destination=Rome and destinationId=511", async () => {
+  it("/things-to-do/rome produces destination=Rome and both provider IDs", async () => {
     renderRoutes("/things-to-do/rome");
 
     await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalled());
     const filters: ExperienceSearchFilters = searchExperiencesMock.mock.calls[0][0];
     expect(filters.destination).toBe("Rome");
-    expect(filters.destinationId).toBe(511);
+    expect(filters.providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
   });
 
-  it("destinationId 511 comes ONLY from the registry Viator ref", async () => {
+  it("each provider ID comes ONLY from its own registry namespace", async () => {
     renderRoutes("/things-to-do/rome");
 
     await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalled());
     const filters: ExperienceSearchFilters = searchExperiencesMock.mock.calls[0][0];
-    // The page never fabricates 511 from the slug or the city text.
-    expect(filters.destinationId).toBe(511);
+    // The page never fabricates either ID from the slug or the city text, and
+    // never hands one provider the other's ID.
+    expect(filters.providerDestinationIds?.viator).toBe(511);
+    expect(filters.providerDestinationIds?.tiqets).toBe(71631);
+    expect(filters.providerDestinationIds?.viator).not.toBe(71631);
+    expect(filters.providerDestinationIds?.tiqets).not.toBe(511);
     expect(filters.destination).toBe("Rome");
   });
 
-  it("hub /things-to-do never sets a Viator destinationId from a Tiqets pick", async () => {
+  it("hub /things-to-do never sets a provider destination ID from a Tiqets pick", async () => {
     renderRoutes("/things-to-do");
     fireEvent.click(screen.getByRole("button", { name: "pick-tiqets-barcelona" }));
     fireEvent.click(screen.getByRole("button", { name: /^Search$/i }));
@@ -159,8 +165,9 @@ describe("Things destination route — search context", () => {
     const last: ExperienceSearchFilters = lastFilters();
     // The Tiqets destination text reaches the search...
     expect(last.destination).toBe("Barcelona");
-    // ...but its Tiqets destinationId (66342) must never become a Viator ID.
-    expect(last.destinationId).toBeUndefined();
+    // ...but its Tiqets ID (66342) is not a registry ref and must never become
+    // a provider destination ID for Tiqets OR Viator.
+    expect(last.providerDestinationIds).toBeUndefined();
   });
 });
 
@@ -173,7 +180,7 @@ describe("Things destination route — canonical route integrity", () => {
 
     const filters: ExperienceSearchFilters = searchExperiencesMock.mock.calls[0][0];
     expect(filters.destination).toBe("Rome");
-    expect(filters.destinationId).toBe(511);
+    expect(filters.providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
     // The conflicting param can never turn this into a Paris search.
     for (const call of searchExperiencesMock.mock.calls) {
       expect((call[0] as ExperienceSearchFilters).destination).toBe("Rome");
@@ -192,10 +199,10 @@ describe("Things destination route — canonical route integrity", () => {
     // Integrity escape hatch: /things-to-do/rome → /things-to-do?city=Paris
     await waitFor(() => expect(location()).toBe("/things-to-do?city=Paris"));
 
-    // The legacy hub continues the search; Paris inherits no Viator ID.
+    // The legacy hub continues the search; Paris inherits neither Rome ID.
     await waitFor(() => {
       expect(lastFilters().destination).toBe("Paris");
-      expect(lastFilters().destinationId).toBeUndefined();
+      expect(lastFilters().providerDestinationIds).toBeUndefined();
     });
   });
 
@@ -221,7 +228,7 @@ describe("Things destination route — canonical route integrity", () => {
 
     await waitFor(() => expect(location()).toBe("/things-to-do/rome"));
     expect(lastFilters().destination).toBe("Rome");
-    expect(lastFilters().destinationId).toBe(511);
+    expect(lastFilters().providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
   });
 
   it("committing the same city never writes a redundant city param", async () => {

@@ -11,10 +11,17 @@
  *   - slug rome resolves to Rome, Italy
  *   - providerRefs.viator = "511" — the genuine Viator destination ID for
  *     Rome, verified against the Viator sandbox in T0C.
- *   - providerRefs.tiqets is ABSENT — no genuine Tiqets Rome provider ref is
- *     proven in current production-safe code, so none is invented.
+ *   - providerRefs.tiqets = "71631" — the genuine Tiqets city ID for Rome,
+ *     proven through the deployed public proxy in T3B-INT-PB2A.
  *   - publicationStatus = draft — never indexable, never sitemap-published.
  *   - verification.viator = "sandbox-verified" — sandbox only, NOT production.
+ *   - verification.tiqets = "verified" — proven against the deployed public
+ *     tiqets-public proxy, not merely documented.
+ *
+ * The two refs live in separate provider namespaces and are never
+ * interchangeable: 511 is a Viator destination ID and 71631 is a Tiqets city
+ * ID. Neither is ever derived from the slug, the display name or the other
+ * provider's ref.
  *
  * DO NOT copy IDs from src/__fixtures__/viator-taxonomy.ts into this file.
  * Those IDs (1–15) are synthetic test data, not provider refs.
@@ -81,11 +88,17 @@ export const THINGS_DESTINATIONS: readonly ThingsDestination[] = [
       // Genuine Viator Rome destination ID, verified against the Viator
       // sandbox: destinationId 511, type CITY, parent 57 (Italy).
       viator: "511",
-      // No Tiqets ref: a genuine Tiqets Rome provider ref is not yet proven.
+      // Genuine Tiqets Rome city ID, proven through the deployed public
+      // tiqets-public proxy in T3B-INT-PB2A: city_id 71631 returned Rome-only
+      // inventory (cityId 71631, country Italy, upstream total 333) plus
+      // Tiqets' documented surrounding-area behaviour, while a different city
+      // ID returned different inventory and a bogus ID returned none.
+      tiqets: "71631",
     },
     publicationStatus: "draft",
     verification: {
       viator: "sandbox-verified",
+      tiqets: "verified",
     },
   },
 ];

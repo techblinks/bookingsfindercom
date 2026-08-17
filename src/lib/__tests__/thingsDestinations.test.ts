@@ -4,7 +4,8 @@
  * The registry, its resolvers and the production boundaries:
  *
  *  1. Rome is the only canonical entry; its Viator ref is the sandbox-verified
- *     511 and it carries NO invented Tiqets ref.
+ *     511 and its Tiqets ref is the PB2A-verified 71631. Neither is invented,
+ *     and neither is reachable through the other provider's namespace.
  *  2. Rome is draft — never indexable, never sitemap-published.
  *  3. Resolvers are exact and provider-scoped: no fuzzy slugs, no cross-
  *     provider ref resolution.
@@ -24,6 +25,7 @@ import {
   getThingsDestinationByProviderRef,
   resolveThingsDestinationFromLegacyCity,
   thingsDestinationPath,
+  thingsDestinationTiqetsId,
   thingsDestinationViatorId,
   isThingsDestinationPublished,
   getAllThingsDestinations,
@@ -50,9 +52,16 @@ describe("Things destination identity — Rome", () => {
     expect(rome?.providerRefs.viator).toBe("511");
   });
 
-  it("Rome has no invented Tiqets providerRef", () => {
-    expect(rome?.providerRefs).not.toHaveProperty("tiqets");
-    expect(rome?.providerRefs.tiqets).toBeUndefined();
+  // A. Rome carries the PB2A-proven Tiqets city ID.
+  it("Rome Tiqets providerRef is \"71631\"", () => {
+    expect(rome?.providerRefs.tiqets).toBe("71631");
+  });
+
+  // D. The two refs stay in their own namespaces — never each other's value.
+  it("the Rome provider refs are never interchanged", () => {
+    expect(rome?.providerRefs.tiqets).not.toBe(rome?.providerRefs.viator);
+    expect(rome?.providerRefs.tiqets).not.toBe("511");
+    expect(rome?.providerRefs.viator).not.toBe("71631");
   });
 
   it("Rome is publicationStatus=draft", () => {
@@ -60,10 +69,11 @@ describe("Things destination identity — Rome", () => {
     expect(isThingsDestinationPublished(rome!)).toBe(false);
   });
 
-  it("Rome is sandbox-verified, not production-verified", () => {
+  // B/C. Verification records what was actually proven, per provider.
+  it("Rome Viator is sandbox-verified and Tiqets is verified", () => {
     expect(rome?.verification.viator).toBe("sandbox-verified");
     expect(rome?.verification.viator).not.toBe("production-verified");
-    expect(rome?.verification.tiqets).toBeUndefined();
+    expect(rome?.verification.tiqets).toBe("verified");
   });
 
   it("Rome identity carries exactly the expected shape", () => {
@@ -75,8 +85,72 @@ describe("Things destination identity — Rome", () => {
     });
   });
 
+  // F/G. Each resolver returns its own provider's ID.
   it("thingsDestinationViatorId derives 511 ONLY from the registry ref", () => {
     expect(thingsDestinationViatorId(rome!)).toBe(511);
+  });
+
+  it("thingsDestinationTiqetsId derives 71631 ONLY from the registry ref", () => {
+    expect(thingsDestinationTiqetsId(rome!)).toBe(71631);
+  });
+});
+
+// ── Provider-scoped ID resolvers (T3B-INT-PB2B) ─────────────────
+
+describe("Things destination — provider-scoped ID resolvers", () => {
+  const withRefs = (providerRefs: ThingsDestination["providerRefs"]): ThingsDestination => ({
+    ...rome!,
+    providerRefs,
+  });
+
+  // H. The Tiqets resolver cannot see the Viator namespace.
+  it("the Tiqets resolver never reads the Viator ref", () => {
+    expect(thingsDestinationTiqetsId(withRefs({ viator: "511" }))).toBeUndefined();
+    // Even when Viator holds a perfectly valid number, Tiqets stays undefined.
+    expect(thingsDestinationTiqetsId(withRefs({ viator: "71631" }))).toBeUndefined();
+  });
+
+  // I. The Viator resolver cannot see the Tiqets namespace.
+  it("the Viator resolver never reads the Tiqets ref", () => {
+    expect(thingsDestinationViatorId(withRefs({ tiqets: "71631" }))).toBeUndefined();
+    expect(thingsDestinationViatorId(withRefs({ tiqets: "511" }))).toBeUndefined();
+  });
+
+  it("each resolver returns its own provider's ID when both are present", () => {
+    const both = withRefs({ tiqets: "71631", viator: "511" });
+    expect(thingsDestinationTiqetsId(both)).toBe(71631);
+    expect(thingsDestinationViatorId(both)).toBe(511);
+  });
+
+  // J. Absent, empty, malformed and non-positive refs all resolve undefined.
+  it("returns undefined for an absent Tiqets ref", () => {
+    expect(thingsDestinationTiqetsId(withRefs({}))).toBeUndefined();
+  });
+
+  it("returns undefined for empty, malformed and non-positive Tiqets refs", () => {
+    for (const ref of ["", "   ", "abc", "71631x", "7 1631", "0", "-1", "-71631", "1.5", "71631.5", "NaN", "Infinity", "1e3x"]) {
+      expect(thingsDestinationTiqetsId(withRefs({ tiqets: ref })), `ref "${ref}"`).toBeUndefined();
+    }
+  });
+
+  it("trims surrounding whitespace on an otherwise genuine Tiqets ref", () => {
+    expect(thingsDestinationTiqetsId(withRefs({ tiqets: "  71631  " }))).toBe(71631);
+  });
+
+  it("applies the same rules to the Viator resolver — semantics preserved", () => {
+    expect(thingsDestinationViatorId(withRefs({}))).toBeUndefined();
+    for (const ref of ["", "   ", "abc", "0", "-511", "5.11"]) {
+      expect(thingsDestinationViatorId(withRefs({ viator: ref })), `ref "${ref}"`).toBeUndefined();
+    }
+    expect(thingsDestinationViatorId(withRefs({ viator: " 511 " }))).toBe(511);
+  });
+
+  it("never derives an ID from the slug or the display name", () => {
+    const noRefs: ThingsDestination = { ...rome!, providerRefs: {} };
+    expect(noRefs.slug).toBe("rome");
+    expect(noRefs.displayName).toBe("Rome");
+    expect(thingsDestinationTiqetsId(noRefs)).toBeUndefined();
+    expect(thingsDestinationViatorId(noRefs)).toBeUndefined();
   });
 });
 
@@ -114,17 +188,27 @@ describe("Things destination resolvers — unknown input", () => {
 describe("Things destination resolvers — provider-scoped refs", () => {
   it("provider ref lookup is provider-scoped", () => {
     expect(getThingsDestinationByProviderRef("viator", "511")?.slug).toBe("rome");
+    expect(getThingsDestinationByProviderRef("tiqets", "71631")?.slug).toBe("rome");
+    // Each ref exists only in its own provider's namespace.
     expect(getThingsDestinationByProviderRef("tiqets", "511")).toBeNull();
+    expect(getThingsDestinationByProviderRef("viator", "71631")).toBeNull();
   });
 
-  it("a Tiqets ref cannot resolve through a Viator lookup", () => {
-    // Rome has no Tiqets ref, so the tiqets namespace is empty for every
-    // value that exists in the viator namespace.
-    const viatorRefs = THINGS_DESTINATIONS
-      .map((d) => d.providerRefs.viator)
-      .filter((r): r is string => typeof r === "string");
-    for (const ref of viatorRefs) {
+  it("no ref resolves through the other provider's namespace", () => {
+    // Every genuine ref must be findable ONLY under its own provider, in both
+    // directions — Rome now carries a ref in each namespace.
+    const refsBy = (provider: "viator" | "tiqets") =>
+      THINGS_DESTINATIONS
+        .map((d) => d.providerRefs[provider])
+        .filter((r): r is string => typeof r === "string");
+
+    for (const ref of refsBy("viator")) {
+      expect(getThingsDestinationByProviderRef("viator", ref)).not.toBeNull();
       expect(getThingsDestinationByProviderRef("tiqets", ref)).toBeNull();
+    }
+    for (const ref of refsBy("tiqets")) {
+      expect(getThingsDestinationByProviderRef("tiqets", ref)).not.toBeNull();
+      expect(getThingsDestinationByProviderRef("viator", ref)).toBeNull();
     }
   });
 
@@ -178,6 +262,28 @@ describe("Things destination registry — duplicate protection", () => {
         { ...base, slug: "test-city-2", providerRefs: { viator: "9001" } },
       ]),
     ).toThrow(/duplicate viator ref/i);
+  });
+
+  // E. Duplicate validation is enforced per provider, Tiqets included.
+  it("rejects duplicate Tiqets refs independently of the Viator namespace", () => {
+    const tiqetsBase: ThingsDestination = {
+      ...base,
+      providerRefs: { tiqets: "71631" },
+      verification: { tiqets: "verified" },
+    };
+    expect(() =>
+      assertValidRegistry([
+        tiqetsBase,
+        { ...tiqetsBase, slug: "test-city-2", providerRefs: { tiqets: "71631" } },
+      ]),
+    ).toThrow(/duplicate tiqets ref/i);
+    // A Viator ref of the same value is a different namespace — not a clash.
+    expect(() =>
+      assertValidRegistry([
+        tiqetsBase,
+        { ...tiqetsBase, slug: "test-city-2", providerRefs: { viator: "71631" } },
+      ]),
+    ).not.toThrow();
   });
 
   it("allows the same numeric ref across DIFFERENT providers (namespaced)", () => {
@@ -282,9 +388,10 @@ describe("Things destination — legacy city resolver", () => {
   });
 
   it("performs no provider lookup or provider-ID interpretation", () => {
-    // "511" is the genuine Viator ref for Rome, but the resolver matches city
-    // TEXT only — a ref-shaped input can never resolve.
+    // "511" and "71631" are Rome's genuine Viator and Tiqets refs, but the
+    // resolver matches city TEXT only — a ref-shaped input can never resolve.
     expect(resolveThingsDestinationFromLegacyCity("511")).toBeNull();
+    expect(resolveThingsDestinationFromLegacyCity("71631")).toBeNull();
     expect(resolveThingsDestinationFromLegacyCity("66342")).toBeNull();
   });
 

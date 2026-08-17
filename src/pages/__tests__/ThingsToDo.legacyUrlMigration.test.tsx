@@ -206,7 +206,7 @@ describe("T2B — legacy hub URL migration", () => {
     await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalledTimes(1));
     const filters = lastFilters();
     expect(filters.destination).toBe("Rome");
-    expect(filters.destinationId).toBe(511);
+    expect(filters.providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
   });
 
   it("preserves the query parameter", async () => {
@@ -216,7 +216,14 @@ describe("T2B — legacy hub URL migration", () => {
     await waitFor(() => expect(lastFilters().query).toBe("colosseum"));
   });
 
-  it("preserves the full filter matrix and drops city", async () => {
+  /*
+   * The redirect is a generic param passthrough, so a bookmarked legacy URL
+   * still arrives intact. What changed in PB2B is what the PAGE reads from it:
+   * the removed controls' params (accessible, sort, minPrice, maxPrice,
+   * skipLine) reach no provider request, because those filters are no longer
+   * offered at all.
+   */
+  it("preserves the supported filter matrix and drops city", async () => {
     renderRoutes("/things-to-do?city=Rome&q=colosseum&rating=4&accessible=1&sort=price_asc&page=2");
 
     await waitFor(() =>
@@ -228,10 +235,22 @@ describe("T2B — legacy hub URL migration", () => {
       expect(filters.destination).toBe("Rome");
       expect(filters.query).toBe("colosseum");
       expect(filters.minRating).toBe(4);
-      expect(filters.wheelchairAccessible).toBe(true);
-      expect(filters.sort).toBe("price_asc");
       expect(filters.page).toBe(2);
     });
+  });
+
+  it("W. stale unsupported params from a legacy URL reach no provider request", async () => {
+    renderRoutes(
+      "/things-to-do?city=Rome&q=colosseum&minPrice=2500&maxPrice=5000&rating=4&accessible=1&skipLine=1&sort=price_asc",
+    );
+
+    await waitFor(() => expect(searchExperiencesMock).toHaveBeenCalled());
+    for (const call of searchExperiencesMock.mock.calls) {
+      const filters = call[0] as Record<string, unknown>;
+      for (const removed of ["minPrice", "maxPrice", "skipLine", "wheelchairAccessible", "sort"]) {
+        expect(filters[removed], `${removed} must not be a search filter`).toBeUndefined();
+      }
+    }
   });
 
   it("is a history REPLACE, not a push", async () => {
@@ -258,15 +277,15 @@ describe("T2B — non-canonical legacy URLs stay on the hub", () => {
     await waitFor(() => expect(lastFilters().destination).toBe("Paris"));
     expect(location()).toBe("/things-to-do?city=Paris");
     expect(searchExperiencesMock).toHaveBeenCalled();
-    // Paris inherits no Viator destinationId — no registry entry, no ref.
-    expect(lastFilters().destinationId).toBeUndefined();
+    // Paris inherits no provider destination ID — no registry entry, no refs.
+    expect(lastFilters().providerDestinationIds).toBeUndefined();
   });
 
   it("/things-to-do?city=Sydney stays on the hub", async () => {
     renderRoutes("/things-to-do?city=Sydney");
     await waitFor(() => expect(lastFilters().destination).toBe("Sydney"));
     expect(location()).toBe("/things-to-do?city=Sydney");
-    expect(lastFilters().destinationId).toBeUndefined();
+    expect(lastFilters().providerDestinationIds).toBeUndefined();
   });
 });
 
@@ -281,7 +300,7 @@ describe("T2B — hub committed search navigation", () => {
 
     await waitFor(() => expect(location()).toBe("/things-to-do/rome"));
     await waitFor(() => expect(lastFilters().destination).toBe("Rome"));
-    expect(lastFilters().destinationId).toBe(511);
+    expect(lastFilters().providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
   });
 
   it("hub commit Rome + query → /things-to-do/rome?q=colosseum", async () => {
@@ -313,7 +332,13 @@ describe("T2B — hub committed search navigation", () => {
     });
   });
 
-  it("hub commit Rome preserves the FULL active filter matrix and resets pagination", async () => {
+  /*
+   * PB2B narrowed the filter matrix to what BookingsFinder can genuinely ask a
+   * provider for. A commit therefore carries activity, query and rating — and
+   * deliberately drops the removed controls' params rather than re-serializing
+   * a filter no request applies.
+   */
+  it("hub commit Rome preserves the supported filter matrix and resets pagination", async () => {
     renderRoutes(
       "/things-to-do?activity=museums&minPrice=2500&maxPrice=5000&rating=4&accessible=1&skipLine=1&sort=price_asc&page=3",
     );
@@ -323,32 +348,29 @@ describe("T2B — hub committed search navigation", () => {
     fireEvent.change(queryField(), { target: { value: "colosseum" } });
     fireEvent.click(screen.getByRole("button", { name: /^Search$/i }));
 
-    // Canonical path carries every committed filter; the old page is reset and
-    // city=Rome is absent because the path owns the identity.
+    // Canonical path carries every committed filter that still exists; the old
+    // page is reset and city=Rome is absent because the path owns the identity.
     await waitFor(() =>
-      expect(location()).toBe(
-        "/things-to-do/rome?q=colosseum&activity=museums&minPrice=2500&maxPrice=5000&rating=4&accessible=1&skipLine=1&sort=price_asc",
-      ),
+      expect(location()).toBe("/things-to-do/rome?q=colosseum&activity=museums&rating=4"),
     );
     expect(location()).not.toContain("city=");
     expect(location()).not.toContain("page=3");
+    // W. The removed controls no longer serialize into the canonical URL.
+    for (const removed of ["minPrice", "maxPrice", "accessible", "skipLine", "sort"]) {
+      expect(location(), `${removed} must not be serialized`).not.toContain(`${removed}=`);
+    }
     await waitFor(() => {
       const filters = lastFilters();
       expect(filters.destination).toBe("Rome");
-      expect(filters.destinationId).toBe(511);
+      expect(filters.providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
       expect(filters.query).toBe("colosseum");
       expect(filters.activityTags).toEqual(["Museums"]);
-      expect(filters.minPrice).toBe(2500);
-      expect(filters.maxPrice).toBe(5000);
       expect(filters.minRating).toBe(4);
-      expect(filters.wheelchairAccessible).toBe(true);
-      expect(filters.skipLine).toBe(true);
-      expect(filters.sort).toBe("price_asc");
       expect(filters.page).toBe(1);
     });
   });
 
-  it("hub commit Paris preserves the FULL active filter matrix and stays legacy", async () => {
+  it("hub commit Paris preserves the supported filter matrix and stays legacy", async () => {
     renderRoutes(
       "/things-to-do?activity=museums&minPrice=2500&maxPrice=5000&rating=4&accessible=1&skipLine=1&sort=price_asc&page=3",
     );
@@ -358,8 +380,8 @@ describe("T2B — hub committed search navigation", () => {
     fireEvent.change(queryField(), { target: { value: "colosseum" } });
     fireEvent.click(screen.getByRole("button", { name: /^Search$/i }));
 
-    // Legacy hub contract: same filters, page reset, city=Paris query param —
-    // never a /things-to-do/paris path.
+    // Legacy hub contract: supported filters, page reset, city=Paris query
+    // param — never a /things-to-do/paris path.
     await waitFor(() => {
       const loc = location();
       expect(loc.startsWith("/things-to-do?")).toBe(true);
@@ -368,18 +390,17 @@ describe("T2B — hub committed search navigation", () => {
       expect(params.get("city")).toBe("Paris");
       expect(params.get("q")).toBe("colosseum");
       expect(params.get("activity")).toBe("museums");
-      expect(params.get("minPrice")).toBe("2500");
-      expect(params.get("maxPrice")).toBe("5000");
       expect(params.get("rating")).toBe("4");
-      expect(params.get("accessible")).toBe("1");
-      expect(params.get("skipLine")).toBe("1");
-      expect(params.get("sort")).toBe("price_asc");
       expect(params.get("page")).toBeNull();
+      // W. Unsupported filter params are gone from the serialization entirely.
+      for (const removed of ["minPrice", "maxPrice", "accessible", "skipLine", "sort"]) {
+        expect(params.get(removed), `${removed} must not be serialized`).toBeNull();
+      }
     });
     await waitFor(() => {
       const filters = lastFilters();
       expect(filters.destination).toBe("Paris");
-      expect(filters.destinationId).toBeUndefined();
+      expect(filters.providerDestinationIds).toBeUndefined();
       expect(filters.query).toBe("colosseum");
       expect(filters.minRating).toBe(4);
       expect(filters.page).toBe(1);
@@ -432,7 +453,7 @@ describe("T2B — canonical route committed navigation", () => {
 
     await waitFor(() => expect(location()).toBe("/things-to-do/rome"));
     expect(location()).not.toContain("city=");
-    expect(lastFilters().destinationId).toBe(511);
+    expect(lastFilters().providerDestinationIds).toEqual({ tiqets: 71631, viator: 511 });
   });
 
   it("Rome route → commit Paris leaves for the legacy hub", async () => {
@@ -444,7 +465,8 @@ describe("T2B — canonical route committed navigation", () => {
 
     await waitFor(() => expect(location()).toBe("/things-to-do?city=Paris"));
     await waitFor(() => expect(lastFilters().destination).toBe("Paris"));
-    expect(lastFilters().destinationId).toBeUndefined();
+    // Q. The escape drops BOTH Rome provider IDs, not just the Viator one.
+    expect(lastFilters().providerDestinationIds).toBeUndefined();
   });
 
   it("Rome route filters stay on the canonical path with no city param", async () => {

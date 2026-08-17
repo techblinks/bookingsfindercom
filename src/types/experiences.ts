@@ -79,25 +79,50 @@ export interface ExperienceTag {
   category: string | null;
 }
 
+/**
+ * Provider-scoped destination identities for one search.
+ *
+ * Each provider reads ONLY its own key. There is deliberately no shared
+ * `destinationId`: the same search now carries two provider identities (Rome
+ * is Viator 511 AND Tiqets 71631), and a single generic field made it possible
+ * to hand one provider's ID to the other. Cross-wiring is now a type error
+ * rather than a silent wrong-inventory bug.
+ *
+ * Every value must come from the BookingsFinder canonical Things registry —
+ * never from city text, autocomplete selections, test fixtures or array
+ * position.
+ */
+export interface ProviderDestinationIds {
+  /** Genuine Tiqets city ID (Tiqets `city_id`). Never a Viator destination ID. */
+  tiqets?: number;
+  /** Genuine Viator destination ID. Never a Tiqets city ID. */
+  viator?: number;
+}
+
+/**
+ * Search filters BookingsFinder can genuinely express to a live provider.
+ *
+ * Every field here is actually forwarded to at least one active provider
+ * request. Filters the repaired provider contracts ignore (price bounds,
+ * skip-the-line, wheelchair access, sort) are deliberately absent: offering a
+ * control the request drops would tell the traveller a lie about their
+ * results. A product may still REPORT those facts — see
+ * `ExperienceProduct.features` — but reporting a fact is not the same as being
+ * able to search on it.
+ */
 export interface ExperienceSearchFilters {
-  /** Free-text destination (provider-neutral; also Tiqets city_name). */
-  destination?: string;
   /**
-   * Provider-scoped destination ID for Viator. Must be a genuine Viator
-   * destination ID from the BookingsFinder canonical Things registry - never
-   * a Tiqets destination ID, a test fixture ID, or a value derived from city
-   * text. Absent on hub searches.
+   * Free-text destination (provider-neutral). Used as Tiqets `city_name` on
+   * legacy hub searches only; a canonical destination is expressed through
+   * `providerDestinationIds` instead.
    */
-  destinationId?: number;
+  destination?: string;
+  /** Registry-owned, provider-scoped destination IDs. Absent on hub searches. */
+  providerDestinationIds?: ProviderDestinationIds;
   query?: string;
   activityTags?: string[];
-  minPrice?: number;
-  maxPrice?: number;
   minRating?: number;
   freeCancellation?: boolean;
-  skipLine?: boolean;
-  wheelchairAccessible?: boolean;
-  sort?: string;
   page?: number;
   pageSize?: number;
 }

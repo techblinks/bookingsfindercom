@@ -281,11 +281,46 @@ describe("Things to Do — unsupported controls removed", () => {
     expect(screen.getByText("Try:")).toBeTruthy();
   });
 
-  it("names the source of the sort order rather than claiming a criterion", async () => {
+  /*
+   * T1 relabelled the sort control so it named the SOURCE of the order rather
+   * than claiming a criterion. PB2B went further: no active provider request
+   * carries a sort at all, so the control itself is gone. A dropdown that
+   * cannot change the order is a lie no label can fix.
+   */
+  it("offers no sort control, because no provider request carries a sort", async () => {
     renderPage();
     await waitFor(() => expect(document.querySelectorAll('[role="article"]').length).toBe(1));
 
-    expect(bodyText()).toContain("Provider order");
+    expect(screen.queryByLabelText("Sort results")).toBeNull();
+    expect(bodyText()).not.toContain("Provider order");
+    expect(bodyText()).not.toMatch(/price:\s*low to high|title:\s*a[–-]z|sort by/i);
+  });
+
+  it("offers no price, skip-the-line or accessibility filter", async () => {
+    renderPage();
+    await waitFor(() => expect(document.querySelectorAll('[role="article"]').length).toBe(1));
+
+    expect(screen.queryByLabelText("Price filter")).toBeNull();
+    expect(screen.queryByLabelText("Features filter")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(bodyText()).not.toMatch(/under a\$25|a\$100\+|any price|wheelchair accessible/i);
+  });
+
+  it("keeps the minimum-rating filter, which the provider genuinely applies", async () => {
+    renderPage();
+    await waitFor(() => expect(document.querySelectorAll('[role="article"]').length).toBe(1));
+
+    expect(screen.getByLabelText("Rating filter")).toBeTruthy();
+  });
+
+  it("still displays a genuine provider-reported skip-the-line fact on the card", async () => {
+    renderPage();
+    await waitFor(() => expect(document.querySelectorAll('[role="article"]').length).toBe(1));
+
+    // A reported product FACT is not a searchable filter — the distinction the
+    // page must keep: the badge stays, the filter does not.
+    const card = document.querySelector('[role="article"]') as HTMLElement;
+    expect(within(card).getByText("Skip the line")).toBeTruthy();
   });
 
   it("keeps the provider disclosure visible on each card", async () => {

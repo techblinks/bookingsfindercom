@@ -353,16 +353,28 @@ describe("Category chips", () => {
   });
 });
 
+/*
+ * PB2B: the toolbar and the sheet now offer only Activity and Rating. Price,
+ * Features (skip-the-line), Accessibility and Sort were removed because the
+ * repaired provider request contract ignores every one of them — a control
+ * that cannot change the results must not look interactive.
+ */
 describe("Desktop filter toolbar", () => {
-  it("shows Activity, Price, Rating, Features and Sort controls", async () => {
+  it("shows Activity and Rating controls", async () => {
     setViewportWidth(1280);
     renderPage();
     await waitFor(() => expect(mockSearchExperiences).toHaveBeenCalled());
     expect(screen.getByLabelText("Activity filter")).toBeTruthy();
-    expect(screen.getByLabelText("Price filter")).toBeTruthy();
     expect(screen.getByLabelText("Rating filter")).toBeTruthy();
-    expect(screen.getByLabelText("Features filter")).toBeTruthy();
-    expect(screen.getByLabelText("Sort results")).toBeTruthy();
+  });
+
+  it("offers no control the provider request would ignore", async () => {
+    setViewportWidth(1280);
+    renderPage();
+    await waitFor(() => expect(mockSearchExperiences).toHaveBeenCalled());
+    expect(screen.queryByLabelText("Price filter")).toBeNull();
+    expect(screen.queryByLabelText("Features filter")).toBeNull();
+    expect(screen.queryByLabelText("Sort results")).toBeNull();
   });
 
   it("does not show the mobile Filters button on desktop", async () => {
@@ -373,29 +385,29 @@ describe("Desktop filter toolbar", () => {
   });
 });
 
-describe("Mobile Filters + Sort", () => {
-  it("shows a single Filters button (with count) and a Sort control instead of the desktop toolbar", async () => {
+describe("Mobile Filters", () => {
+  it("shows a single Filters button instead of the desktop toolbar", async () => {
     setViewportWidth(390);
     renderPage();
     await waitFor(() => expect(mockSearchExperiences).toHaveBeenCalled());
     expect(screen.getByRole("button", { name: /^Filters/ })).toBeTruthy();
-    expect(screen.getByLabelText("Sort results")).toBeTruthy();
     expect(screen.queryByLabelText("Activity filter")).toBeNull();
     expect(screen.queryByLabelText("Price filter")).toBeNull();
+    expect(screen.queryByLabelText("Sort results")).toBeNull();
   });
 
-  it("opens the shared filter sheet with Activity/Price/Rating/Features/Accessibility/Sort", async () => {
+  it("opens the shared filter sheet with Activity and Minimum rating only", async () => {
     setViewportWidth(390);
     renderPage();
     await waitFor(() => expect(mockSearchExperiences).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
     expect(screen.getByRole("heading", { level: 3, name: "Filters" })).toBeTruthy();
     expect(screen.getByText("Activity")).toBeTruthy();
-    expect(screen.getByText("Price range")).toBeTruthy();
     expect(screen.getByText("Minimum rating")).toBeTruthy();
-    expect(screen.getByText("Features")).toBeTruthy();
-    expect(screen.getByText("Accessibility")).toBeTruthy();
-    expect(screen.getByText("Sort by")).toBeTruthy();
+    expect(screen.queryByText("Price range")).toBeNull();
+    expect(screen.queryByText("Features")).toBeNull();
+    expect(screen.queryByText("Accessibility")).toBeNull();
+    expect(screen.queryByText("Sort by")).toBeNull();
     expect(screen.getByRole("button", { name: "Clear all" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Show results" })).toBeTruthy();
   });

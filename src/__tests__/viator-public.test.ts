@@ -483,8 +483,13 @@ describe("Viator-public filtering translation", () => {
       // Must map internal sort values to Viator upstream sort/order parameters
       expect(viatorPublicSrc).toMatch(/sort|order/);
     }
-    // Verify the aggregator's ExperienceSearchFilters.sort passes through
-    expect(experiencesTypesSrc).toMatch(/sort\?/);
+    /*
+     * PB2B: the server-side sort contract above is untouched, but the customer
+     * no longer has a sort control — no active provider request carries a sort
+     * value, so offering one would have been a dead dropdown. The aggregator's
+     * filter model must therefore NOT expose a sort field for a caller to set.
+     */
+    expect(experiencesTypesSrc).not.toMatch(/^\s*sort\?/m);
   });
 });
 

@@ -104,8 +104,9 @@ const searchSchema = z
   .object({
     action: z.literal("search"),
     // Provider-correct Tiqets city identity (official /v2/products city_id).
-    // Obtained from Tiqets' /cities endpoint; candidate Rome ID 71631 remains
-    // candidate-only until live scoping is proven.
+    // Obtained from Tiqets' /cities endpoint. Rome city_id 71631 is PROVEN:
+    // PB2A verified through this deployed public proxy that it scopes to Rome
+    // inventory, so it is now the canonical registry's Tiqets ref for Rome.
     city_id: z.number().int().positive().optional(),
     // Official /v2/products city_name (documented debugging aid; city_id recommended).
     city_name: z
