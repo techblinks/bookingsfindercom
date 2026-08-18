@@ -10,7 +10,9 @@
  *     CTA are preserved
  *   - the premium no-image state renders in the card image slot
  *   - pagination uses the bounded window with a non-interactive ellipsis
- *   - essential "price on request" copy no longer uses muted contrast
+ *   - the smallest footer copy no longer uses muted contrast (restated for
+ *     T3D, which removed the "Price on request" element this rule was first
+ *     written against)
  *   - identity type in the hero is never dressed as an action, and Search is
  *     the single orange control of the hero viewport (restated for the T3C
  *     light masthead, which replaced the navy band and its eyebrow)
@@ -279,15 +281,23 @@ describe("T3B - pagination on the results page", () => {
 });
 
 describe("T3B - essential muted-text corrections", () => {
-  it("'Price on request' uses sufficient-contrast secondary text, not muted", async () => {
+  /*
+   * T3B asserted that "Price on request" used sufficient-contrast secondary
+   * text rather than muted. T3D removed the copy entirely — it asserted a fact
+   * about the experience that no provider gave us. The contrast rule survives
+   * its element and is asserted here against the attribution line, which is now
+   * the smallest customer-visible text in the card footer.
+   */
+  it("a null price renders no price wording, and the attribution line stays above muted contrast", async () => {
     mockSearchExperiences.mockResolvedValue(
       result([product({ price: null, currency: null })]),
     );
     renderPage();
 
-    const priceCopy = await screen.findByText("Price on request");
-    expect(priceCopy.className).toContain("text-things-text-secondary");
-    expect(priceCopy.className).not.toContain("text-things-text-muted");
+    const attribution = await screen.findByText("Provided by Tiqets");
+    expect(attribution.className).toContain("text-things-text-secondary");
+    expect(attribution.className).not.toContain("text-things-text-muted");
+    expect(screen.queryByText(/Price on request/i)).toBeNull();
   });
 
   /*

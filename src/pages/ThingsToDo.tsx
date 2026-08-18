@@ -10,16 +10,15 @@ import {
 } from "@/lib/thingsDestinations";
 import type { ThingsDestination } from "@/types/thingsDestination";
 import {
-  Star,
-  MapPin,
   Info,
   ListFilter,
   X,
   Check,
-  ExternalLink,
 } from "lucide-react";
 import ThingsPagination from "@/components/things/ThingsPagination";
-import ThingsNoImageState from "@/components/things/ThingsNoImageState";
+import ThingsExperienceCard, {
+  ThingsExperienceCardSkeleton,
+} from "@/components/things/ThingsExperienceCard";
 import ThingsDestinationHero from "@/components/things/ThingsDestinationHero";
 import ThingsDiscoveryRail from "@/components/things/ThingsDiscoveryRail";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { searchExperiences } from "@/services/experiences";
@@ -97,33 +95,6 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   );
 }
 
-function SkeletonCard() {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-things-border bg-things-surface-card">
-      <Skeleton className="aspect-[16/10] w-full rounded-none" />
-      <div className="p-4 space-y-3">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-5 w-20" />
-      </div>
-    </div>
-  );
-}
-
-function formatPrice(price: number | null, currency: string | null): string | null {
-  if (price === null || Number.isNaN(price)) return null;
-  try {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
-      currency: currency || "AUD",
-      maximumFractionDigits: Number.isInteger(price) ? 0 : 2,
-    }).format(price);
-  } catch {
-    return currency ? `${currency} ${price}` : `${price}`;
-  }
-}
-
 /**
  * Did any provider actually answer?
  *
@@ -145,124 +116,6 @@ function anyProviderAnswered(providers: ProviderAvailability): boolean {
   return Object.values(providers).some((status) => status === "available");
 }
 
-function providerLabel(provider: ExperienceProduct["provider"]): string {
-  return provider === "viator" ? "Viator" : "Tiqets";
-}
-
-/* ─────────────────────────── EXPERIENCE CARD ───────────────────── */
-
-function ExperienceCard({
-  product,
-  canonicalPath,
-}: {
-  product: ExperienceProduct;
-  /**
-   * Exact canonical BookingsFinder activity path, present ONLY when the
-   * server-backed mapping API returned and validated a mapping for this
-   * product identity. The frontend never manufactures one.
-   */
-  canonicalPath?: string | null;
-}) {
-  const price = formatPrice(product.price, product.currency);
-  const locationLabel = [product.city, product.country].filter(Boolean).join(", ");
-  const [imageFailed, setImageFailed] = useState(false);
-
-  return (
-    <div
-      role="article"
-      className="group flex flex-col overflow-hidden rounded-2xl border border-things-border bg-things-surface-card shadow-card motion-safe:transition-all motion-safe:duration-200 hover:border-primary/25 hover:shadow-elevated motion-safe:hover:-translate-y-0.5"
-    >
-      <div className="relative aspect-[16/10] overflow-hidden bg-things-surface-subtle">
-        {product.imageUrl && !imageFailed ? (
-          <img
-            src={product.imageUrl}
-            alt={product.imageAlt || product.title || "Experience photo"}
-            onError={() => setImageFailed(true)}
-            className="h-full w-full object-cover motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover:scale-[1.04]"
-            loading="lazy"
-          />
-        ) : (
-          <ThingsNoImageState icon="map-pin" label={product.title} />
-        )}
-        <div className="absolute top-3 right-3 flex flex-wrap gap-1 justify-end max-w-[80%]">
-          {product.features.skipLine === true && (
-            <span className="bg-white/90 text-things-text-primary text-[10px] px-2 py-0.5 rounded-full font-medium">
-              Skip the line
-            </span>
-          )}
-          {product.features.freeCancellation === true && (
-            <span className="bg-white/90 text-things-text-primary text-[10px] px-2 py-0.5 rounded-full font-medium">
-              Free cancellation
-            </span>
-          )}
-          {product.features.instantConfirmation === true && (
-            <span className="bg-white/90 text-things-text-primary text-[10px] px-2 py-0.5 rounded-full font-medium">
-              Instant confirmation
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="p-4 flex flex-col flex-1">
-        {locationLabel && (
-          <div className="flex items-center gap-1 text-xs text-things-text-secondary mb-1">
-            <MapPin className="w-3 h-3" aria-hidden="true" />
-            {locationLabel}
-          </div>
-        )}
-        <h3 className="font-semibold text-things-text-primary mb-2 line-clamp-2 text-sm leading-snug">
-          {product.title || "Experience"}
-        </h3>
-        {(product.rating !== null || product.reviewCount !== null) && (
-          <div className="flex items-center gap-1.5 mb-2">
-            {product.rating !== null && (
-              <span className="flex items-center text-xs font-semibold text-things-text-primary">
-                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 mr-0.5" aria-hidden="true" />
-                {product.rating.toFixed(1)}
-              </span>
-            )}
-            {product.reviewCount !== null && (
-              <span className="text-xs text-things-text-secondary">({product.reviewCount.toLocaleString()} reviews)</span>
-            )}
-          </div>
-        )}
-        <div className="mt-auto pt-2 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            {price ? (
-              <span className="text-base font-bold text-things-text-primary">From {price}</span>
-            ) : (
-              <span className="text-xs text-things-text-secondary">Price on request</span>
-            )}
-            <p className="text-xs text-things-text-secondary mt-0.5">Provided by {providerLabel(product.provider)}</p>
-          </div>
-          {canonicalPath ? (
-            /*
-             * Mapped card - internal BookingsFinder navigation ONLY. This is
-             * not an affiliate click: same-tab React Router link, no
-             * target="_blank", no sponsored rel, no ExternalLink icon. The
-             * path came from the validated mapping API - never guessed.
-             */
-            <Link
-              to={canonicalPath}
-              className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-things-surface-card px-3.5 py-2 text-xs font-semibold text-primary transition-colors hover:border-primary/60 hover:bg-primary/5 things-focus-ring shrink-0"
-            >
-              View details
-            </Link>
-          ) : product.outboundUrl ? (
-            <a
-              href={product.outboundUrl}
-              target="_blank"
-              rel="sponsored nofollow noopener"
-              className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-things-surface-card px-3.5 py-2 text-xs font-semibold text-primary transition-colors hover:border-primary/60 hover:bg-primary/5 things-focus-ring shrink-0"
-            >
-              View experience
-              <ExternalLink className="w-3 h-3" aria-hidden="true" />
-            </a>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ─────────────────────────── MAIN COMPONENT ───────────────────── */
 
@@ -946,11 +799,40 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
           )}
 
           <div className={hasActiveFilters ? "" : "mt-6"} aria-busy={loading}>
-        {/* Results grid */}
+        {/*
+          * Results grid — THREE columns maximum. The `xl:grid-cols-4` this
+          * replaces could not be justified from the rendered page.
+          *
+          * The decisive constraint is the container, not the viewport: this
+          * results area is `max-w-7xl` (1280px) with `lg:px-8`, so the grid is
+          * capped at 1216px however wide the screen gets. A 4th column
+          * therefore buys no extra card width at ANY desktop size — it only
+          * divides the same 1216px further.
+          *
+          * Measured from the rendered card at the real container width:
+          *    360px → 1 col  → 313px   (gap 36px)
+          *    390px → 1 col  → 343px   (gap 66px)
+          *    900px → 2 cols → 416px   (gap 139px)
+          *   1024px → 3 cols → 307px   (gap 30px)
+          *   1280px → 3 cols → 392px   (gap 115px)
+          *   1400px → 4 cols → 289px   (gap 12px)  ← rejected
+          *   1500px → 4 cols → 289px   (gap 12px)  ← rejected
+          *
+          * "gap" is the space between the price block and the CTA. At 4
+          * columns that collapses to 12px and the card reads cramped, while
+          * being NARROWER than the 3-column card at 1024px — the layout got
+          * worse as the screen got wider, which is the one thing a responsive
+          * grid must never do. Three columns holds a 392px card from 1280px
+          * up, the best card in the whole range.
+          *
+          * A 4th column would need the results container widened past
+          * max-w-7xl. That is a page-layout decision, not a card decision, so
+          * T3D does not take it.
+          */}
         {loading ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonCard key={i} />
+              <ThingsExperienceCardSkeleton key={i} />
             ))}
           </div>
         ) : inventoryUnavailable ? (
@@ -1008,9 +890,9 @@ export default function ThingsToDo({ destination: destinationProp }: ThingsToDoP
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {products.map((product) => (
-                <ExperienceCard
+                <ThingsExperienceCard
                   key={`${product.provider}-${product.providerProductId}`}
                   product={product}
                   canonicalPath={
