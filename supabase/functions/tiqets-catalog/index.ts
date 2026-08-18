@@ -4,12 +4,17 @@
  * POST only. JWT-verified. Admin-role check.
  * Proxies the Tiqets Content API (Essential tier: Content + Availability & Pricing).
  * No Booking API, no orders, no payments.
+ *
+ * The action contract, validation and dispatch live in ./catalogue-core.ts so
+ * they are testable without Deno. `refresh-catalogue` is a declared but
+ * unavailable action (T4A-P1): the dispatcher resolves it to a terminal
+ * `catalogue_sync_not_ready` response, so this file holds no durable-write path
+ * at all — no catalogue tables, no sync-state checkpoint, no provider fetch.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validateRequest } from "../_shared/validation.ts";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import {
   tiqetsRequest,
   tiqetsHealthCheck,
@@ -24,27 +29,10 @@ import {
   type NormalizedProduct,
   type TiqetsPaginationRaw,
 } from "../_shared/tiqets-normalizer.ts";
-
-// ═══════════════════════════════════════════════════════════════
-// Validation schemas
-// ═══════════════════════════════════════════════════════════════
-
-const SUPPORTED_LANGUAGES = ["en", "nl", "fr", "de", "it", "es", "pt", "ja", "zh"] as const;
-
-const healthSchema = z.object({
-  action: z.literal("health"),
-});
-
-const productsSchema = z.object({
-  action: z.literal("products"),
-  language: z.enum(SUPPORTED_LANGUAGES).default("en"),
-  page: z.number().int().min(1).default(1),
-  page_size: z.number().int().min(1).max(20).default(10),
-  destination_id: z.number().int().positive().optional(),
-  sale_status: z.enum(["on_sale", "sold_out", "cancelled"]).optional(),
-});
-
-type ActionBody = z.infer<typeof healthSchema> | z.infer<typeof productsSchema>;
+import {
+  parseCatalogueRequest,
+  type ProductsRequest,
+} from "./catalogue-core.ts";
 
 // ═══════════════════════════════════════════════════════════════
 // Admin verification
@@ -102,7 +90,7 @@ interface TiqetsProductsResponse {
 const productCache = new Map<string, { data: NormalizedProduct[]; pagination: TiqetsPaginationRaw; storedAt: number }>();
 const CACHE_TTL_MS = 30_000; // 30 seconds
 
-function cacheKey(body: z.infer<typeof productsSchema>): string {
+function cacheKey(body: ProductsRequest): string {
   return `${body.language}|${body.page}|${body.page_size}|${body.destination_id ?? ""}|${body.sale_status ?? ""}`;
 }
 
@@ -122,7 +110,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // ── Auth ──
+  // ── Auth ── every action, including refresh-catalogue, is admin-gated
   let userId: string;
   try {
     userId = await verifyAdmin(req);
@@ -145,142 +133,19 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const action = (rawBody as Record<string, unknown>)?.action;
-  if (!action || typeof action !== "string") {
+  // ── Validate + dispatch ──
+  // Everything that is not executable terminates here: missing or unknown
+  // action, invalid body, and the disabled refresh-catalogue action.
+  const dispatch = parseCatalogueRequest(rawBody);
+  if (!dispatch.ok) {
     return new Response(
-      JSON.stringify({ error: "action is required (health | products)" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify(dispatch.body),
+      { status: dispatch.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
   // ── Health ──
-
-  // ── Refresh Catalogue ── admin-only catalogue sync
-  if (action === "refresh-catalogue") {
-    try {
-      var maxPages = Math.min(parsed.data.max_pages || 5, 10);
-      var pageSize = 20;
-      var provider = "tiqets";
-
-      // Read checkpoint
-      var { data: syncState } = await supabaseAdmin.from("experience_catalog_sync_state").select("*").eq("provider", provider).maybeSingle();
-      var startPage = syncState?.next_page || 1;
-      var pagesProcessed = 0;
-      var productsObserved = 0;
-      var seenFingerprints = [];
-
-      // Update status to syncing
-      await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "syncing", started_at: new Date().toISOString() }, { onConflict: "provider" });
-
-      for (var page = startPage; page < startPage + maxPages; page++) {
-        pagesProcessed++;
-
-        var upstream = await tiqetsRequest({ endpoint: "/products", params: new URLSearchParams({ lang: "en", page: String(page), page_size: String(pageSize) }) });
-        var rawProducts = upstream.data.products || [];
-
-        if (!Array.isArray(rawProducts) || rawProducts.length === 0) {
-          // Stop: empty page → completed
-          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "completed", next_page: 1, pages_scanned: pagesProcessed, products_observed: productsObserved, completed_at: new Date().toISOString(), last_success_at: new Date().toISOString() }, { onConflict: "provider" });
-          break;
-        }
-
-        // Loop detection: check fingerprint of first 3 product IDs
-        var fp = rawProducts.slice(0, 3).map(function(p) { return p.id; }).join(",");
-        if (seenFingerprints.indexOf(fp) >= 0) {
-          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "loop_detected", next_page: page, pages_scanned: pagesProcessed, products_observed: productsObserved, last_success_at: new Date().toISOString() }, { onConflict: "provider" });
-          break;
-        }
-        seenFingerprints.push(fp);
-
-        // Normalize and upsert
-        var normalized = rawProducts.map(normalizeProduct);
-        var dbProducts = normalized.map(function(p) {
-          return {
-            provider: provider,
-            provider_product_id: p.id,
-            title: p.title || "",
-            city_id: p.cityId ? String(p.cityId) : null,
-            city_name: p.city || null,
-            country_id: p.countryId ? String(p.countryId) : null,
-            country_name: p.country || null,
-            tagline: p.tagline || null,
-            description: null,
-            venue_name: p.venue?.name || null,
-            rating: p.rating?.average || null,
-            review_count: p.rating?.count || null,
-            price_amount: p.minPrice?.amount || null,
-            price_currency: p.minPrice?.currency || null,
-            image_url: p.image?.url || null,
-            images: JSON.stringify(p.images || []),
-            tag_ids: JSON.stringify(p.tagIds || []),
-            wheelchair_accessible: p.wheelchairAccessible,
-            skip_the_line: p.skipTheLine,
-            product_url: p.productUrl || null,
-            sale_status: p.saleStatus || null,
-            last_seen_at: new Date().toISOString(),
-          };
-        });
-
-        var { error: upsertErr } = await supabaseAdmin.rpc("upsert_experience_products", { p_provider: provider, p_products: dbProducts });
-        if (upsertErr) console.error("[refresh-catalogue] upsert error:", upsertErr);
-
-        // Derive destinations
-        var destMap = {};
-        for (var d = 0; d < normalized.length; d++) {
-          var p = normalized[d];
-          if (!p.cityId || !p.city) continue;
-          var key = String(p.cityId);
-          if (!destMap[key]) {
-            destMap[key] = {
-              provider: provider,
-              destination_id: key,
-              name: p.city,
-              country_id: p.countryId ? String(p.countryId) : null,
-              country: p.country || null,
-              country_code: null,
-              slug: (p.country ? p.country.toLowerCase().replace(/\s+/g,"-") : "") + "/" + p.city.toLowerCase().replace(/\s+/g,"-"),
-              last_seen_at: new Date().toISOString(),
-            };
-          }
-        }
-        var destArray = Object.values(destMap);
-        if (destArray.length > 0) {
-          for (var dt = 0; dt < destArray.length; dt++) {
-            await supabaseAdmin.from("experience_destinations").upsert(destArray[dt], { onConflict: "provider, destination_id" });
-          }
-        }
-
-        productsObserved += rawProducts.length;
-
-        // Short page (< pageSize) → completed
-        if (rawProducts.length < pageSize) {
-          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "completed", next_page: 1, pages_scanned: pagesProcessed, products_observed: productsObserved, completed_at: new Date().toISOString(), last_success_at: new Date().toISOString() }, { onConflict: "provider" });
-          break;
-        }
-
-        // Last page in this batch
-        if (page === startPage + maxPages - 1) {
-          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "partial", next_page: page + 1, pages_scanned: pagesProcessed, products_observed: productsObserved, last_success_at: new Date().toISOString() }, { onConflict: "provider" });
-        } else {
-          await supabaseAdmin.from("experience_catalog_sync_state").upsert({ provider, status: "syncing", next_page: page + 1, pages_scanned: pagesProcessed, products_observed: productsObserved, last_success_at: new Date().toISOString() }, { onConflict: "provider" });
-        }
-      }
-
-      return new Response(JSON.stringify({ ok: true, pages_processed: pagesProcessed, products_observed: productsObserved }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    } catch(err) {
-      console.error("[refresh-catalogue] error:", err);
-      return new Response(JSON.stringify({ ok: false, error: String(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-  }
-if (action === "health") {
-    const parsed = healthSchema.safeParse(rawBody);
-    if (!parsed.success) {
-      return new Response(
-        JSON.stringify({ error: "Invalid health request", details: parsed.error.flatten() }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+  if (dispatch.action === "health") {
     const configured = !!Deno.env.get("TIQETS_API_TOKEN");
     const health = await tiqetsHealthCheck();
 
@@ -298,111 +163,96 @@ if (action === "health") {
   }
 
   // ── Products ──
-  if (action === "products") {
-    const parsed = productsSchema.safeParse(rawBody);
-    if (!parsed.success) {
-      return new Response(
-        JSON.stringify({ error: "Invalid product request", details: parsed.error.flatten() }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+  const body = dispatch.body;
+  const key = cacheKey(body);
 
-    const body = parsed.data;
-    const key = cacheKey(body);
-
-    // Check cache
-    const cached = productCache.get(key);
-    if (cached && Date.now() - cached.storedAt < CACHE_TTL_MS) {
-      return new Response(
-        JSON.stringify({
-          products: cached.data,
-          pagination: cached.pagination,
-          fetchedAt: new Date(cached.storedAt).toISOString(),
-          cacheStatus: "hit",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Build upstream params
-    const params = new URLSearchParams({
-      lang: body.language,
-      page: String(body.page),
-      page_size: String(body.page_size),
-    });
-    if (body.destination_id) params.set("destination_id", String(body.destination_id));
-    if (body.sale_status) params.set("sale_status", body.sale_status);
-
-    try {
-      const upstream = await tiqetsRequest<TiqetsProductsResponse>({
-        endpoint: "/products",
-        params,
-      });
-
-      // Support both "products" (official Tiqets wrapper) and "results" (fallback)
-      const rawResults: TiqetsProductRaw[] =
-        upstream.data.products || upstream.data.results || [];
-      const products = rawResults.map(normalizeProduct);
-      const pagination: TiqetsPaginationRaw = {
-        count: upstream.data.count ?? rawResults.length,
-        next: upstream.data.next || null,
-        previous: upstream.data.previous || null,
-      };
-
-      // Admin diagnostics (counts/types only — never raw data or tokens)
-      const diagnostics = {
-        upstreamPayloadType: Array.isArray(upstream.data) ? "array" : (typeof upstream.data),
-        upstreamTopLevelKeys: typeof upstream.data === "object" && upstream.data !== null && !Array.isArray(upstream.data)
-          ? Object.keys(upstream.data as Record<string, unknown>)
-          : null,
-        upstreamRawItemCount: rawResults.length,
-        normalizationInputCount: rawResults.length,
-        normalizationOutputCount: products.length,
-        imageDiagnostics: buildImageDiagnostics(
-          (upstream.data.products || upstream.data.results || [])
-        ),
-      };
-
-      // Store in cache
-      productCache.set(key, { data: products, pagination, storedAt: Date.now() });
-
-      return new Response(
-        JSON.stringify({
-          products,
-          pagination,
-          fetchedAt: new Date().toISOString(),
-          cacheStatus: "miss",
-          upstreamRequestId: upstream.upstreamRequestId || null,
-          diagnostics,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (e: unknown) {
-      const err = e as TiqetsError;
-      const statusMap: Record<string, number> = {
-        auth: 502,
-        not_found: 404,
-        rate_limit: 429,
-        upstream: 502,
-        timeout: 504,
-        parse: 502,
-        config: 500,
-      };
-      const status = statusMap[err.type] || 502;
-
-      return new Response(
-        JSON.stringify({
-          error: err.message,
-          upstreamRequestId: err.upstreamRequestId || null,
-          retryAfterSec: err.retryAfterSec || null,
-        }),
-        { status, headers: { ...corsHeaders, "Content-Type": "application/json", ...(err.retryAfterSec ? { "Retry-After": String(err.retryAfterSec) } : {}) } }
-      );
-    }
+  // Check cache
+  const cached = productCache.get(key);
+  if (cached && Date.now() - cached.storedAt < CACHE_TTL_MS) {
+    return new Response(
+      JSON.stringify({
+        products: cached.data,
+        pagination: cached.pagination,
+        fetchedAt: new Date(cached.storedAt).toISOString(),
+        cacheStatus: "hit",
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
-  return new Response(
-    JSON.stringify({ error: `Unknown action: ${action}` }),
-    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
+  // Build upstream params
+  const params = new URLSearchParams({
+    lang: body.language,
+    page: String(body.page),
+    page_size: String(body.page_size),
+  });
+  if (body.destination_id) params.set("destination_id", String(body.destination_id));
+  if (body.sale_status) params.set("sale_status", body.sale_status);
+
+  try {
+    const upstream = await tiqetsRequest<TiqetsProductsResponse>({
+      endpoint: "/products",
+      params,
+    });
+
+    // Support both "products" (official Tiqets wrapper) and "results" (fallback)
+    const rawResults: TiqetsProductRaw[] =
+      upstream.data.products || upstream.data.results || [];
+    const products = rawResults.map(normalizeProduct);
+    const pagination: TiqetsPaginationRaw = {
+      count: upstream.data.count ?? rawResults.length,
+      next: upstream.data.next || null,
+      previous: upstream.data.previous || null,
+    };
+
+    // Admin diagnostics (counts/types only — never raw data or tokens)
+    const diagnostics = {
+      upstreamPayloadType: Array.isArray(upstream.data) ? "array" : (typeof upstream.data),
+      upstreamTopLevelKeys: typeof upstream.data === "object" && upstream.data !== null && !Array.isArray(upstream.data)
+        ? Object.keys(upstream.data as Record<string, unknown>)
+        : null,
+      upstreamRawItemCount: rawResults.length,
+      normalizationInputCount: rawResults.length,
+      normalizationOutputCount: products.length,
+      imageDiagnostics: buildImageDiagnostics(
+        (upstream.data.products || upstream.data.results || [])
+      ),
+    };
+
+    // Store in cache
+    productCache.set(key, { data: products, pagination, storedAt: Date.now() });
+
+    return new Response(
+      JSON.stringify({
+        products,
+        pagination,
+        fetchedAt: new Date().toISOString(),
+        cacheStatus: "miss",
+        upstreamRequestId: upstream.upstreamRequestId || null,
+        diagnostics,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (e: unknown) {
+    const err = e as TiqetsError;
+    const statusMap: Record<string, number> = {
+      auth: 502,
+      not_found: 404,
+      rate_limit: 429,
+      upstream: 502,
+      timeout: 504,
+      parse: 502,
+      config: 500,
+    };
+    const status = statusMap[err.type] || 502;
+
+    return new Response(
+      JSON.stringify({
+        error: err.message,
+        upstreamRequestId: err.upstreamRequestId || null,
+        retryAfterSec: err.retryAfterSec || null,
+      }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json", ...(err.retryAfterSec ? { "Retry-After": String(err.retryAfterSec) } : {}) } }
+    );
+  }
 });
