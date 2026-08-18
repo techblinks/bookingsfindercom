@@ -162,8 +162,9 @@ describe("T3B - premium no-image state on the detail page", () => {
     });
     renderPage();
 
-    await waitFor(() => expect(document.querySelector("img")).toBeTruthy());
-    const img = document.querySelector("img")!;
+    // The hero image specifically — the page carries site chrome whose logo is
+    // also an <img>, so a positional query would assert against the wrong node.
+    const img = await screen.findByTestId("activity-hero-image");
     img.dispatchEvent(new Event("error"));
     await waitFor(() =>
       expect(screen.getByText("No image is available for this experience yet.")).toBeTruthy(),
