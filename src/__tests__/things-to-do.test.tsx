@@ -18,8 +18,22 @@ import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import type { ExperienceProduct, ExperienceSearchResult } from "@/types/experiences";
 
+/*
+ * T3D extracted the listing card out of ThingsToDo.tsx into its own component.
+ * These source-level rules ("no stock imagery", "no fixture leakage", "images
+ * have an onError fallback") are properties of the whole Things listing
+ * SURFACE, not of one file, so the helper reads every file that surface is now
+ * built from. Scoping it to the page alone would have let a rule quietly stop
+ * covering the card the moment the card moved.
+ */
+const THINGS_LISTING_SOURCES = [
+  "src/pages/ThingsToDo.tsx",
+  "src/components/things/ThingsExperienceCard.tsx",
+];
+
 function src(): string {
-  return require("fs").readFileSync("src/pages/ThingsToDo.tsx", "utf8");
+  const fs = require("fs");
+  return THINGS_LISTING_SOURCES.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -609,7 +623,13 @@ describe("ExperienceProduct cards", () => {
     );
     renderPage();
     await waitFor(() => expect(screen.getByRole("heading", { level: 3, name: "Sparse Product" })).toBeTruthy());
-    expect(screen.getByText("Price on request")).toBeTruthy();
+    /*
+     * T3D: a null price renders NO price wording. "Price on request" was a
+     * claim we could not support — the provider did not tell us the experience
+     * is priced on request, it simply gave us no number.
+     */
+    expect(screen.queryByText(/Price on request/i)).toBeNull();
+    expect(screen.queryByText(/^From /)).toBeNull();
     expect(screen.queryByRole("link", { name: /View experience/i })).toBeNull();
   });
 });
