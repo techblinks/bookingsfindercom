@@ -1,50 +1,51 @@
 import { describe, it, expect } from "vitest";
 var s = function(p) { return require("fs").readFileSync(p, "utf8"); };
 
-describe("Phase 1C-B: refresh-catalogue backend", function() {
-  it("admin function contains refresh-catalogue action", function() {
-    expect(s("supabase/functions/tiqets-catalog/index.ts")).toContain("refresh-catalogue");
+/**
+ * T4A-P1 superseded the Phase 1C-B expectations below.
+ *
+ * The Phase 1C-B tests asserted that the durable sync loop existed in
+ * tiqets-catalog (checkpointing, loop detection, upsert RPC). The T4A audit
+ * showed that loop never compiled — it referenced an unbound `parsed` and an
+ * undefined `supabaseAdmin` — and that the storage contracts underneath it are
+ * unsafe. P1 removed it and made `refresh-catalogue` explicitly unavailable, so
+ * these tests now assert the fail-closed state instead.
+ *
+ * Full behavioural coverage of the action contract lives in
+ * supabase/functions/tiqets-catalog/__tests__/catalogue-contract.test.ts.
+ */
+describe("T4A-P1: refresh-catalogue is declared but fail-closed", function() {
+  const src = s("supabase/functions/tiqets-catalog/index.ts");
+  const core = s("supabase/functions/tiqets-catalog/catalogue-core.ts");
+
+  it("declares refresh-catalogue in the action contract", function() {
+    expect(core).toContain('"refresh-catalogue"');
+    expect(core).toContain("CATALOGUE_ACTIONS");
   });
-  it("starts from checkpoint next_page", function() {
-    expect(s("supabase/functions/tiqets-catalog/index.ts")).toContain("next_page");
+  it("answers refresh-catalogue with catalogue_sync_not_ready", function() {
+    expect(core).toContain("catalogue_sync_not_ready");
+    expect(core).toContain("CATALOGUE_SYNC_NOT_READY_STATUS = 503");
   });
-  it("server page_size fixed at 20", function() {
-    expect(s("supabase/functions/tiqets-catalog/index.ts")).toContain("pageSize = 20");
+  it("no longer carries the uncompilable sync loop", function() {
+    expect(src).not.toContain("supabaseAdmin");
+    expect(src).not.toContain("seenFingerprints");
+    expect(src).not.toContain("pageSize = 20");
+    expect(src).not.toContain("loop_detected");
   });
-  it("max_pages bounded via Math.min", function() {
-    expect(s("supabase/functions/tiqets-catalog/index.ts")).toContain("Math.min");
+  it("no longer writes catalogue checkpoints", function() {
+    expect(src).not.toContain("experience_catalog_sync_state");
+    expect(src).not.toContain("next_page");
+    expect(src).not.toContain('status: "partial"');
+    expect(src).not.toContain('status: "completed"');
   });
-  it("empty page marks completed", function() {
-    var src = s("supabase/functions/tiqets-catalog/index.ts");
-    expect(src).toContain("length === 0");
-    expect(src).toContain('status: "completed"');
+  it("no longer writes catalogue products or destinations", function() {
+    expect(src).not.toContain("upsert_experience_products");
+    expect(src).not.toContain("experience_destinations");
+    expect(src).not.toContain(".upsert(");
   });
-  it("short page marks completed", function() {
-    var src = s("supabase/functions/tiqets-catalog/index.ts");
-    expect(src).toContain("length < pageSize");
-    expect(src).toContain('status: "completed"');
-  });
-  it("loop detection by fingerprint", function() {
-    var src = s("supabase/functions/tiqets-catalog/index.ts");
-    expect(src).toContain("seenFingerprints");
-    expect(src).toContain("loop_detected");
-  });
-  it("partial batch stores continuation page", function() {
-    expect(s("supabase/functions/tiqets-catalog/index.ts")).toContain('status: "partial"');
-  });
-  it("upserts via upsert_experience_products RPC", function() {
-    expect(s("supabase/functions/tiqets-catalog/index.ts")).toContain("upsert_experience_products");
-  });
-  it("derives destinations from products", function() {
-    var src = s("supabase/functions/tiqets-catalog/index.ts");
-    expect(src).toContain("experience_destinations");
-    expect(src).toContain("destination_id");
-  });
-  it("does NOT send destination_id upstream in refresh", function() {
-    // refresh-catalogue only fetches unfiltered /products
-    var src = s("supabase/functions/tiqets-catalog/index.ts");
-    var refresh = src.substring(src.indexOf("refresh-catalogue") + 30, src.indexOf("action === \"products\"") > 0 ? src.indexOf("action === \"products\"") : src.length);
-    expect(refresh).not.toContain('params.set("destination_id"');
+  it("keeps the durable catalogue tables owned by the public reader only", function() {
+    // Reads stay in tiqets-public; the admin function performs no catalogue write.
+    expect(s("supabase/functions/tiqets-public/index.ts")).toContain("experience_products");
   });
 });
 

@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:edge:tiqets-catalog": "deno check --no-lock supabase/functions/tiqets-catalog/index.ts",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
