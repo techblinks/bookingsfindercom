@@ -20,7 +20,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import NotFound from "@/pages/NotFound";
-import { getThingsDestinationBySlug } from "@/lib/thingsDestinations";
+import {
+  getThingsDestinationBySlug,
+  thingsDestinationPath,
+} from "@/lib/thingsDestinations";
 import { thingsActivityPath } from "@/lib/thingsActivities";
 import { resolveThingsActivityDetail } from "@/services/thingsActivityDetail";
 import type { ThingsActivityDetail } from "@/types/thingsActivityDetail";
@@ -114,7 +117,13 @@ const ThingsToDoActivityRoute = () => {
           <title>Experience unavailable | BookingsFinder</title>
           <meta name="robots" content="noindex,follow" />
         </Helmet>
-        <ActivityDetailUnavailable onRetry={() => setRetryKey((k) => k + 1)} />
+        {/* The destination is registry-resolved above, so the step-back link
+            is canonical identity — never a path guessed from URL text. */}
+        <ActivityDetailUnavailable
+          onRetry={() => setRetryKey((k) => k + 1)}
+          destinationPath={thingsDestinationPath(destination)}
+          destinationName={destination.displayName}
+        />
       </>
     );
   }
