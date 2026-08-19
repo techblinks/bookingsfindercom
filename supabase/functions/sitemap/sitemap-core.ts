@@ -13,10 +13,17 @@
  * The sitemap must not contradict that. It therefore advertises a route URL
  * only when the SAME condition holds — a published `seo_route_pages` row whose
  * slug is a well-formed route slug. There is deliberately no second definition
- * of "published": `generation_status` is not consulted, because
- * supabase/functions/generate-route-page/index.ts only ever sets
- * `is_published: true` together with `generation_status: 'completed'` in one
- * update, making `is_published` authoritative on its own.
+ * of "published": `generation_status` is not consulted.
+ *
+ * BF-0R-3: `is_published` is authoritative on its own, and more strictly so
+ * than before — supabase/functions/generate-route-page/index.ts NEVER sets it
+ * true. AI generation can only reach `generation_status: 'generated_pending_
+ * review'` (content passed the provenance gate) or `'failed_validation'`
+ * (content asserted an unsourced fact and was discarded). `is_published`
+ * flips to true exclusively via an explicit human publish action gated by the
+ * "Admins can manage route pages" RLS policy (see
+ * src/pages/AdminRouteGenerator.tsx). A row can therefore never enter this
+ * sitemap merely because a generation call completed.
  */
 
 export const SITE_URL = "https://bookingsfinder.com";

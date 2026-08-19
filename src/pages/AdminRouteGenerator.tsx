@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { AdminLoginForm } from '@/components/auth/AdminLoginForm';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,7 +57,26 @@ function generatePopularRoutes() {
   return routes;
 }
 
-type RouteStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'not_started';
+// BF-0R-3: AI generation no longer auto-publishes. 'generated_pending_review'
+// means the model's content passed the provenance gate in
+// supabase/functions/_shared/content-trust.ts but a human has not reviewed
+// or published it yet; 'failed_validation' means the model asserted an
+// unsourced fact and its content was discarded server-side. 'published' is
+// set ONLY from inside the mandatory review dialog (P0-3 review follow-up —
+// there is no one-click Publish on the list row any more), which flips
+// is_published through the caller's own admin session (the "Admins can
+// manage route pages" RLS policy) — never by the generation call itself.
+// Publication truth for display purposes is always `isPublished` (the real
+// column), not this status string — see statusBadge below.
+type RouteStatus =
+  | 'pending'
+  | 'generating'
+  | 'generated_pending_review'
+  | 'failed_validation'
+  | 'published'
+  | 'completed' // legacy value from rows generated before BF-0R-3
+  | 'failed'
+  | 'not_started';
 
 interface RouteWithStatus {
   origin_city: string;
@@ -66,17 +86,46 @@ interface RouteWithStatus {
   slug: string;
   status: RouteStatus;
   id?: string;
+  isPublished?: boolean;
+}
+
+/** Full generated content shown on the mandatory review surface (P0-3). */
+interface RouteReviewContent {
+  title: string;
+  meta_description: string;
+  h1_title: string;
+  intro_paragraph: string;
+  main_content: string;
+  travel_tips: { title?: string; content?: string }[] | null;
+  faqs: { question: string; answer: string }[] | null;
+  /**
+   * BF-0R-3 final hardening: the exact version marker captured when the
+   * review dialog opened. `seo_route_pages` has an `update_seo_route_pages_
+   * updated_at` trigger that bumps this on every row change, so it doubles
+   * as a free optimistic-concurrency token — no migration needed. Publish
+   * requires the row to still carry this exact value; see confirmPublish.
+   */
+  updated_at: string;
 }
 
 export default function AdminRouteGenerator() {
   const { user, isLoading: authLoading, isAdmin } = useAdminAuth();
   const [routes, setRoutes] = useState<RouteWithStatus[]>([]);
-  const [existingSlugs, setExistingSlugs] = useState<Map<string, { status: string; id: string }>>(new Map());
+  const [existingSlugs, setExistingSlugs] = useState<Map<string, { status: string; id: string; isPublished: boolean }>>(new Map());
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState({ generated: 0, failed: 0, total: 0 });
-  const [filterStatus, setFilterStatus] = useState<'all' | 'not_started' | 'completed' | 'failed'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'not_started' | 'generated_pending_review' | 'failed_validation' | 'published' | 'failed'>('all');
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [publishingSlug, setPublishingSlug] = useState<string | null>(null);
+
+  // ── Mandatory review surface (P0-3) ────────────────────────────────────
+  // Publish is reachable ONLY through this dialog. There is deliberately no
+  // one-click Publish action on the route list row any more.
+  const [reviewRoute, setReviewRoute] = useState<RouteWithStatus | null>(null);
+  const [reviewContent, setReviewContent] = useState<RouteReviewContent | null>(null);
+  const [isLoadingReview, setIsLoadingReview] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
   // Load existing route page statuses
   useEffect(() => {
@@ -87,17 +136,101 @@ export default function AdminRouteGenerator() {
     setIsLoadingStatus(true);
     const { data, error } = await supabase
       .from('seo_route_pages' as any)
-      .select('id, slug, generation_status')
+      .select('id, slug, generation_status, is_published')
       .limit(2000);
 
     if (!error && data) {
-      const slugMap = new Map<string, { status: string; id: string }>();
+      const slugMap = new Map<string, { status: string; id: string; isPublished: boolean }>();
       (data as any[]).forEach((r: any) => {
-        slugMap.set(r.slug, { status: r.generation_status, id: r.id });
+        slugMap.set(r.slug, { status: r.generation_status, id: r.id, isPublished: !!r.is_published });
       });
       setExistingSlugs(slugMap);
     }
     setIsLoadingStatus(false);
+  };
+
+  // Opens the mandatory review surface (P0-3). Loads the FULL generated
+  // content on demand — the list view only ever holds id/slug/status/
+  // is_published, never the actual page text, so there is nothing to
+  // publish without first fetching what will actually be shown. Also
+  // captures `updated_at` as the reviewed-version marker (BF-0R-3 final
+  // hardening) — Publish will require the row to still carry this exact
+  // value, so a regeneration that lands after this fetch cannot be
+  // published under the guise of the version actually reviewed here.
+  const openReview = async (route: RouteWithStatus) => {
+    if (!route.id) return;
+    setReviewRoute(route);
+    setReviewContent(null);
+    setReviewConfirmed(false);
+    setIsLoadingReview(true);
+
+    const { data, error } = await supabase
+      .from('seo_route_pages')
+      .select('title, meta_description, h1_title, intro_paragraph, main_content, travel_tips, faqs, updated_at')
+      .eq('id', route.id)
+      .single();
+
+    if (error || !data) {
+      toast.error('Failed to load content for review');
+      setReviewRoute(null);
+    } else {
+      setReviewContent(data as unknown as RouteReviewContent);
+    }
+    setIsLoadingReview(false);
+  };
+
+  const closeReview = () => {
+    setReviewRoute(null);
+    setReviewContent(null);
+    setReviewConfirmed(false);
+  };
+
+  // Human publish gate — the ONLY place is_published is ever set to true.
+  // Reachable ONLY from inside the review dialog, behind the explicit
+  // confirmation checkbox, and runs under the admin's own session, so it is
+  // enforced independently by the "Admins can manage route pages" RLS
+  // policy on top of everything below.
+  //
+  // BF-0R-3 final hardening — optimistic-concurrency guard: the review
+  // dialog can be open for a while, and the reviewed row is NOT locked
+  // against regeneration while it's open. Without a version check, this
+  // race is possible: review version A → a regeneration overwrites the row
+  // with version B → the admin, still looking at the version-A dialog,
+  // clicks Publish → version B goes live even though only A was reviewed.
+  // The WHERE clause below requires the row to still be exactly the
+  // reviewed version — unpublished, still awaiting review, AND still
+  // carrying the `updated_at` captured when the dialog opened — and
+  // `.select('id')` reports whether that actually matched. Zero rows means
+  // the content changed after review (or was published by someone else, or
+  // no longer exists): fail closed, publish nothing, and send the admin
+  // back to review the current version.
+  const confirmPublish = async () => {
+    if (!reviewRoute?.id || !reviewContent || !reviewConfirmed) return;
+    setPublishingSlug(reviewRoute.slug);
+
+    const { data, error } = await supabase
+      .from('seo_route_pages' as any)
+      .update({ is_published: true, generation_status: 'published' })
+      .eq('id', reviewRoute.id)
+      .eq('is_published', false)
+      .eq('generation_status', 'generated_pending_review')
+      .eq('updated_at', reviewContent.updated_at)
+      .select('id');
+
+    if (error) {
+      toast.error(`Failed to publish: ${error.message}`);
+    } else if (!data || data.length === 0) {
+      toast.error(
+        'This content changed after you opened it for review. Please review the latest version before publishing.',
+      );
+      closeReview();
+      await loadExistingPages();
+    } else {
+      toast.success(`Published ${reviewRoute.origin_city} → ${reviewRoute.destination_city}`);
+      closeReview();
+      await loadExistingPages();
+    }
+    setPublishingSlug(null);
   };
 
   // Merge popular routes with DB status
@@ -108,6 +241,7 @@ export default function AdminRouteGenerator() {
         ...r,
         status: (existing?.status || 'not_started') as RouteStatus,
         id: existing?.id,
+        isPublished: existing?.isPublished ?? false,
       };
     });
     setRoutes(merged);
@@ -125,7 +259,7 @@ export default function AdminRouteGenerator() {
         const updated = payload.new;
         setExistingSlugs(prev => {
           const next = new Map(prev);
-          next.set(updated.slug, { status: updated.generation_status, id: updated.id });
+          next.set(updated.slug, { status: updated.generation_status, id: updated.id, isPublished: !!updated.is_published });
           return next;
         });
       })
@@ -134,17 +268,24 @@ export default function AdminRouteGenerator() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Publication truth is `isPublished` (the actual DB column), never
+  // `generation_status` — a status string can go stale or be inconsistent
+  // with the real flag, and a published row must always read as published
+  // regardless of what its status text says.
   const filteredRoutes = routes.filter(r => {
     if (filterStatus === 'all') return true;
-    return r.status === filterStatus;
+    if (filterStatus === 'published') return !!r.isPublished;
+    return r.status === filterStatus && !r.isPublished;
   });
 
   const stats = {
     total: routes.length,
-    completed: routes.filter(r => r.status === 'completed').length,
-    failed: routes.filter(r => r.status === 'failed').length,
-    pending: routes.filter(r => r.status === 'pending' || r.status === 'generating').length,
-    notStarted: routes.filter(r => r.status === 'not_started').length,
+    published: routes.filter(r => r.isPublished).length,
+    reviewReady: routes.filter(r => r.status === 'generated_pending_review' && !r.isPublished).length,
+    failedValidation: routes.filter(r => r.status === 'failed_validation' && !r.isPublished).length,
+    failed: routes.filter(r => r.status === 'failed' && !r.isPublished).length,
+    pending: routes.filter(r => (r.status === 'pending' || r.status === 'generating') && !r.isPublished).length,
+    notStarted: routes.filter(r => r.status === 'not_started' && !r.isPublished).length,
   };
 
   const toggleSelectAll = () => {
@@ -169,6 +310,8 @@ export default function AdminRouteGenerator() {
     const batchSize = 5;
     let totalGenerated = 0;
     let totalFailed = 0;
+    let totalFailedValidation = 0;
+    let totalSkippedPublished = 0;
 
     for (let i = 0; i < toGenerate.length; i += batchSize) {
       const batch = toGenerate.slice(i, i + batchSize);
@@ -187,6 +330,10 @@ export default function AdminRouteGenerator() {
 
         totalGenerated += data?.generated || 0;
         totalFailed += data?.failed || 0;
+        totalFailedValidation += data?.failedValidation || 0;
+        // A currently published row is never regenerated — see P0-1 in
+        // supabase/functions/generate-route-page/index.ts.
+        totalSkippedPublished += data?.skippedPublished || 0;
       } catch (err) {
         console.error('Batch failed:', err);
         totalFailed += batch.length;
@@ -195,7 +342,11 @@ export default function AdminRouteGenerator() {
       setProgress({ generated: totalGenerated, failed: totalFailed, total: toGenerate.length });
     }
 
-    toast.success(`Generated ${totalGenerated} route pages (${totalFailed} failed)`);
+    // "Generated" here means "passed the provenance gate and is awaiting
+    // human review" — it is never publication. See confirmPublish above.
+    toast.success(
+      `${totalGenerated} route page(s) ready for review (${totalFailed} failed, ${totalFailedValidation} rejected for unsourced facts${totalSkippedPublished > 0 ? `, ${totalSkippedPublished} already-published route(s) left untouched` : ''})`,
+    );
     setIsGenerating(false);
     setSelectedSlugs(new Set());
     await loadExistingPages();
@@ -220,12 +371,28 @@ export default function AdminRouteGenerator() {
     return <AdminLoginForm />;
   }
 
-  const statusBadge = (status: RouteStatus) => {
-    switch (status) {
-      case 'completed': return <Badge variant="default" className="bg-emerald-600 text-xs">Published</Badge>;
+  // isPublished is checked FIRST and is authoritative: a row is "Published"
+  // whenever the actual column says so, regardless of what generation_status
+  // happens to read. This also covers rows whose status is inconsistent with
+  // reality (e.g. left over from a bug, or edited directly) — such a row is
+  // never silently reported as anything other than what it actually is.
+  const statusBadge = (route: RouteWithStatus) => {
+    if (route.isPublished) {
+      return <Badge variant="default" className="bg-emerald-600 text-xs">Published</Badge>;
+    }
+    switch (route.status) {
+      case 'generated_pending_review':
+        return <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">Awaiting review</Badge>;
+      case 'failed_validation':
+        return <Badge variant="destructive" className="text-xs">Unsourced facts rejected</Badge>;
       case 'generating': return <Badge variant="secondary" className="text-xs"><Loader2 className="h-3 w-3 animate-spin mr-1" />Generating</Badge>;
       case 'failed': return <Badge variant="destructive" className="text-xs">Failed</Badge>;
       case 'pending': return <Badge variant="outline" className="text-xs">Pending</Badge>;
+      case 'published':
+      case 'completed':
+        // Status claims published but is_published is false — a stale/
+        // inconsistent status, not a reason to render "Published".
+        return <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">Status out of date</Badge>;
       default: return <Badge variant="outline" className="text-xs text-muted-foreground">Not Started</Badge>;
     }
   };
@@ -251,7 +418,7 @@ export default function AdminRouteGenerator() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <Card className="border-border">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-foreground">{stats.total}</p>
@@ -260,13 +427,19 @@ export default function AdminRouteGenerator() {
             </Card>
             <Card className="border-emerald-200 dark:border-emerald-800">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-emerald-600">{stats.completed}</p>
+                <p className="text-2xl font-bold text-emerald-600">{stats.published}</p>
                 <p className="text-xs text-muted-foreground">Published</p>
+              </CardContent>
+            </Card>
+            <Card className="border-blue-200 dark:border-blue-800">
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold text-blue-600">{stats.reviewReady}</p>
+                <p className="text-xs text-muted-foreground">Awaiting Review</p>
               </CardContent>
             </Card>
             <Card className="border-destructive/20">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-destructive">{stats.failed}</p>
+                <p className="text-2xl font-bold text-destructive">{stats.failed + stats.failedValidation}</p>
                 <p className="text-xs text-muted-foreground">Failed</p>
               </CardContent>
             </Card>
@@ -339,7 +512,14 @@ export default function AdminRouteGenerator() {
 
           {/* Filter Tabs */}
           <div className="flex gap-2 mb-4 overflow-x-auto">
-            {(['all', 'not_started', 'completed', 'failed'] as const).map(status => (
+            {([
+              ['all', 'All'],
+              ['not_started', 'Not Started'],
+              ['generated_pending_review', 'Awaiting Review'],
+              ['published', 'Published'],
+              ['failed_validation', 'Unsourced Facts Rejected'],
+              ['failed', 'Failed'],
+            ] as const).map(([status, label]) => (
               <Button
                 key={status}
                 variant={filterStatus === status ? 'default' : 'outline'}
@@ -347,9 +527,15 @@ export default function AdminRouteGenerator() {
                 onClick={() => setFilterStatus(status)}
                 className="shrink-0"
               >
-                {status === 'all' ? 'All' : status === 'not_started' ? 'Not Started' : status.charAt(0).toUpperCase() + status.slice(1)}
+                {label}
                 <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5">
-                  {status === 'all' ? routes.length : routes.filter(r => r.status === status).length}
+                  {status === 'all' ? routes.length
+                    : status === 'published' ? stats.published
+                    : status === 'generated_pending_review' ? stats.reviewReady
+                    : status === 'failed_validation' ? stats.failedValidation
+                    : status === 'failed' ? stats.failed
+                    : status === 'not_started' ? stats.notStarted
+                    : routes.filter(r => r.status === status && !r.isPublished).length}
                 </Badge>
               </Button>
             ))}
@@ -383,6 +569,7 @@ export default function AdminRouteGenerator() {
                   filteredRoutes.map(route => (
                     <div
                       key={route.slug}
+                      data-testid={`route-row-${route.slug}`}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors"
                     >
                       <Checkbox
@@ -408,7 +595,20 @@ export default function AdminRouteGenerator() {
                       <span className="text-[11px] text-muted-foreground shrink-0">
                         {route.origin_iata}–{route.destination_iata}
                       </span>
-                      {statusBadge(route.status)}
+                      {statusBadge(route)}
+                      {/* P0-3: no one-click Publish here. Review opens the
+                          mandatory review surface (the Dialog below); Publish
+                          is only reachable from inside it. */}
+                      {route.status === 'generated_pending_review' && !route.isPublished && route.id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 h-7 text-xs"
+                          onClick={() => openReview(route)}
+                        >
+                          Review
+                        </Button>
+                      )}
                     </div>
                   ))
                 )}
@@ -418,6 +618,91 @@ export default function AdminRouteGenerator() {
         </main>
         <Footer />
       </div>
+
+      {/* Mandatory review surface (P0-3). Publish exists ONLY inside this
+          dialog, behind the explicit confirmation checkbox. */}
+      <Dialog open={!!reviewRoute} onOpenChange={(open) => { if (!open) closeReview(); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="route-review-dialog">
+          <DialogHeader>
+            <DialogTitle>Review before publishing</DialogTitle>
+            <DialogDescription>
+              {reviewRoute && `${reviewRoute.origin_city} → ${reviewRoute.destination_city}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-300">
+            This is AI-generated editorial content. It contains no provider or official
+            factual source data — no fares, airlines, schedules, or booking-window
+            claims. Read it before publishing.
+          </div>
+
+          {isLoadingReview ? (
+            <div className="py-8 flex justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : reviewContent ? (
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="font-medium text-foreground">Title</p>
+                <p className="text-muted-foreground">{reviewContent.title}</p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Meta description</p>
+                <p className="text-muted-foreground">{reviewContent.meta_description}</p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">H1</p>
+                <p className="text-muted-foreground">{reviewContent.h1_title}</p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Intro</p>
+                <p className="text-muted-foreground">{reviewContent.intro_paragraph}</p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Main content</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">{reviewContent.main_content}</p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Travel tips</p>
+                <ul className="list-disc pl-5 text-muted-foreground">
+                  {(reviewContent.travel_tips || []).map((tip, i) => (
+                    <li key={i}>{tip.title ? `${tip.title}: ` : ''}{tip.content}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">FAQs</p>
+                <ul className="list-disc pl-5 text-muted-foreground">
+                  {(reviewContent.faqs || []).map((faq, i) => (
+                    <li key={i}>{faq.question}: {faq.answer}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex items-start gap-2 pt-3 border-t border-border">
+            <Checkbox
+              id="review-confirm"
+              checked={reviewConfirmed}
+              onCheckedChange={(checked) => setReviewConfirmed(!!checked)}
+            />
+            <label htmlFor="review-confirm" className="text-sm text-muted-foreground">
+              I have reviewed this AI-generated content and confirm it is accurate and safe to publish.
+            </label>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeReview}>Cancel</Button>
+            <Button
+              disabled={!reviewConfirmed || !reviewContent || publishingSlug === reviewRoute?.slug}
+              onClick={confirmPublish}
+            >
+              {publishingSlug === reviewRoute?.slug ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -42,7 +42,9 @@ interface GeneratedContent {
   mainContent: string;
   travelTips: { title: string; content: string }[];
   faqs: { question: string; answer: string }[];
-  popularCities: { name: string; code: string }[];
+  // BF-0R-3 (P0-2): generate-seo-content no longer returns popularCities —
+  // the model has no genuine source for which cities are nearby or popular,
+  // so there is nothing trustworthy to display or save here any more.
 }
 
 export default function AdminContentGenerator() {
@@ -111,8 +113,10 @@ export default function AdminContentGenerator() {
         h1_title: editedContent.h1Title,
         intro_paragraph: editedContent.introParagraph,
         main_content: editedContent.mainContent,
-        popular_cities: editedContent.popularCities,
-        popular_routes: contentType === 'flights' 
+        // No AI-sourced popular-cities data exists any more (BF-0R-3, P0-2) —
+        // omitted rather than fabricated.
+        popular_cities: [],
+        popular_routes: contentType === 'flights'
           ? [{ from: editedContent.origin, to: editedContent.destination }]
           : [],
         travel_tips: editedContent.travelTips,
@@ -506,16 +510,6 @@ export default function AdminContentGenerator() {
                       ))}
                     </div>
 
-                    <div className="space-y-4">
-                      <Label className="text-base font-semibold">Related Cities</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {editedContent.popularCities.map((city, index) => (
-                          <Badge key={index} variant="secondary" className="text-sm py-1 px-3">
-                            {city.name} ({city.code})
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
                   </TabsContent>
 
                   {/* Preview Tab */}

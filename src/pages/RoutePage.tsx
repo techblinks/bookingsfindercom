@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plane, ArrowRight, Search, Star, ExternalLink, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fallbackRouteTips, fallbackRouteFaqQuestion, fallbackRouteFaqAnswer } from "./routePageFallbackCopy";
 
 // Convert slug like "london-to-dubai" to route info
 const parseRouteSlug = (slug: string) => {
@@ -49,14 +50,6 @@ const cityToIATA: Record<string, string> = {
 const getIATA = (cityName: string): string => {
   return cityToIATA[cityName.toLowerCase()] || cityName.substring(0, 3).toUpperCase();
 };
-
-const tips = [
-  "Book 6-8 weeks in advance for the best fares",
-  "Tuesday and Wednesday flights tend to be cheaper",
-  "Consider nearby airports for better deals",
-  "Use price alerts to track fare changes",
-  "Flexible dates can save you up to 40%",
-];
 
 const RoutePage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -138,10 +131,10 @@ const RoutePage = () => {
         },
         {
           "@type": "Question" as const,
-          name: `When is the best time to fly from ${route.originCity} to ${route.destinationCity}?`,
+          name: fallbackRouteFaqQuestion(route.originCity, route.destinationCity),
           acceptedAnswer: {
             "@type": "Answer" as const,
-            text: `The best time depends on your priorities — off-peak seasons often have lower fares. We recommend booking 6-8 weeks in advance and using our price alerts to track fare changes for this route.`,
+            text: fallbackRouteFaqAnswer,
           },
         },
         {
@@ -255,7 +248,7 @@ const RoutePage = () => {
                   Travel Tips for This Route
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {(dbTips && dbTips.length > 0 ? dbTips : tips.map((t, i) => ({ title: `Tip ${i + 1}`, content: t }))).map((tip: any, i: number) => (
+                  {(dbTips && dbTips.length > 0 ? dbTips : fallbackRouteTips).map((tip: any, i: number) => (
                     <Card key={i} className="border-border">
                       <CardContent className="p-4">
                         {tip.title && <p className="text-sm font-medium text-foreground mb-1">{tip.title}</p>}
