@@ -40,18 +40,31 @@ A manual, read-only production query has confirmed `public.user_roles` exists in
 
 ## 2. Repository Baseline
 
-| Item | Value |
+### 2.1 ORIGINAL INVESTIGATION BASELINE
+
+This is the state the forensic investigation (Phases 1–7 of this document — authority proof, migration-gap discovery, evidence matrices) started from, and describes a point in time, not the current state of the branch:
+
+| Item | Value at investigation start |
 |---|---|
 | Branch | `fix/bf0r4-production-reconciliation` |
-| HEAD SHA | `2c73d87be6cdded72e705b12f89f816e1c8d5e2b` |
-| `origin/main` SHA | `2c73d87be6cdded72e705b12f89f816e1c8d5e2b` (identical) |
-| `git status` | clean, no uncommitted changes, throughout this investigation |
-| Worktrees | `bookingsfindercom` (main, 2c73d87), `bf0r4-production-reconciliation` (this worktree, 2c73d87), `bookingsfinder-design-concept` (feature/design-concept-evaluation, c6baa6c) |
+| HEAD SHA at that time | `2c73d87be6cdded72e705b12f89f816e1c8d5e2b` |
+| `origin/main` SHA at that time | `2c73d87be6cdded72e705b12f89f816e1c8d5e2b` (identical — the branch had no commits of its own yet) |
+| `git status` at that time | clean, no uncommitted changes |
+| Worktrees observed | `bookingsfindercom` (main, 2c73d87), `bf0r4-production-reconciliation` (this worktree, 2c73d87), `bookingsfinder-design-concept` (feature/design-concept-evaluation, c6baa6c) |
 | PR #62 (T4A-P2R-F1, migration-chain repair) | present in `main` log (`8679509`) |
 | PR #63 (BF-0R-2, optimizer fabrication removal) | present in `main` log (`5db66f3`) |
-| PR #64 (BF-0R-3, AI route-gen/publication trust repair) | present in `main` log (`2c73d87`, HEAD) |
+| PR #64 (BF-0R-3, AI route-gen/publication trust repair) | present in `main` log (`2c73d87`, HEAD at that time) |
 
-No repository files were modified as part of this investigation except the new artifact created in this step. A local `npm run build` was run for hash-comparison purposes; its output (`dist/`) is gitignored and left no tracked changes.
+At that point in the investigation, no repository files had been modified except this document itself, and a local `npm run build` had been run only for asset-hash comparison (its gitignored `dist/` output left no tracked changes).
+
+### 2.2 CURRENT PR STATE
+
+Everything below §2.1 happened **after** that baseline, across multiple commits, and the branch has since diverged from `main` by design — this is a PR under active review, not a snapshot.
+
+- **Authoritative current head**: **PR #65** on GitHub (branch `fix/bf0r4-production-reconciliation` → base `main`). The exact head SHA is *not* restated as a fixed value here, because this document is amended in place on every review round and a hardcoded SHA would go stale the moment the next commit lands — check `git rev-parse HEAD` on the branch, or the PR page, for the live value.
+- **Base `main` SHA** (unchanged since the investigation began — no one else has merged to `main` during this workstream): `2c73d87be6cdded72e705b12f89f816e1c8d5e2b`.
+- **What the commits on this branch contain, in order**: (1) this reconciliation document itself; (2) `run-optimizer`'s mandatory-authentication fix plus a frontend sign-in gate, closing an anonymous quota-bypass P0; (3) `run-optimizer`'s atomic Free-quota claim/refund, closing a concurrent-request-race and fail-open-lookup P0 found in review of (2); (4) a refund-token fix closing an ABA/month-boundary race found in review of (3).
+- **Status, explicitly**: all of the above are **committed to this PR branch and pushed to GitHub — not merged into `main`, not deployed anywhere, no secret changed, no production database further mutated** beyond the migrations already recorded in §7.9 (which were explicit, separately-authorized production operations, not part of this PR's diff).
 
 ---
 
@@ -394,6 +407,8 @@ A second external review of the round-1 diff found the free-quota accounting its
 
 **No new migration was required.** The existing `user_profiles` schema (from `20260130134057_...sql`) already carries `monthly_optimizer_uses`, `last_optimizer_reset`, and a `NOT NULL` `last_optimizer_reset` default — sufficient for a pure compare-and-set claim/refund via ordinary `UPDATE ... WHERE` calls through the existing PostgREST/supabase-js interface. No RPC, no new column, no new table.
 
+**Round 3 (third review pass on this PR) found one more concrete bug in the round-2 refund path**: `refundFreeSlot` guarded only `user_id` + `monthly_optimizer_uses`, not `last_optimizer_reset`. This is an ABA/month-boundary bug — a request that claimed an August slot and was still awaiting the provider when UTC September began, while a second request meanwhile performed the September reset+claim (landing back on `monthly_optimizer_uses = 1`), would have its stale refund match the counter alone and silently zero out the *other* request's brand-new September claim — refunding a different request's quota in a different month. **Fixed**: a successful claim now returns a durable `QuotaClaimToken` — the exact `{monthlyOptimizerUses, lastOptimizerReset}` Postgres actually stored, read back from the claim's own `UPDATE ... RETURNING` (never manufactured locally) — and every refund call (insert-failure compensation, non-`"ok"`-outcome compensation, and new defensive compensation for an unexpected *thrown* error from either the request-insert or the provider call) matches on the complete token. A stale token's compare-and-set now correctly matches zero rows once the row has moved to a new quota generation, in either field, and this is proven directly by a test that holds one request's provider call unresolved across a simulated month boundary while a second request completes a fresh claim, then resolves the first — asserting the second request's claim survives untouched.
+
 The fix must be reviewed, merged, and deployed before `run-optimizer` can safely go live — this remains a **BF-0 final-gate blocker** (§16), not something that can be waved through.
 
 ### 9.2 `generate-route-page` / `generate-seo-content` — reclassified: intentionally withheld, not an active exposure
@@ -499,15 +514,16 @@ Authority is now resolved. What remains outstanding:
 
 **BF-0 final-gate P0 (blocks BF-0, not BF-0R-4)**
 6. **`run-optimizer` anonymous quota bypass** — found and fixed in this PR's diff (§9.1). **Not** repaired in production; not merged.
-7. **`run-optimizer` non-atomic/fail-open quota accounting** — a second round of review found the round-1 fix still allowed a concurrent-request race, a fail-open profile lookup, and a fail-open request-insert path (§9.1.1). Fixed in this PR's diff via an atomic Postgres compare-and-set claim/refund — no new migration required. Tested with real mocked orchestration tests proving the race cannot be won twice (§9.1.1B). **Not merged, not deployed.** Both #6 and #7 must be reviewed, merged, and safely deployed before `run-optimizer` can go live.
+7. **`run-optimizer` non-atomic/fail-open quota accounting** — a second round of review found the round-1 fix still allowed a concurrent-request race, a fail-open profile lookup, and a fail-open request-insert path (§9.1.1). Fixed in this PR's diff via an atomic Postgres compare-and-set claim/refund — no new migration required.
+8. **`run-optimizer` refund ABA/month-boundary race** — a third round of review found the round-2 refund still matched on the quota counter alone, letting a stale refund (from a request still in flight across a UTC month boundary) silently zero out an unrelated later request's fresh claim (§9.1.1). Fixed in this PR's diff via a durable refund token matching both `monthly_optimizer_uses` and `last_optimizer_reset`; proven directly by a test that holds one request unresolved across a simulated month boundary while a second completes a fresh claim. Tested with real mocked orchestration tests proving the race cannot be won twice, including this month-boundary case (§9.1.1). **Items 6, 7, and 8 are all committed to PR #65, not merged, not deployed.** All three must be reviewed, merged, and safely deployed before `run-optimizer` can go live.
 
 **P1 — should repair before BF-1**
-8. **`publish-scheduled-pages`** — reclassified from P2 to P1 in a prior step. `verify_jwt=false`, **no in-function authorization check of any kind**, constructs its Supabase client with `SUPABASE_SERVICE_ROLE_KEY`, and performs a privileged `UPDATE country_landing_pages SET is_published=true` for any row whose `scheduled_publish_at` has passed. Confirmed: **no active exposure** (not deployed) and **no existing scheduler contract** to build against (§9.3) — a future design decision is required before it can ship. Not changed in this PR.
-9. `www.bookingsfinder.com` returning 522 — likely a DNS/proxy gap, not urgent but should be resolved or intentionally documented as unsupported.
+9. **`publish-scheduled-pages`** — reclassified from P2 to P1 in a prior step. `verify_jwt=false`, **no in-function authorization check of any kind**, constructs its Supabase client with `SUPABASE_SERVICE_ROLE_KEY`, and performs a privileged `UPDATE country_landing_pages SET is_published=true` for any row whose `scheduled_publish_at` has passed. Confirmed: **no active exposure** (not deployed) and **no existing scheduler contract** to build against (§9.3) — a future design decision is required before it can ship. Not changed in this PR.
+10. `www.bookingsfinder.com` returning 522 — likely a DNS/proxy gap, not urgent but should be resolved or intentionally documented as unsupported.
 
 **P2 — cleanup/later**
-10. Dead fabricated-marketing component files (`TopDeals.tsx`, `WhyBookWithUs.tsx`, `AirlineOffers.tsx`, `DynamicDeals.tsx`, `PopularDestinationsCards.tsx`) remain in the repo unreferenced — candidates for deletion once confirmed truly unused.
-11. No public, non-secret build-metadata (git SHA / build timestamp) endpoint exists, which would materially simplify future reconciliation phases like this one.
+11. Dead fabricated-marketing component files (`TopDeals.tsx`, `WhyBookWithUs.tsx`, `AirlineOffers.tsx`, `DynamicDeals.tsx`, `PopularDestinationsCards.tsx`) remain in the repo unreferenced — candidates for deletion once confirmed truly unused.
+12. No public, non-secret build-metadata (git SHA / build timestamp) endpoint exists, which would materially simplify future reconciliation phases like this one.
 
 ---
 

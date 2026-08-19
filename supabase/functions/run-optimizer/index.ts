@@ -147,27 +147,53 @@ function makeDb(supabase: any): OptimizerDbPort {
         .eq("user_id", userId)
         .eq("monthly_optimizer_uses", expectedMonthlyUses)
         .eq("last_optimizer_reset", expectedLastReset)
-        .select("monthly_optimizer_uses")
+        // Read back the ACTUAL stored values (never manufactured locally) —
+        // this becomes the refund token's compare-and-set guard.
+        .select("monthly_optimizer_uses, last_optimizer_reset")
         .maybeSingle();
 
       const { data, error } = await query;
       if (error || !data) return { claimed: false as const };
-      return { claimed: true as const, newMonthlyUses: data.monthly_optimizer_uses };
+      return {
+        claimed: true as const,
+        token: {
+          monthlyOptimizerUses: data.monthly_optimizer_uses,
+          lastOptimizerReset: data.last_optimizer_reset,
+        },
+      };
     },
 
-    async refundFreeSlot(userId, claimedValue) {
-      // Best-effort, attempted once. If the row no longer matches
-      // `claimedValue` (e.g. an operator manually adjusted it), we do not
-      // retry-loop a refund — the safer failure mode is "slot stays
-      // consumed" rather than risking a double-refund race.
-      const { error } = await supabase
+    async refundFreeSlot(userId, token) {
+      // Compare-and-set on the FULL token — user_id, monthly_optimizer_uses
+      // AND last_optimizer_reset. Matching on the counter alone would be an
+      // ABA/month-boundary bug: a claim still in flight when UTC month rolls
+      // over could refund a LATER request's freshly reset-and-claimed row,
+      // which happens to land back on the same counter value in the new
+      // month. The reset-timestamp guard makes that impossible — a stale
+      // token's WHERE simply stops matching once the row moves to a new
+      // generation, in either the counter OR the reset timestamp.
+      const { data, error } = await supabase
         .from("user_profiles")
-        .update({ monthly_optimizer_uses: Math.max(0, claimedValue - 1) })
+        .update({ monthly_optimizer_uses: Math.max(0, token.monthlyOptimizerUses - 1) })
         .eq("user_id", userId)
-        .eq("monthly_optimizer_uses", claimedValue);
+        .eq("monthly_optimizer_uses", token.monthlyOptimizerUses)
+        .eq("last_optimizer_reset", token.lastOptimizerReset)
+        .select("monthly_optimizer_uses")
+        .maybeSingle();
+
       if (error) {
+        // Fail conservatively: log only, never fall back to an unconditional
+        // decrement. The slot stays consumed rather than risking a
+        // double-refund race.
         console.error("Failed to refund optimizer quota claim:", error);
+        return "error" as const;
       }
+      if (!data) {
+        // Zero rows matched — the row has moved on to a different quota
+        // generation since this claim was made. Safe no-op; do not retry.
+        return "stale" as const;
+      }
+      return "refunded" as const;
     },
 
     async insertOptimizerRequest(userId, body) {

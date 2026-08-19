@@ -49,6 +49,25 @@
  *     happens after a stored result").
  *   - Active Pro (subscription status "active") is never quota-limited and
  *     never goes through the claim/refund cycle — unchanged behaviour.
+ *
+ * ROUND 3 (PR #65 review): a successful claim returns a durable REFUND TOKEN
+ * — the exact `{monthlyOptimizerUses, lastOptimizerReset}` Postgres actually
+ * stored, read back from the same UPDATE — not just the numeric counter.
+ * `refundFreeSlot` requires the complete token and matches ALL of
+ * `user_id` + `monthly_optimizer_uses` + `last_optimizer_reset`. This closes
+ * an ABA/month-boundary bug: without the reset-timestamp guard, a request
+ * that claimed an August slot and is still awaiting the provider when UTC
+ * September begins — and a second request meanwhile performs the September
+ * reset+claim, landing back on `monthly_optimizer_uses = 1` — would have its
+ * stale refund (matching on the counter alone) silently zero out the
+ * *September* claim it has no relationship to. With the full token, that
+ * stale refund's `last_optimizer_reset` guard no longer matches the row
+ * (which now holds the September timestamp) and the compare-and-set matches
+ * zero rows: a safe no-op, never touching the newer claim. Refunding a
+ * DIFFERENT request's quota in a DIFFERENT month is the exact failure this
+ * closes. No code path may reconstruct a token from assumptions — the exact
+ * value `claimFreeSlot` returned is threaded through untouched to whichever
+ * refund call ends up needing it.
  */
 import {
   evaluateOptimizerAuthState,
@@ -90,9 +109,31 @@ export interface ClaimSlotInput {
   nowIso: string;
 }
 
+/**
+ * A durable refund token: the EXACT `monthly_optimizer_uses` +
+ * `last_optimizer_reset` pair Postgres actually stored for a successful
+ * claim, read back from the same UPDATE. A refund's compare-and-set matches
+ * ALL of these fields — never the counter alone — so it can only ever
+ * release the specific quota generation it claimed.
+ */
+export interface QuotaClaimToken {
+  monthlyOptimizerUses: number;
+  lastOptimizerReset: string;
+}
+
 export type ClaimSlotResult =
-  | { claimed: true; newMonthlyUses: number }
+  | { claimed: true; token: QuotaClaimToken }
   | { claimed: false };
+
+/**
+ * - "refunded": the exact claim token matched and was released.
+ * - "stale": zero rows matched — the row has moved on (e.g. a month
+ *   boundary rolled over a newer claim into the same slot). SAFE, must be
+ *   treated as a no-op, and must NEVER be retried or blindly re-applied.
+ * - "error": a genuine database/PostgREST failure attempting the refund.
+ *   Fail/log conservatively — never fall back to an unconditional decrement.
+ */
+export type RefundResult = "refunded" | "stale" | "error";
 
 export interface OptimizerDbPort {
   /** Resolves the caller's user id from a bearer token. */
@@ -106,8 +147,11 @@ export interface OptimizerDbPort {
   getSubscriptionStatus(userId: string): Promise<string | null>;
   /** Atomic compare-and-set claim. See module header for the race guarantee. */
   claimFreeSlot(input: ClaimSlotInput): Promise<ClaimSlotResult>;
-  /** Best-effort, safe-to-attempt-once refund of a slot this request claimed. */
-  refundFreeSlot(userId: string, claimedValue: number): Promise<void>;
+  /**
+   * Attempt to release exactly the quota generation `token` identifies.
+   * Safe to call at most once per claim; never loops or retries internally.
+   */
+  refundFreeSlot(userId: string, token: QuotaClaimToken): Promise<RefundResult>;
   insertOptimizerRequest(
     userId: string,
     body: OptimizerRequestInput,
@@ -163,8 +207,8 @@ function resolveEffectivePlanAndAllowance(
 /**
  * Attempt to atomically claim one Free slot for `profile`, retrying at most
  * once against freshly-read state if the first compare-and-set loses a race.
- * Returns the claimed value, or a rejection result (paywall / service error)
- * if the slot cannot be claimed.
+ * Returns the durable refund token for the claim, or a rejection result
+ * (paywall / service error) if the slot cannot be claimed.
  */
 async function claimWithSingleRetry(
   db: OptimizerDbPort,
@@ -174,7 +218,7 @@ async function claimWithSingleRetry(
   needsReset: boolean,
   nowIso: string,
 ): Promise<
-  | { ok: true; claimedValue: number | null }
+  | { ok: true; token: QuotaClaimToken | null }
   | { ok: false; result: OptimizerHandlerResult }
 > {
   const first = await db.claimFreeSlot({
@@ -184,7 +228,7 @@ async function claimWithSingleRetry(
     needsReset,
     nowIso,
   });
-  if (first.claimed) return { ok: true, claimedValue: first.newMonthlyUses };
+  if (first.claimed) return { ok: true, token: first.token };
 
   // Lost the race — re-read and recompute against the NOW-current state.
   let fresh: ProfileRow | null;
@@ -209,7 +253,7 @@ async function claimWithSingleRetry(
   if (freshDecision.effectivePlan !== "free") {
     // The winner of the race made this account Pro/active in the meantime —
     // vanishingly unlikely, but correctly means no Free claim is needed.
-    return { ok: true, claimedValue: null };
+    return { ok: true, token: null };
   }
   if (!freshDecision.allowed) {
     return { ok: false, result: { kind: "paywall", body: PAYWALL_BODY } };
@@ -222,7 +266,7 @@ async function claimWithSingleRetry(
     needsReset: freshNeedsReset,
     nowIso,
   });
-  if (second.claimed) return { ok: true, claimedValue: second.newMonthlyUses };
+  if (second.claimed) return { ok: true, token: second.token };
 
   // Two consecutive lost races: reject rather than loop. With FREE_LIMIT=1
   // this means a third concurrent request collided with two others — treat
@@ -284,7 +328,7 @@ export async function handleOptimizerRequest(
   const needsReset = computeNeedsReset(profile.lastOptimizerReset, nowDate);
   const decision = resolveEffectivePlanAndAllowance(profile, subscriptionStatus, needsReset);
 
-  let claimedValue: number | null = null;
+  let claimToken: QuotaClaimToken | null = null;
 
   if (decision.effectivePlan === "free") {
     if (!decision.allowed) {
@@ -299,16 +343,28 @@ export async function handleOptimizerRequest(
       nowDate.toISOString(),
     );
     if (!claim.ok) return claim.result;
-    claimedValue = claim.claimedValue;
+    claimToken = claim.token;
   }
   // effectivePlan === "pro" (active): no claim needed, unlimited, unchanged.
 
   // ── Record the request. Only after any Free slot is durably claimed. ───
-  const requestRow = await db.insertOptimizerRequest(uid, body);
+  // Both the request-insert and the provider call are guarded: an unexpected
+  // thrown error (not just a typed failure result) must still refund the
+  // exact claim token before this function returns, rather than silently
+  // consuming the traveller's Free slot on an exception.
+  let requestRow: { id: string } | null;
+  try {
+    requestRow = await db.insertOptimizerRequest(uid, body);
+  } catch {
+    if (claimToken) await db.refundFreeSlot(uid, claimToken);
+    return {
+      kind: "service-error",
+      status: 503,
+      body: { error: "Unable to record your request. Please try again." },
+    };
+  }
   if (!requestRow) {
-    if (claimedValue !== null) {
-      await db.refundFreeSlot(uid, claimedValue);
-    }
+    if (claimToken) await db.refundFreeSlot(uid, claimToken);
     return {
       kind: "service-error",
       status: 503,
@@ -316,13 +372,21 @@ export async function handleOptimizerRequest(
     };
   }
 
-  const outcome = await callProvider(body);
+  let outcome: ProviderOutcome;
+  try {
+    outcome = await callProvider(body);
+  } catch {
+    if (claimToken) await db.refundFreeSlot(uid, claimToken);
+    return {
+      kind: "service-error",
+      status: 503,
+      body: { error: "Something went wrong retrieving your results. Please try again." },
+    };
+  }
 
   if (outcome.status !== "ok") {
     // Insufficient live data must never consume the Free allowance.
-    if (claimedValue !== null) {
-      await db.refundFreeSlot(uid, claimedValue);
-    }
+    if (claimToken) await db.refundFreeSlot(uid, claimToken);
     return { kind: "outcome", outcome };
   }
 
