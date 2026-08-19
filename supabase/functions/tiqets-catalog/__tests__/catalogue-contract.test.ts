@@ -428,8 +428,20 @@ describe("O. deno check compile gate", () => {
 
   const denoAvailable = runDeno(["--version"]).status === 0;
 
-  it.runIf(denoAvailable)("type-checks supabase/functions/tiqets-catalog/index.ts", () => {
-    const result = runDeno(["check", "--no-lock", "supabase/functions/tiqets-catalog/index.ts"]);
+  /**
+   * Both roots are checked. `catalogue-storage.ts` (T4A-P2) is deliberately
+   * NOT imported by index.ts — refresh stays disabled until P3 — so checking
+   * only the entrypoint would let the new storage contract escape type
+   * checking entirely, which is precisely how the original 14-error branch
+   * survived.
+   */
+  const CHECK_ROOTS = [
+    "supabase/functions/tiqets-catalog/index.ts",
+    "supabase/functions/tiqets-catalog/catalogue-storage.ts",
+  ];
+
+  it.runIf(denoAvailable)("type-checks the tiqets-catalog entrypoint and storage adapter", () => {
+    const result = runDeno(["check", "--no-lock", ...CHECK_ROOTS]);
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
     expect(output).not.toMatch(/Found \d+ errors?/);
     expect(result.status).toBe(0);
@@ -438,7 +450,13 @@ describe("O. deno check compile gate", () => {
   it("is wired to a repository script so the gate is runnable by hand", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
     expect(pkg.scripts["check:edge:tiqets-catalog"]).toBe(
-      "deno check --no-lock supabase/functions/tiqets-catalog/index.ts",
+      `deno check --no-lock ${CHECK_ROOTS.join(" ")}`,
     );
+  });
+
+  it("checks the disabled storage adapter, not only the reachable entrypoint", () => {
+    expect(CHECK_ROOTS).toContain("supabase/functions/tiqets-catalog/catalogue-storage.ts");
+    // Still unreachable from the handler: P2 builds the contract, P3 uses it.
+    expect(indexSrc).not.toContain("catalogue-storage");
   });
 });
