@@ -56,7 +56,23 @@ function generatePopularRoutes() {
   return routes;
 }
 
-type RouteStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'not_started';
+// BF-0R-3: AI generation no longer auto-publishes. 'generated_pending_review'
+// means the model's content passed the provenance gate in
+// supabase/functions/_shared/content-trust.ts but a human has not reviewed
+// or published it yet; 'failed_validation' means the model asserted an
+// unsourced fact and its content was discarded server-side. 'published' is
+// set ONLY by the explicit "Publish" action below, which flips is_published
+// through the caller's own admin session (the "Admins can manage route
+// pages" RLS policy) — never by the generation call itself.
+type RouteStatus =
+  | 'pending'
+  | 'generating'
+  | 'generated_pending_review'
+  | 'failed_validation'
+  | 'published'
+  | 'completed' // legacy value from rows generated before BF-0R-3
+  | 'failed'
+  | 'not_started';
 
 interface RouteWithStatus {
   origin_city: string;
@@ -66,17 +82,19 @@ interface RouteWithStatus {
   slug: string;
   status: RouteStatus;
   id?: string;
+  isPublished?: boolean;
 }
 
 export default function AdminRouteGenerator() {
   const { user, isLoading: authLoading, isAdmin } = useAdminAuth();
   const [routes, setRoutes] = useState<RouteWithStatus[]>([]);
-  const [existingSlugs, setExistingSlugs] = useState<Map<string, { status: string; id: string }>>(new Map());
+  const [existingSlugs, setExistingSlugs] = useState<Map<string, { status: string; id: string; isPublished: boolean }>>(new Map());
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState({ generated: 0, failed: 0, total: 0 });
-  const [filterStatus, setFilterStatus] = useState<'all' | 'not_started' | 'completed' | 'failed'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'not_started' | 'generated_pending_review' | 'failed_validation' | 'published' | 'failed'>('all');
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [publishingSlug, setPublishingSlug] = useState<string | null>(null);
 
   // Load existing route page statuses
   useEffect(() => {
@@ -87,17 +105,37 @@ export default function AdminRouteGenerator() {
     setIsLoadingStatus(true);
     const { data, error } = await supabase
       .from('seo_route_pages' as any)
-      .select('id, slug, generation_status')
+      .select('id, slug, generation_status, is_published')
       .limit(2000);
 
     if (!error && data) {
-      const slugMap = new Map<string, { status: string; id: string }>();
+      const slugMap = new Map<string, { status: string; id: string; isPublished: boolean }>();
       (data as any[]).forEach((r: any) => {
-        slugMap.set(r.slug, { status: r.generation_status, id: r.id });
+        slugMap.set(r.slug, { status: r.generation_status, id: r.id, isPublished: !!r.is_published });
       });
       setExistingSlugs(slugMap);
     }
     setIsLoadingStatus(false);
+  };
+
+  // Human publish gate — the ONLY place is_published is ever set to true.
+  // Runs under the admin's own session, so it is enforced by the
+  // "Admins can manage route pages" RLS policy independently of this UI.
+  const handlePublish = async (route: RouteWithStatus) => {
+    if (!route.id) return;
+    setPublishingSlug(route.slug);
+    const { error } = await supabase
+      .from('seo_route_pages' as any)
+      .update({ is_published: true, generation_status: 'published' })
+      .eq('id', route.id);
+
+    if (error) {
+      toast.error(`Failed to publish: ${error.message}`);
+    } else {
+      toast.success(`Published ${route.origin_city} → ${route.destination_city}`);
+      await loadExistingPages();
+    }
+    setPublishingSlug(null);
   };
 
   // Merge popular routes with DB status
@@ -108,6 +146,7 @@ export default function AdminRouteGenerator() {
         ...r,
         status: (existing?.status || 'not_started') as RouteStatus,
         id: existing?.id,
+        isPublished: existing?.isPublished ?? false,
       };
     });
     setRoutes(merged);
@@ -125,7 +164,7 @@ export default function AdminRouteGenerator() {
         const updated = payload.new;
         setExistingSlugs(prev => {
           const next = new Map(prev);
-          next.set(updated.slug, { status: updated.generation_status, id: updated.id });
+          next.set(updated.slug, { status: updated.generation_status, id: updated.id, isPublished: !!updated.is_published });
           return next;
         });
       })
@@ -141,7 +180,9 @@ export default function AdminRouteGenerator() {
 
   const stats = {
     total: routes.length,
-    completed: routes.filter(r => r.status === 'completed').length,
+    published: routes.filter(r => r.status === 'published' || r.status === 'completed').length,
+    reviewReady: routes.filter(r => r.status === 'generated_pending_review').length,
+    failedValidation: routes.filter(r => r.status === 'failed_validation').length,
     failed: routes.filter(r => r.status === 'failed').length,
     pending: routes.filter(r => r.status === 'pending' || r.status === 'generating').length,
     notStarted: routes.filter(r => r.status === 'not_started').length,
@@ -169,6 +210,7 @@ export default function AdminRouteGenerator() {
     const batchSize = 5;
     let totalGenerated = 0;
     let totalFailed = 0;
+    let totalFailedValidation = 0;
 
     for (let i = 0; i < toGenerate.length; i += batchSize) {
       const batch = toGenerate.slice(i, i + batchSize);
@@ -187,6 +229,7 @@ export default function AdminRouteGenerator() {
 
         totalGenerated += data?.generated || 0;
         totalFailed += data?.failed || 0;
+        totalFailedValidation += data?.failedValidation || 0;
       } catch (err) {
         console.error('Batch failed:', err);
         totalFailed += batch.length;
@@ -195,7 +238,11 @@ export default function AdminRouteGenerator() {
       setProgress({ generated: totalGenerated, failed: totalFailed, total: toGenerate.length });
     }
 
-    toast.success(`Generated ${totalGenerated} route pages (${totalFailed} failed)`);
+    // "Generated" here means "passed the provenance gate and is awaiting
+    // human review" — it is never publication. See handlePublish above.
+    toast.success(
+      `${totalGenerated} route page(s) ready for review (${totalFailed} failed, ${totalFailedValidation} rejected for unsourced facts)`,
+    );
     setIsGenerating(false);
     setSelectedSlugs(new Set());
     await loadExistingPages();
@@ -222,7 +269,13 @@ export default function AdminRouteGenerator() {
 
   const statusBadge = (status: RouteStatus) => {
     switch (status) {
-      case 'completed': return <Badge variant="default" className="bg-emerald-600 text-xs">Published</Badge>;
+      case 'published':
+      case 'completed': // legacy value from rows generated before BF-0R-3
+        return <Badge variant="default" className="bg-emerald-600 text-xs">Published</Badge>;
+      case 'generated_pending_review':
+        return <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">Awaiting review</Badge>;
+      case 'failed_validation':
+        return <Badge variant="destructive" className="text-xs">Unsourced facts rejected</Badge>;
       case 'generating': return <Badge variant="secondary" className="text-xs"><Loader2 className="h-3 w-3 animate-spin mr-1" />Generating</Badge>;
       case 'failed': return <Badge variant="destructive" className="text-xs">Failed</Badge>;
       case 'pending': return <Badge variant="outline" className="text-xs">Pending</Badge>;
@@ -251,7 +304,7 @@ export default function AdminRouteGenerator() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <Card className="border-border">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-foreground">{stats.total}</p>
@@ -260,13 +313,19 @@ export default function AdminRouteGenerator() {
             </Card>
             <Card className="border-emerald-200 dark:border-emerald-800">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-emerald-600">{stats.completed}</p>
+                <p className="text-2xl font-bold text-emerald-600">{stats.published}</p>
                 <p className="text-xs text-muted-foreground">Published</p>
+              </CardContent>
+            </Card>
+            <Card className="border-blue-200 dark:border-blue-800">
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold text-blue-600">{stats.reviewReady}</p>
+                <p className="text-xs text-muted-foreground">Awaiting Review</p>
               </CardContent>
             </Card>
             <Card className="border-destructive/20">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-destructive">{stats.failed}</p>
+                <p className="text-2xl font-bold text-destructive">{stats.failed + stats.failedValidation}</p>
                 <p className="text-xs text-muted-foreground">Failed</p>
               </CardContent>
             </Card>
@@ -339,7 +398,14 @@ export default function AdminRouteGenerator() {
 
           {/* Filter Tabs */}
           <div className="flex gap-2 mb-4 overflow-x-auto">
-            {(['all', 'not_started', 'completed', 'failed'] as const).map(status => (
+            {([
+              ['all', 'All'],
+              ['not_started', 'Not Started'],
+              ['generated_pending_review', 'Awaiting Review'],
+              ['published', 'Published'],
+              ['failed_validation', 'Unsourced Facts Rejected'],
+              ['failed', 'Failed'],
+            ] as const).map(([status, label]) => (
               <Button
                 key={status}
                 variant={filterStatus === status ? 'default' : 'outline'}
@@ -347,9 +413,13 @@ export default function AdminRouteGenerator() {
                 onClick={() => setFilterStatus(status)}
                 className="shrink-0"
               >
-                {status === 'all' ? 'All' : status === 'not_started' ? 'Not Started' : status.charAt(0).toUpperCase() + status.slice(1)}
+                {label}
                 <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5">
-                  {status === 'all' ? routes.length : routes.filter(r => r.status === status).length}
+                  {status === 'all'
+                    ? routes.length
+                    : status === 'published'
+                      ? stats.published
+                      : routes.filter(r => r.status === status).length}
                 </Badge>
               </Button>
             ))}
@@ -409,6 +479,17 @@ export default function AdminRouteGenerator() {
                         {route.origin_iata}–{route.destination_iata}
                       </span>
                       {statusBadge(route.status)}
+                      {route.status === 'generated_pending_review' && route.id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 h-7 text-xs"
+                          disabled={publishingSlug === route.slug}
+                          onClick={() => handlePublish(route)}
+                        >
+                          {publishingSlug === route.slug ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Publish'}
+                        </Button>
+                      )}
                     </div>
                   ))
                 )}

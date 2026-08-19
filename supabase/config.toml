@@ -3,8 +3,16 @@ project_id = "nrxupicbzblbxolyxksg"
 [functions.search-airports]
 verify_jwt = false
 
+# BF-0R-3: admin-only AI content generation. Unlike the public/anonymous
+# functions below, there is no crawler or anonymous shopper that legitimately
+# calls this endpoint, so there is no architectural reason to keep the
+# platform-level JWT gate off. verify_jwt=true rejects an unauthenticated
+# request before the function even runs; the function ALSO performs its own
+# explicit admin-role check (see supabase/functions/_shared/admin-auth.ts) so
+# a valid-but-non-admin JWT is still rejected with 403. Defense in depth, not
+# either/or.
 [functions.generate-seo-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.publish-scheduled-pages]
 verify_jwt = false
@@ -33,8 +41,14 @@ verify_jwt = false
 [functions.get-popular-directions]
 verify_jwt = false
 
+# BF-0R-3: admin-only bulk AI route-page generation, capable of service-role
+# database mutation. Same reasoning as generate-seo-content above — no
+# anonymous caller has a legitimate reason to invoke this, so the platform
+# JWT gate stays on AND the function performs its own explicit admin-role
+# check (supabase/functions/_shared/admin-auth.ts) that fails closed on a
+# missing/invalid/non-admin token.
 [functions.generate-route-page]
-verify_jwt = false
+verify_jwt = true
 
 [functions.search-flights]
 verify_jwt = false
