@@ -180,10 +180,10 @@ const OptimizerResults = ({ result, request, onReset }: OptimizerResultsProps) =
       {/* CTA */}
       <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 rounded-xl p-6 border border-primary/20">
         <h3 className="text-lg font-semibold text-foreground mb-2 text-center">
-          Ready to compare live prices?
+          Ready to compare prices?
         </h3>
         <p className="text-sm text-muted-foreground text-center mb-4">
-          See availability and pricing from our booking partners.
+          See availability and pricing on our booking partners’ sites.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -195,7 +195,7 @@ const OptimizerResults = ({ result, request, onReset }: OptimizerResultsProps) =
               onClick={() => handleAffiliateClick("view_deal", affiliateUrl)}
             >
               <a href={affiliateUrl} target="_blank" rel="noopener noreferrer">
-                View Live Prices
+                View on Partner Site
                 <ExternalLink className="ml-2 h-4 w-4" />
               </a>
             </Button>

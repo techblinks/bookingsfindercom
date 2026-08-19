@@ -17,6 +17,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "fs";
+import { join } from "path";
 import type {
   OptimizerRequest,
   OptimizerSuccess,
@@ -44,6 +46,7 @@ vi.mock("@/hooks/useOptimizer", async (importOriginal) => {
 
 import OptimizerResults from "../OptimizerResults";
 import OptimizerNoData from "../OptimizerNoData";
+import OptimizerForm from "../OptimizerForm";
 
 const request: OptimizerRequest = {
   origin: "SYD",
@@ -75,7 +78,7 @@ const noData: OptimizerInsufficientData = {
   status: "insufficient_live_data",
   reason: "provider_error",
   message:
-    "We couldn't retrieve enough live flight data to calculate this trip right now. " +
+    "We couldn't retrieve enough flight data from our provider to calculate this trip right now. " +
     "No estimated fare or recommendation has been generated.",
 };
 
@@ -136,7 +139,7 @@ describe("provider-backed result", () => {
   it("links out only to the genuine provider deep link", () => {
     render(<OptimizerResults result={providerBacked} request={request} onReset={vi.fn()} />);
 
-    const cta = screen.getByRole("link", { name: /View Live Prices/i });
+    const cta = screen.getByRole("link", { name: /View on Partner Site/i });
     expect(cta).toHaveAttribute("href", "https://www.aviasales.com/search/x1");
   });
 
@@ -149,7 +152,7 @@ describe("provider-backed result", () => {
       />,
     );
 
-    expect(screen.queryByRole("link", { name: /View Live Prices/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /View on Partner Site/i })).not.toBeInTheDocument();
     // The internal comparison link is navigation, not a claim, so it stays.
     expect(screen.getByRole("link", { name: /Compare Booking Options/i })).toBeInTheDocument();
   });
@@ -177,7 +180,9 @@ describe("insufficient live data", () => {
     expect(
       screen.getByText(/No estimated fare or recommendation has been generated\./i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/No live flight data available right now/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/No flight data available from our provider right now/i),
+    ).toBeInTheDocument();
   });
 
   it("shows no fare, airline, duration, stop count or advice", () => {
@@ -208,5 +213,58 @@ describe("insufficient live data", () => {
       "href",
       "/flights?origin=SYD&destination=LHR&date=2026-11-02",
     );
+  });
+});
+
+/**
+ * Customer-facing copy must not promise anything the trust model cannot
+ * deliver. These guards scan the production optimizer UI directly, so a
+ * reintroduced claim fails even if no component test happens to render it.
+ */
+describe("customer-facing optimizer copy", () => {
+  const UI_FILES = [
+    join(__dirname, "..", "OptimizerForm.tsx"),
+    join(__dirname, "..", "OptimizerResults.tsx"),
+    join(__dirname, "..", "OptimizerNoData.tsx"),
+    join(__dirname, "..", "..", "..", "pages", "TripOptimizer.tsx"),
+  ];
+  const uiSource = UI_FILES.map((f) => readFileSync(f, "utf8")).join("\n");
+
+  it("never claims baggage fees are estimated", () => {
+    // BF-0R-2 removed baggage estimation entirely and the backend persists
+    // baggage_estimate = null, so this old subtitle would be a false promise.
+    expect(uiSource).not.toMatch(/Include baggage fee estimates/i);
+    expect(uiSource).not.toMatch(/baggage fee estimate/i);
+  });
+
+  it("tells the traveller plainly that baggage fees are not estimated", () => {
+    render(<OptimizerForm onSubmit={vi.fn()} />);
+
+    expect(screen.getByText(/Checked Baggage/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/fees aren.t included or estimated/i),
+    ).toBeInTheDocument();
+  });
+
+  it("never promises a provider-quoted fare on EVERY search", () => {
+    // provider_error / provider_unavailable / no_results / unusable_results
+    // all yield no fare, so "every search" cannot be guaranteed.
+    expect(uiSource).not.toMatch(/on every search/i);
+    expect(uiSource).not.toMatch(/fares? (on|for) (every|all) searches?/i);
+  });
+
+  it("makes no guaranteed real-time freshness claim", () => {
+    // Nothing in the repository establishes a contractual freshness guarantee,
+    // so customer-facing copy is scoped to what the provider returned. The
+    // technical identifiers (INSUFFICIENT_LIVE_DATA / insufficient_live_data)
+    // live in the hook and core, not in this customer-facing surface.
+    expect(uiSource).not.toMatch(/\blive\b/i);
+    expect(uiSource).not.toMatch(/real[- ]time/i);
+    expect(uiSource).not.toMatch(/up[- ]to[- ]the[- ]minute|instantly updated/i);
+  });
+
+  it("still scopes its claims to the provider and the returned options", () => {
+    expect(uiSource).toMatch(/our (flight )?data provider/i);
+    expect(uiSource).toMatch(/options returned for this search/i);
   });
 });

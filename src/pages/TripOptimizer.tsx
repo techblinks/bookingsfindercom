@@ -46,9 +46,9 @@ const TripOptimizer = () => {
         <title>Smart Trip Optimizer | BookingsFinder</title>
         <meta
           name="description"
-          content="Compare live flight options returned by our data provider, with the quoted fare and how it sits against the other options returned for your search."
+          content="Compare the flight options returned by our data provider, with the quoted fare and how it sits against the other options returned for your search."
         />
-        <meta name="keywords" content="trip optimizer, travel planner, flight comparison, live flight prices, cheap flights" />
+        <meta name="keywords" content="trip optimizer, travel planner, flight comparison, provider-returned flight prices, cheap flights" />
         <link rel="canonical" href="https://bookingsfinder.com/optimizer" />
       </Helmet>
 
@@ -68,7 +68,7 @@ const TripOptimizer = () => {
                   Smart Trip Optimizer
                 </h1>
                 <p className="text-lg text-muted-foreground">
-                  See the live options our flight data provider returns for your search, the
+                  See the options our flight data provider returns for your search, the
                   quoted fare, and how it compares with the rest of those options.
                 </p>
               </div>
@@ -119,7 +119,7 @@ const TripOptimizer = () => {
                       Optimizing Your Trip
                     </h2>
                     <p className="text-muted-foreground">
-                      Retrieving live flight options from our data provider...
+                      Retrieving flight options from our data provider...
                     </p>
                   </div>
                 </div>
@@ -154,7 +154,7 @@ const TripOptimizer = () => {
                           </li>
                           <li className="flex items-center gap-2 text-sm text-muted-foreground">
                             <DollarSign className="h-4 w-4 text-emerald-500 shrink-0" />
-                            <span>Provider-quoted fares on every search</span>
+                            <span>Provider-quoted fares when returned</span>
                           </li>
                           <li className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-4 w-4 text-emerald-500 shrink-0" />

@@ -39,7 +39,7 @@ export const INSUFFICIENT_LIVE_DATA = "insufficient_live_data";
  * down, that prices are high, or that the traveller should buy or wait.
  */
 export const INSUFFICIENT_LIVE_DATA_MESSAGE =
-  "We couldn't retrieve enough live flight data to calculate this trip right now. " +
+  "We couldn't retrieve enough flight data from our provider to calculate this trip right now. " +
   "No estimated fare or recommendation has been generated.";
 
 /** Why no trustworthy answer could be produced. Diagnostic, not advice. */

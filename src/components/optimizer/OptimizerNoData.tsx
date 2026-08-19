@@ -29,13 +29,13 @@ const OptimizerNoData = ({ result, request, onReset }: OptimizerNoDataProps) => 
         </div>
 
         <h2 className="text-xl font-semibold text-foreground mb-2">
-          No live flight data available right now
+          No flight data available from our provider right now
         </h2>
 
         <p className="text-muted-foreground mb-6">{result.message}</p>
 
         <p className="text-sm text-muted-foreground mb-6">
-          This means we could not reach enough live data for{" "}
+          This means we could not retrieve enough data from our flight data provider for{" "}
           <span className="font-medium text-foreground">
             {request.origin} → {request.destination}
           </span>{" "}
@@ -58,7 +58,7 @@ const OptimizerNoData = ({ result, request, onReset }: OptimizerNoDataProps) => 
       </div>
 
       <p className="text-xs text-muted-foreground text-center mt-4">
-        BookingsFinder does not generate estimated fares or recommendations when live
+        BookingsFinder does not generate estimated fares or recommendations when
         provider data is unavailable.
       </p>
     </div>
