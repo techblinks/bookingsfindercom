@@ -369,13 +369,18 @@ describe("legacy fabricated constants cannot silently return", () => {
   });
 });
 
-describe("15 & 17. persistence and access control in index.ts", () => {
-  it("15. writes a result row ONLY for a genuine provider-backed answer", () => {
-    expect(indexSource).toMatch(
-      /if \(result\.status === "ok" && requestData\?\.id\)[\s\S]{0,400}optimizer_results/,
-    );
-  });
-
+describe("15 & 17. persistence and access control", () => {
+  // BF-0R-4 round 2 (PR #65 review): the request/claim/provider-call/result
+  // orchestration moved out of index.ts into optimizer-orchestrator.ts,
+  // which is Deno-global-free and takes its I/O as injected dependencies —
+  // so these properties are now proven with REAL mocked orchestration tests
+  // in optimizer-orchestrator.test.ts (preferred over source-position regex
+  // for security-relevant control flow) rather than by grepping index.ts:
+  //   - "writes a result row ONLY for a genuine provider-backed answer" and
+  //     "a non-'ok' outcome persists no result row" — tests 10-14.
+  //   - the free-tier quota / 402 paywall / atomic claim — tests 5-9, 14-16.
+  //   - the monthly reset-is-part-of-the-atomic-claim behaviour — the
+  //     "month reset + claim is one atomic decision" describe block.
   it("15. explicitly NULLs the legacy fabricated estimate columns", () => {
     expect(indexSource).toMatch(/baggage_estimate: null/);
     expect(indexSource).toMatch(/transfer_estimate: null/);
@@ -388,26 +393,20 @@ describe("15 & 17. persistence and access control in index.ts", () => {
   });
 
   it("15. stores only the genuine provider fare as the monetary value", () => {
-    expect(indexSource).toMatch(/estimated_total_cost: result\.fare/);
-    expect(indexSource).toMatch(/fare_estimate: result\.fare/);
+    expect(indexSource).toMatch(/estimated_total_cost: outcome\.fare/);
+    expect(indexSource).toMatch(/fare_estimate: outcome\.fare/);
   });
 
   it("17. preserves authentication, plan and subscription checks", () => {
-    // BF-0R-4: the inactive-Pro downgrade decision moved from an inline
-    // comparison in index.ts to the pure evaluateOptimizerQuota in
-    // auth-quota-core.ts — see optimizer-auth-quota.test.ts for the
-    // relocated, and now also authentication-gated, assertions.
     expect(indexSource).toMatch(/supabase\.auth\.getUser\(token\)/);
     expect(indexSource).toMatch(/from\("user_profiles"\)/);
     expect(indexSource).toMatch(/from\("subscriptions"\)/);
   });
 
-  it("17. preserves the free-tier quota and its 402 paywall response", () => {
-    // BF-0R-4: the FREE_LIMIT comparison moved into evaluateOptimizerQuota —
-    // see optimizer-auth-quota.test.ts.
-    expect(indexSource).toMatch(/const FREE_LIMIT = 1;/);
+  it("17. preserves the 402 paywall response and the atomic claim's compare-and-set guards", () => {
     expect(indexSource).toMatch(/status: 402/);
-    expect(indexSource).toMatch(/monthly_optimizer_uses: \(profile\.monthly_optimizer_uses \|\| 0\) \+ 1/);
+    expect(indexSource).toMatch(/\.eq\("monthly_optimizer_uses", expectedMonthlyUses\)/);
+    expect(indexSource).toMatch(/\.eq\("last_optimizer_reset", expectedLastReset\)/);
   });
 
   it("17. keeps the monthly usage reset behaviour", () => {
