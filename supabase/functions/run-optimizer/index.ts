@@ -25,6 +25,7 @@ import {
   type ProviderFlightObservation,
   type TravelPriority,
 } from "./optimizer-core.ts";
+import { evaluateOptimizerAuthState, evaluateOptimizerQuota } from "./auth-quota-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,66 +123,92 @@ serve(async (req) => {
       );
     }
 
-    // ── Auth, plan and quota (unchanged behaviour) ────────────────────────
+    // ── Auth (BF-0R-4): run-optimizer requires an authenticated user. ──────
+    // verify_jwt = true in config.toml already rejects a request with no/
+    // invalid JWT at the platform gateway before this code runs. This
+    // in-function check is defense-in-depth (same convention as
+    // _shared/admin-auth.ts) and is what actually resolves the caller's
+    // identity: the platform gate alone proves the token is well-formed, not
+    // that this function's own logic denies anonymous access if the gate is
+    // ever misconfigured. No provider call, no optimizer_requests row, and no
+    // service-role mutation happen below this point unless auth succeeds.
     let userId: string | null = null;
-    let userPlan = "free";
-    let monthlyUses = 0;
+    let userLookupError = false;
 
     const authHeader = req.headers.get("Authorization");
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "");
-      const { data: userData } = await supabase.auth.getUser(token);
+    const hasAuthHeader = authHeader?.startsWith("Bearer ") ?? false;
+    if (hasAuthHeader) {
+      const token = authHeader!.replace("Bearer ", "");
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
       userId = userData?.user?.id || null;
+      userLookupError = !!userError;
+    }
 
-      if (userId) {
-        const { data: profile } = await supabase
+    const authResult = evaluateOptimizerAuthState({ hasAuthHeader, userId, userLookupError });
+    if (!authResult.ok) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    userId = authResult.userId;
+
+    // ── Plan and quota (unchanged behaviour, now always for a known user) ──
+    let userPlan = "free";
+    let monthlyUses = 0;
+    let subscriptionStatus: string | null = null;
+
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("plan, monthly_optimizer_uses, last_optimizer_reset")
+      .eq("user_id", userId)
+      .single();
+
+    if (profile) {
+      userPlan = profile.plan || "free";
+
+      const now = new Date();
+      const lastReset = profile.last_optimizer_reset
+        ? new Date(profile.last_optimizer_reset)
+        : null;
+      const needsReset =
+        !lastReset ||
+        now.getMonth() !== lastReset.getMonth() ||
+        now.getFullYear() !== lastReset.getFullYear();
+
+      if (needsReset) {
+        monthlyUses = 0;
+        await supabase
           .from("user_profiles")
-          .select("plan, monthly_optimizer_uses, last_optimizer_reset")
+          .update({
+            monthly_optimizer_uses: 0,
+            last_optimizer_reset: now.toISOString(),
+          })
+          .eq("user_id", userId);
+      } else {
+        monthlyUses = profile.monthly_optimizer_uses || 0;
+      }
+
+      if (userPlan === "pro") {
+        const { data: subscription } = await supabase
+          .from("subscriptions")
+          .select("status")
           .eq("user_id", userId)
           .single();
 
-        if (profile) {
-          userPlan = profile.plan || "free";
-
-          const now = new Date();
-          const lastReset = profile.last_optimizer_reset
-            ? new Date(profile.last_optimizer_reset)
-            : null;
-          const needsReset =
-            !lastReset ||
-            now.getMonth() !== lastReset.getMonth() ||
-            now.getFullYear() !== lastReset.getFullYear();
-
-          if (needsReset) {
-            monthlyUses = 0;
-            await supabase
-              .from("user_profiles")
-              .update({
-                monthly_optimizer_uses: 0,
-                last_optimizer_reset: now.toISOString(),
-              })
-              .eq("user_id", userId);
-          } else {
-            monthlyUses = profile.monthly_optimizer_uses || 0;
-          }
-
-          if (userPlan === "pro") {
-            const { data: subscription } = await supabase
-              .from("subscriptions")
-              .select("status")
-              .eq("user_id", userId)
-              .single();
-
-            if (subscription?.status !== "active") {
-              userPlan = "free"; // Downgrade if subscription not active
-            }
-          }
-        }
+        subscriptionStatus = subscription?.status ?? null;
       }
     }
 
     const FREE_LIMIT = 1;
-    if (userPlan === "free" && monthlyUses >= FREE_LIMIT) {
+    const quota = evaluateOptimizerQuota({
+      plan: userPlan,
+      monthlyUses,
+      freeLimit: FREE_LIMIT,
+      subscriptionStatus,
+    });
+
+    if (!quota.allowed) {
       return new Response(
         JSON.stringify({
           error: "paywall",

@@ -393,15 +393,19 @@ describe("15 & 17. persistence and access control in index.ts", () => {
   });
 
   it("17. preserves authentication, plan and subscription checks", () => {
+    // BF-0R-4: the inactive-Pro downgrade decision moved from an inline
+    // comparison in index.ts to the pure evaluateOptimizerQuota in
+    // auth-quota-core.ts — see optimizer-auth-quota.test.ts for the
+    // relocated, and now also authentication-gated, assertions.
     expect(indexSource).toMatch(/supabase\.auth\.getUser\(token\)/);
     expect(indexSource).toMatch(/from\("user_profiles"\)/);
     expect(indexSource).toMatch(/from\("subscriptions"\)/);
-    expect(indexSource).toMatch(/userPlan = "free"; \/\/ Downgrade if subscription not active/);
   });
 
   it("17. preserves the free-tier quota and its 402 paywall response", () => {
+    // BF-0R-4: the FREE_LIMIT comparison moved into evaluateOptimizerQuota —
+    // see optimizer-auth-quota.test.ts.
     expect(indexSource).toMatch(/const FREE_LIMIT = 1;/);
-    expect(indexSource).toMatch(/userPlan === "free" && monthlyUses >= FREE_LIMIT/);
     expect(indexSource).toMatch(/status: 402/);
     expect(indexSource).toMatch(/monthly_optimizer_uses: \(profile\.monthly_optimizer_uses \|\| 0\) \+ 1/);
   });

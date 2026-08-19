@@ -26,8 +26,17 @@ verify_jwt = false
 [functions.get-subscription-status]
 verify_jwt = false
 
+# BF-0R-4: run-optimizer is a customer feature (not admin-only), but it is no
+# longer anonymous-callable. The prior verify_jwt=false + optional Authorization
+# header let an anonymous caller fall through with userId=null, which is always
+# under FREE_LIMIT, so the request (and a real Travelpayouts provider call)
+# proceeded with no durable quota ever incremented for that caller — an
+# unlimited anonymous quota bypass. verify_jwt=true rejects an unauthenticated
+# request before the function runs; the function ALSO independently resolves
+# and requires the caller's identity (see auth-quota-core.ts) as defense in
+# depth, the same convention as the BF-0R-3 admin-only functions below.
 [functions.run-optimizer]
-verify_jwt = false
+verify_jwt = true
 
 [functions.track-affiliate-click]
 verify_jwt = false
