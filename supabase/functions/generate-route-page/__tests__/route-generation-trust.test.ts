@@ -174,21 +174,111 @@ describe("index.ts — is_published is NEVER set true from a generation call", (
     expect(codeAfterHeader).not.toMatch(/is_published\s*:\s*true/);
   });
 
-  it("the successful-generation update block does not reference is_published at all", () => {
-    // This literal (from(...) and .update({ chained on one line, object body
-    // on following lines) is unique to the success-path update — every other
-    // `.update(` call in this file breaks the chain across lines.
-    const updateBlockStart = indexSource.indexOf("await supabase.from('seo_route_pages').update({");
-    expect(updateBlockStart).toBeGreaterThan(-1);
-    const updateBlockEnd = indexSource.indexOf("}).eq('slug', slug);", updateBlockStart);
-    expect(updateBlockEnd).toBeGreaterThan(updateBlockStart);
-    const updateBlock = indexSource.slice(updateBlockStart, updateBlockEnd);
-    expect(updateBlock).not.toMatch(/is_published/);
-    expect(updateBlock).toMatch(/generation_status: GenerationStatus\.GENERATED_PENDING_REVIEW/);
+  it("the successful-generation write payload (the SET clause) never sets is_published", () => {
+    // Anchor on the unique destructuring assignment that introduces the
+    // content write, then bound the payload from its `.update({` to the
+    // first `.eq('slug', slug)` that follows — both unique within this
+    // narrow, anchored region, so this cannot accidentally span an earlier
+    // `.update(` call elsewhere in the file.
+    const writeStart = indexSource.indexOf("const { data: writeResult, error: writeError } = await supabase");
+    expect(writeStart).toBeGreaterThan(-1);
+    const region = indexSource.slice(writeStart, writeStart + 900);
+    const payloadStart = region.indexOf(".update({");
+    const payloadEnd = region.indexOf(".eq('slug', slug)", payloadStart);
+    expect(payloadStart).toBeGreaterThan(-1);
+    expect(payloadEnd).toBeGreaterThan(payloadStart);
+    const payload = region.slice(payloadStart, payloadEnd);
+    expect(payload).not.toMatch(/is_published/);
+    expect(payload).toMatch(/generation_status: GenerationStatus\.GENERATED_PENDING_REVIEW/);
   });
 
   it("the pending-record insert leaves is_published explicitly false", () => {
     expect(indexSource).toMatch(/is_published:\s*false,/);
+  });
+});
+
+describe("index.ts — TOCTOU hardening: every mutating write also requires is_published=false AT WRITE TIME (BF-0R-3 final hardening, P0)", () => {
+  // The preflight snapshot (`publishedSlugs`) proves a row was unpublished
+  // when the batch STARTED. It cannot prove that a row is still unpublished
+  // by the time a given route's write actually runs — the review dialog can
+  // publish it concurrently. Every mutating `.update(...)` for a route must
+  // therefore also carry its own `.eq('is_published', false)` condition, so
+  // it can only ever affect a row that is unpublished right now, not a row
+  // the code merely believed to be unpublished earlier.
+  //
+  // This is deliberately a DIFFERENT thing from "does the SET clause assign
+  // is_published" (checked above, and must remain false/absent): a query can
+  // — and here must — READ/FILTER on is_published without ever WRITING it.
+
+  it("the GENERATING status write requires is_published=false", () => {
+    const idx = indexSource.indexOf("generation_status: GenerationStatus.GENERATING");
+    expect(idx).toBeGreaterThan(-1);
+    const nearby = indexSource.slice(idx, idx + 200);
+    expect(nearby).toMatch(/\.eq\('slug', slug\)\s*\n\s*\.eq\('is_published', false\)/);
+  });
+
+  it("the FAILED_VALIDATION status write requires is_published=false", () => {
+    // The colon form (`generation_status: GenerationStatus.FAILED_VALIDATION`)
+    // is unique to this update's SET payload — the provenance-gate check
+    // earlier in the file uses `===`, not a colon, so it cannot collide.
+    const idx = indexSource.indexOf("generation_status: GenerationStatus.FAILED_VALIDATION");
+    expect(idx).toBeGreaterThan(-1);
+    const nearby = indexSource.slice(idx, idx + 200);
+    expect(nearby).toMatch(/\.eq\('slug', slug\)\s*\n\s*\.eq\('is_published', false\)/);
+  });
+
+  it("the FAILED status write (catch block) requires is_published=false", () => {
+    const idx = indexSource.indexOf("catch (err)");
+    expect(idx).toBeGreaterThan(-1);
+    const nearby = indexSource.slice(idx, idx + 300);
+    expect(nearby).toMatch(/GenerationStatus\.FAILED \}\)[\s\S]*?\.eq\('slug', slug\)\s*\n\s*\.eq\('is_published', false\)/);
+  });
+
+  it("the successful-content write requires is_published=false AND verifies it actually matched a row", () => {
+    const writeStart = indexSource.indexOf("const { data: writeResult, error: writeError } = await supabase");
+    expect(writeStart).toBeGreaterThan(-1);
+    const region = indexSource.slice(writeStart, writeStart + 900);
+    expect(region).toMatch(/\.eq\('slug', slug\)/);
+    expect(region).toMatch(/\.eq\('is_published', false\)/);
+    expect(region).toMatch(/\.select\('id'\)/);
+  });
+
+  it("zero rows matched by the content write is treated as a protected skip, not a success, and not a failure", () => {
+    expect(indexSource).toMatch(/if \(!writeResult \|\| writeResult\.length === 0\)/);
+    const zeroRowBlockStart = indexSource.indexOf("if (!writeResult || writeResult.length === 0)");
+    // Bounded to exactly this if-block's own body (up to its own
+    // `continue;`), so it cannot spill into the `generated++` that runs
+    // AFTER the block when the condition is false.
+    const zeroRowBlockEnd = indexSource.indexOf("continue;", zeroRowBlockStart) + "continue;".length;
+    const zeroRowBlock = indexSource.slice(zeroRowBlockStart, zeroRowBlockEnd);
+    expect(zeroRowBlock).toMatch(/skippedPublished\+\+/);
+    expect(zeroRowBlock).not.toMatch(/generated\+\+/);
+    expect(zeroRowBlock).not.toMatch(/failed\+\+/);
+  });
+
+  it("a write error on the content update fails closed (throws) rather than being swallowed", () => {
+    expect(indexSource).toMatch(/if \(writeError\)\s*\{\s*throw new Error/);
+  });
+});
+
+describe("index.ts — publication-state preflight runs before ANY mutation, including the pending insert (BF-0R-3 final hardening, P1)", () => {
+  it("the is_published lookup happens before the pending-record insert AND before the generation loop", () => {
+    const lookupIndex = indexSource.indexOf(".select('slug, is_published')");
+    const pendingRecordsIndex = indexSource.indexOf("const pendingRecords = routes");
+    const upsertIndex = indexSource.indexOf(".upsert(pendingRecords");
+    const loopIndex = indexSource.indexOf("for (const route of routes)");
+    expect(lookupIndex).toBeGreaterThan(-1);
+    expect(lookupIndex).toBeLessThan(pendingRecordsIndex);
+    expect(lookupIndex).toBeLessThan(upsertIndex);
+    expect(lookupIndex).toBeLessThan(loopIndex);
+  });
+
+  it("a published slug is excluded from the pending-record insert itself, not just from the generation loop", () => {
+    expect(indexSource).toMatch(/const pendingRecords = routes\s*\n\s*\.filter\(r => !publishedSlugs\.has\(buildRouteSlug\(r\)\)\)/);
+  });
+
+  it("the pending insert is skipped entirely (not even an empty-array call) when nothing is eligible", () => {
+    expect(indexSource).toMatch(/if \(pendingRecords\.length > 0\)\s*\{/);
   });
 });
 

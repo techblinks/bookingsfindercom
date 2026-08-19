@@ -98,6 +98,14 @@ interface RouteReviewContent {
   main_content: string;
   travel_tips: { title?: string; content?: string }[] | null;
   faqs: { question: string; answer: string }[] | null;
+  /**
+   * BF-0R-3 final hardening: the exact version marker captured when the
+   * review dialog opened. `seo_route_pages` has an `update_seo_route_pages_
+   * updated_at` trigger that bumps this on every row change, so it doubles
+   * as a free optimistic-concurrency token — no migration needed. Publish
+   * requires the row to still carry this exact value; see confirmPublish.
+   */
+  updated_at: string;
 }
 
 export default function AdminRouteGenerator() {
@@ -141,32 +149,14 @@ export default function AdminRouteGenerator() {
     setIsLoadingStatus(false);
   };
 
-  // Human publish gate — the ONLY place is_published is ever set to true.
-  // Runs under the admin's own session, so it is enforced by the
-  // "Admins can manage route pages" RLS policy independently of this UI.
-  // Not exported/exposed to any row action directly — only `confirmPublish`
-  // below (fired from inside the review dialog) ever calls this.
-  const handlePublish = async (route: RouteWithStatus) => {
-    if (!route.id) return;
-    setPublishingSlug(route.slug);
-    const { error } = await supabase
-      .from('seo_route_pages' as any)
-      .update({ is_published: true, generation_status: 'published' })
-      .eq('id', route.id);
-
-    if (error) {
-      toast.error(`Failed to publish: ${error.message}`);
-    } else {
-      toast.success(`Published ${route.origin_city} → ${route.destination_city}`);
-      await loadExistingPages();
-    }
-    setPublishingSlug(null);
-  };
-
   // Opens the mandatory review surface (P0-3). Loads the FULL generated
   // content on demand — the list view only ever holds id/slug/status/
   // is_published, never the actual page text, so there is nothing to
-  // publish without first fetching what will actually be shown.
+  // publish without first fetching what will actually be shown. Also
+  // captures `updated_at` as the reviewed-version marker (BF-0R-3 final
+  // hardening) — Publish will require the row to still carry this exact
+  // value, so a regeneration that lands after this fetch cannot be
+  // published under the guise of the version actually reviewed here.
   const openReview = async (route: RouteWithStatus) => {
     if (!route.id) return;
     setReviewRoute(route);
@@ -176,7 +166,7 @@ export default function AdminRouteGenerator() {
 
     const { data, error } = await supabase
       .from('seo_route_pages')
-      .select('title, meta_description, h1_title, intro_paragraph, main_content, travel_tips, faqs')
+      .select('title, meta_description, h1_title, intro_paragraph, main_content, travel_tips, faqs, updated_at')
       .eq('id', route.id)
       .single();
 
@@ -195,13 +185,52 @@ export default function AdminRouteGenerator() {
     setReviewConfirmed(false);
   };
 
-  // The only caller of handlePublish. Requires the explicit confirmation
-  // checkbox (reviewConfirmed) — the Publish button in the dialog is
-  // disabled without it, and this function re-checks it defensively.
+  // Human publish gate — the ONLY place is_published is ever set to true.
+  // Reachable ONLY from inside the review dialog, behind the explicit
+  // confirmation checkbox, and runs under the admin's own session, so it is
+  // enforced independently by the "Admins can manage route pages" RLS
+  // policy on top of everything below.
+  //
+  // BF-0R-3 final hardening — optimistic-concurrency guard: the review
+  // dialog can be open for a while, and the reviewed row is NOT locked
+  // against regeneration while it's open. Without a version check, this
+  // race is possible: review version A → a regeneration overwrites the row
+  // with version B → the admin, still looking at the version-A dialog,
+  // clicks Publish → version B goes live even though only A was reviewed.
+  // The WHERE clause below requires the row to still be exactly the
+  // reviewed version — unpublished, still awaiting review, AND still
+  // carrying the `updated_at` captured when the dialog opened — and
+  // `.select('id')` reports whether that actually matched. Zero rows means
+  // the content changed after review (or was published by someone else, or
+  // no longer exists): fail closed, publish nothing, and send the admin
+  // back to review the current version.
   const confirmPublish = async () => {
-    if (!reviewRoute || !reviewContent || !reviewConfirmed) return;
-    await handlePublish(reviewRoute);
-    closeReview();
+    if (!reviewRoute?.id || !reviewContent || !reviewConfirmed) return;
+    setPublishingSlug(reviewRoute.slug);
+
+    const { data, error } = await supabase
+      .from('seo_route_pages' as any)
+      .update({ is_published: true, generation_status: 'published' })
+      .eq('id', reviewRoute.id)
+      .eq('is_published', false)
+      .eq('generation_status', 'generated_pending_review')
+      .eq('updated_at', reviewContent.updated_at)
+      .select('id');
+
+    if (error) {
+      toast.error(`Failed to publish: ${error.message}`);
+    } else if (!data || data.length === 0) {
+      toast.error(
+        'This content changed after you opened it for review. Please review the latest version before publishing.',
+      );
+      closeReview();
+      await loadExistingPages();
+    } else {
+      toast.success(`Published ${reviewRoute.origin_city} → ${reviewRoute.destination_city}`);
+      closeReview();
+      await loadExistingPages();
+    }
+    setPublishingSlug(null);
   };
 
   // Merge popular routes with DB status
@@ -314,7 +343,7 @@ export default function AdminRouteGenerator() {
     }
 
     // "Generated" here means "passed the provenance gate and is awaiting
-    // human review" — it is never publication. See handlePublish above.
+    // human review" — it is never publication. See confirmPublish above.
     toast.success(
       `${totalGenerated} route page(s) ready for review (${totalFailed} failed, ${totalFailedValidation} rejected for unsourced facts${totalSkippedPublished > 0 ? `, ${totalSkippedPublished} already-published route(s) left untouched` : ''})`,
     );
