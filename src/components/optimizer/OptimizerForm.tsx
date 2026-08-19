@@ -151,7 +151,9 @@ const OptimizerForm = ({ onSubmit, error }: OptimizerFormProps) => {
             <Briefcase className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="font-medium text-foreground text-sm">Checked Baggage</p>
-              <p className="text-xs text-muted-foreground">Include baggage fee estimates</p>
+              <p className="text-xs text-muted-foreground">
+                Baggage preference only — fees aren't included or estimated
+              </p>
             </div>
           </div>
           <Switch
