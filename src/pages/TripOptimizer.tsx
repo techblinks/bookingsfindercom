@@ -5,7 +5,13 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import OptimizerForm from "@/components/optimizer/OptimizerForm";
 import OptimizerResults from "@/components/optimizer/OptimizerResults";
-import { useOptimizer, OptimizerRequest, OptimizerResult } from "@/hooks/useOptimizer";
+import OptimizerNoData from "@/components/optimizer/OptimizerNoData";
+import {
+  useOptimizer,
+  OptimizerRequest,
+  OptimizerResult,
+  isOptimizerSuccess,
+} from "@/hooks/useOptimizer";
 import { Loader2, Sparkles, Shield, DollarSign, Clock, Zap, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,9 +46,9 @@ const TripOptimizer = () => {
         <title>Smart Trip Optimizer | BookingsFinder</title>
         <meta
           name="description"
-          content="Get personalized travel recommendations with cost breakdowns, timing advice, and risk alerts. Make smarter travel decisions before booking."
+          content="Compare live flight options returned by our data provider, with the quoted fare and how it sits against the other options returned for your search."
         />
-        <meta name="keywords" content="trip optimizer, travel planner, flight cost breakdown, travel advice, cheap flights" />
+        <meta name="keywords" content="trip optimizer, travel planner, flight comparison, live flight prices, cheap flights" />
         <link rel="canonical" href="https://bookingsfinder.com/optimizer" />
       </Helmet>
 
@@ -62,8 +68,8 @@ const TripOptimizer = () => {
                   Smart Trip Optimizer
                 </h1>
                 <p className="text-lg text-muted-foreground">
-                  Get personalized route recommendations, total cost estimates, and timing advice.
-                  Make smarter decisions before you book.
+                  See the live options our flight data provider returns for your search, the
+                  quoted fare, and how it compares with the rest of those options.
                 </p>
               </div>
 
@@ -75,8 +81,8 @@ const TripOptimizer = () => {
                       <DollarSign className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground text-sm">Total Cost Breakdown</p>
-                      <p className="text-xs text-muted-foreground">Fare + bags + transfers</p>
+                      <p className="font-medium text-foreground text-sm">Provider-quoted fare</p>
+                      <p className="text-xs text-muted-foreground">No invented estimates</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border">
@@ -84,8 +90,8 @@ const TripOptimizer = () => {
                       <Clock className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground text-sm">Timing Advice</p>
-                      <p className="text-xs text-muted-foreground">Buy now or wait?</p>
+                      <p className="font-medium text-foreground text-sm">Fare comparison</p>
+                      <p className="text-xs text-muted-foreground">Against options returned</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border">
@@ -93,8 +99,8 @@ const TripOptimizer = () => {
                       <Shield className="h-5 w-5 text-amber-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground text-sm">Risk Alerts</p>
-                      <p className="text-xs text-muted-foreground">Layovers & transfers</p>
+                      <p className="font-medium text-foreground text-sm">Itinerary notes</p>
+                      <p className="text-xs text-muted-foreground">Stops and duration</p>
                     </div>
                   </div>
                 </div>
@@ -113,7 +119,7 @@ const TripOptimizer = () => {
                       Optimizing Your Trip
                     </h2>
                     <p className="text-muted-foreground">
-                      Analyzing routes, estimating costs, and checking for risks...
+                      Retrieving live flight options from our data provider...
                     </p>
                   </div>
                 </div>
@@ -148,15 +154,15 @@ const TripOptimizer = () => {
                           </li>
                           <li className="flex items-center gap-2 text-sm text-muted-foreground">
                             <DollarSign className="h-4 w-4 text-emerald-500 shrink-0" />
-                            <span>Full cost breakdowns with hidden fees</span>
+                            <span>Provider-quoted fares on every search</span>
                           </li>
                           <li className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-4 w-4 text-emerald-500 shrink-0" />
-                            <span>Priority timing advice & price predictions</span>
+                            <span>Fare comparison against all returned options</span>
                           </li>
                           <li className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Shield className="h-4 w-4 text-emerald-500 shrink-0" />
-                            <span>Advanced risk alerts for every trip</span>
+                            <span>Itinerary notes on stops and duration</span>
                           </li>
                         </ul>
                       </div>
@@ -180,11 +186,19 @@ const TripOptimizer = () => {
                   </Card>
                 </div>
               ) : result && request ? (
-                <OptimizerResults
-                  result={result}
-                  request={request}
-                  onReset={handleReset}
-                />
+                isOptimizerSuccess(result) ? (
+                  <OptimizerResults
+                    result={result}
+                    request={request}
+                    onReset={handleReset}
+                  />
+                ) : (
+                  <OptimizerNoData
+                    result={result}
+                    request={request}
+                    onReset={handleReset}
+                  />
+                )
               ) : (
                 <div className="max-w-2xl mx-auto">
                   <OptimizerForm onSubmit={handleSubmit} error={error} />
@@ -205,19 +219,20 @@ const TripOptimizer = () => {
                     What is the Smart Trip Optimizer?
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    The Smart Trip Optimizer is a travel intelligence tool that helps you make smarter
-                    booking decisions. It analyzes your trip requirements and provides cost breakdowns,
-                    timing recommendations, and risk alerts before you book with our partner sites.
+                    The Smart Trip Optimizer queries our flight data provider for your route and
+                    dates, then shows the option matching your priority, the fare quoted for it, and
+                    how that fare compares with the other options returned for the same search.
                   </p>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-5">
                   <h3 className="font-semibold text-foreground mb-2">
-                    How does the cost breakdown work?
+                    What does the fare include?
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    We estimate your total trip cost including base fare, baggage fees, and potential
-                    transfer costs. This gives you a realistic picture of what you'll actually spend,
-                    not just the advertised fare.
+                    We show the fare quoted by our flight data provider at the time of your search.
+                    It does not include baggage, transfers or other fees, and we do not estimate
+                    them — inventing those figures would not give you a reliable number. The final
+                    price is confirmed on the booking partner's site.
                   </p>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-5">
@@ -238,8 +253,8 @@ const TripOptimizer = () => {
           <div className="py-6 bg-muted/50">
             <div className="container">
               <p className="text-xs text-muted-foreground text-center max-w-2xl mx-auto">
-                BookingsFinder provides travel insights and recommendations. All bookings are completed
-                on partner websites. Prices shown are estimates and may vary at time of booking.
+                BookingsFinder shows flight data returned by our provider at the time of your search.
+                All bookings are completed on partner websites, where the final price is confirmed.
               </p>
             </div>
           </div>

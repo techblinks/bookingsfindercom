@@ -10,9 +10,9 @@ export interface OptimizerRequest {
   priority: "cheapest" | "fastest" | "low_risk";
 }
 
-export interface RiskAlert {
+/** A purely factual observation about the returned itinerary. */
+export interface FactualNote {
   type: string;
-  severity: "low" | "medium" | "high";
   message: string;
 }
 
@@ -28,25 +28,49 @@ export interface PriceContext {
   highestPrice: number;
 }
 
-export interface OptimizerResult {
+export const INSUFFICIENT_LIVE_DATA = "insufficient_live_data";
+
+export type SelectionCriterion = "price" | "duration" | "fewest_stops";
+
+/**
+ * A provider-backed answer. Every field traces to a genuine Travelpayouts
+ * observation or a deterministic derivation from one — see
+ * supabase/functions/run-optimizer/optimizer-core.ts.
+ */
+export interface OptimizerSuccess {
+  status: "ok";
   recommendedRoute: {
     summary: string;
     airline?: string;
     stops?: number;
     duration?: number; // in minutes
   };
-  estimatedTotalCost: number;
-  costBreakdown: {
-    fare: number;
-    baggage: number;
-    transfers: number;
-    extraFees: number;
-  };
-  timingAdvice: "buy" | "wait" | "neutral";
-  timingReason?: string;
-  riskAlerts?: RiskAlert[];
-  affiliateLinks?: AffiliateLink[];
-  priceContext?: PriceContext | null;
+  /** Provider-quoted fare. The only monetary figure the Optimizer reports. */
+  fare: number;
+  selectionCriterion: SelectionCriterion;
+  priceContext: PriceContext;
+  fareComparison: string | null;
+  notes: FactualNote[];
+  affiliateLinks: AffiliateLink[];
+}
+
+/**
+ * The truthful no-data state. Returned whenever the provider errored, timed
+ * out, was unavailable or returned nothing usable. No fare, route, airline,
+ * duration or timing advice accompanies it.
+ */
+export interface OptimizerInsufficientData {
+  status: typeof INSUFFICIENT_LIVE_DATA;
+  reason: "provider_error" | "provider_unavailable" | "no_results" | "unusable_results";
+  message: string;
+}
+
+export type OptimizerResult = OptimizerSuccess | OptimizerInsufficientData;
+
+export function isOptimizerSuccess(
+  result: OptimizerResult | null,
+): result is OptimizerSuccess {
+  return result?.status === "ok";
 }
 
 export interface PaywallError {
@@ -86,6 +110,10 @@ export const useOptimizer = () => {
 
       if (data?.error) {
         throw new Error(data.error);
+      }
+
+      if (data?.status === INSUFFICIENT_LIVE_DATA) {
+        return data as OptimizerInsufficientData;
       }
 
       return data as OptimizerResult;

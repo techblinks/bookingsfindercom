@@ -1,6 +1,30 @@
+/**
+ * run-optimizer — Smart Trip Optimizer (BF-0R-2 trust integrity).
+ *
+ * This file is I/O and orchestration only: auth, plan/quota enforcement, the
+ * Travelpayouts call, persistence, and the HTTP envelope. Every decision about
+ * what may be SAID to a traveller lives in `optimizer-core.ts`, which cannot
+ * invent a value.
+ *
+ * CORE RULE: NO PROVIDER DATA = NO INVENTED TRAVEL ANSWER.
+ *
+ * When Travelpayouts errors, times out, is unconfigured, returns nothing, or
+ * returns nothing usable, this function fails CLOSED: it responds with the
+ * typed `insufficient_live_data` state and writes NO result row. There is no
+ * rule-based fare estimator, no synthetic airline, no invented duration or stop
+ * count, no baggage/transfer/extra-fee figure and no BUY/WAIT advice.
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFlightPrices, getConfig, TravelpayoutsError } from "../_shared/travelpayouts.ts";
+import { getFlightPrices, getConfig } from "../_shared/travelpayouts.ts";
+import {
+  buildOptimizerOutcome,
+  insufficientLiveData,
+  type InsufficientReason,
+  type OptimizerOutcome,
+  type ProviderFlightObservation,
+  type TravelPriority,
+} from "./optimizer-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,377 +37,70 @@ interface OptimizerRequest {
   travelWindowStart: string;
   travelWindowEnd?: string;
   hasBags: boolean;
-  priority: "cheapest" | "fastest" | "low_risk";
+  priority: TravelPriority;
 }
 
-interface RiskAlert {
-  type: string;
-  severity: "low" | "medium" | "high";
-  message: string;
-}
-
-interface FlightData {
-  price: number;
-  airline: string;
-  airline_code: string;
-  duration_minutes: number;
-  stops: number;
-  link?: string;
-}
-
-// Fetch real prices from Travelpayouts API
-async function fetchRealPrices(
+/**
+ * Fetch live prices.
+ *
+ * Provider failure is REPORTED, never swallowed. The previous implementation
+ * caught every error and returned `[]`, which made an outage indistinguishable
+ * from "no flights" and sent the caller straight into fabricated fallbacks.
+ */
+async function fetchLivePrices(
   origin: string,
   destination: string,
   departureDate: string,
   returnDate: string | undefined,
-  currency: string = "USD"
-): Promise<FlightData[]> {
+  currency = "USD",
+): Promise<
+  | { ok: true; flights: ProviderFlightObservation[] }
+  | { ok: false; reason: InsufficientReason }
+> {
+  let config;
   try {
-    const config = getConfig();
-    
-    const { flights } = await getFlightPrices(
-      {
-        origin,
-        destination,
-        departureDate,
-        returnDate,
-        currency,
-      },
-      config
-    );
-
-    return flights.map(f => ({
-      price: f.price,
-      airline: f.airline,
-      airline_code: f.airline_code,
-      duration_minutes: f.duration_minutes,
-      stops: f.stops,
-      link: f.link,
-    }));
+    config = getConfig();
   } catch (error) {
-    console.error("Error fetching real prices:", error);
-    return [];
+    console.error("Travelpayouts is not configured:", error);
+    return { ok: false, reason: "provider_unavailable" };
+  }
+
+  try {
+    const { flights } = await getFlightPrices(
+      { origin, destination, departureDate, returnDate, currency },
+      config,
+    );
+    return { ok: true, flights: Array.isArray(flights) ? flights : [] };
+  } catch (error) {
+    console.error("Travelpayouts request failed:", error);
+    return { ok: false, reason: "provider_error" };
   }
 }
 
-// Select best flight based on priority
-function selectBestFlight(
-  flights: FlightData[],
-  priority: "cheapest" | "fastest" | "low_risk"
-): FlightData | null {
-  if (flights.length === 0) return null;
+async function runOptimization(request: OptimizerRequest): Promise<OptimizerOutcome> {
+  const { origin, destination, travelWindowStart, travelWindowEnd, priority } = request;
 
-  switch (priority) {
-    case "cheapest":
-      return flights.reduce((best, current) => 
-        current.price < best.price ? current : best
-      );
-    
-    case "fastest":
-      return flights.reduce((best, current) => 
-        current.duration_minutes < best.duration_minutes ? current : best
-      );
-    
-    case "low_risk":
-      // Prefer direct flights, then sort by price
-      const directFlights = flights.filter(f => f.stops === 0);
-      if (directFlights.length > 0) {
-        return directFlights.reduce((best, current) => 
-          current.price < best.price ? current : best
-        );
-      }
-      // Fallback to 1-stop flights
-      const oneStopFlights = flights.filter(f => f.stops === 1);
-      if (oneStopFlights.length > 0) {
-        return oneStopFlights.reduce((best, current) => 
-          current.price < best.price ? current : best
-        );
-      }
-      return flights[0];
-    
-    default:
-      return flights[0];
-  }
-}
-
-// Airline name mapping for better display
-const airlineNames: Record<string, string> = {
-  "QF": "Qantas",
-  "VA": "Virgin Australia",
-  "JQ": "Jetstar",
-  "EK": "Emirates",
-  "SQ": "Singapore Airlines",
-  "CX": "Cathay Pacific",
-  "BA": "British Airways",
-  "AA": "American Airlines",
-  "UA": "United Airlines",
-  "DL": "Delta Air Lines",
-  "LH": "Lufthansa",
-  "AF": "Air France",
-  "KL": "KLM",
-  "TK": "Turkish Airlines",
-  "QR": "Qatar Airways",
-  "EY": "Etihad Airways",
-  "NZ": "Air New Zealand",
-  "MH": "Malaysia Airlines",
-  "TG": "Thai Airways",
-  "CA": "Air China",
-  "MU": "China Eastern",
-  "CZ": "China Southern",
-  "NH": "ANA",
-  "JL": "Japan Airlines",
-  "OZ": "Asiana Airlines",
-  "KE": "Korean Air",
-  "SU": "Aeroflot",
-  "LX": "Swiss",
-  "OS": "Austrian",
-  "AY": "Finnair",
-  "SK": "SAS",
-  "IB": "Iberia",
-  "TP": "TAP Portugal",
-  "AZ": "ITA Airways",
-  "AC": "Air Canada",
-  "WN": "Southwest",
-  "B6": "JetBlue",
-  "AS": "Alaska Airlines",
-  "F9": "Frontier",
-  "NK": "Spirit",
-  "FR": "Ryanair",
-  "U2": "easyJet",
-  "W6": "Wizz Air",
-};
-
-function getAirlineName(code: string): string {
-  return airlineNames[code] || code;
-}
-
-// Generate optimization with real or fallback data
-async function generateOptimization(request: OptimizerRequest) {
-  const { origin, destination, travelWindowStart, travelWindowEnd, hasBags, priority } = request;
-
-  // Fetch real prices from API
-  console.log(`Fetching real prices for ${origin} -> ${destination}`);
-  const flights = await fetchRealPrices(
+  const provider = await fetchLivePrices(
     origin,
     destination,
     travelWindowStart,
-    travelWindowEnd
+    travelWindowEnd,
   );
 
-  console.log(`Found ${flights.length} flights from API`);
-
-  // Select best flight based on priority
-  const selectedFlight = selectBestFlight(flights, priority);
-
-  // Calculate statistics for context
-  const prices = flights.map(f => f.price);
-  const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
-  const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-  const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
-
-  // Use real data or fallback to estimates
-  let baseFare: number;
-  let stops: number;
-  let duration: number;
-  let airline: string;
-  let affiliateUrl: string;
-
-  if (selectedFlight) {
-    // Use real API data
-    baseFare = selectedFlight.price;
-    stops = selectedFlight.stops;
-    duration = selectedFlight.duration_minutes || 0;
-    airline = getAirlineName(selectedFlight.airline_code);
-    
-    // Build affiliate link with marker
-    const marker = Deno.env.get("MARKER_ID") || "";
-    affiliateUrl = selectedFlight.link 
-      ? `https://www.aviasales.com${selectedFlight.link}${marker ? `&marker=${marker}` : ""}`
-      : `https://www.aviasales.com/search/${origin}${travelWindowStart.replace(/-/g, "").slice(4, 8)}${destination}${travelWindowEnd ? travelWindowEnd.replace(/-/g, "").slice(4, 8) : ""}1`;
-  } else {
-    // Fallback to rule-based estimation
-    console.log("No API data available, using fallback estimates");
-    
-    const distanceFactors: Record<string, number> = {
-      domestic: 150,
-      short_haul: 350,
-      medium_haul: 650,
-      long_haul: 1200,
-    };
-
-    const longHaulPairs = ["SYD-LHR", "LAX-LHR", "JFK-SIN", "SYD-LAX", "JFK-DXB"];
-    const mediumHaulPairs = ["JFK-LHR", "LAX-JFK", "SYD-SIN", "DXB-LHR"];
-    
-    const routeKey = `${origin}-${destination}`;
-    const reverseKey = `${destination}-${origin}`;
-    
-    let category = "short_haul";
-    if (longHaulPairs.includes(routeKey) || longHaulPairs.includes(reverseKey)) {
-      category = "long_haul";
-    } else if (mediumHaulPairs.includes(routeKey) || mediumHaulPairs.includes(reverseKey)) {
-      category = "medium_haul";
-    }
-
-    baseFare = distanceFactors[category];
-    if (travelWindowEnd) baseFare *= 1.8;
-    if (priority === "fastest") baseFare *= 1.15;
-    else if (priority === "low_risk") baseFare *= 1.08;
-
-    stops = priority === "fastest" ? 0 : (category === "long_haul" ? 1 : 0);
-    
-    const durationMap: Record<string, number> = {
-      domestic: 120,
-      short_haul: 240,
-      medium_haul: 480,
-      long_haul: 960,
-    };
-    duration = durationMap[category] + (stops * 90);
-    airline = priority === "cheapest" ? "Budget Carrier" : "Major Airline";
-    affiliateUrl = `https://www.aviasales.com/search/${origin}${travelWindowStart.replace(/-/g, "").slice(4, 8)}${destination}${travelWindowEnd ? travelWindowEnd.replace(/-/g, "").slice(4, 8) : ""}1`;
+  if (!provider.ok) {
+    console.log(`Optimizer failing closed: ${provider.reason}`);
+    return insufficientLiveData(provider.reason);
   }
 
-  // Baggage estimate based on route length
-  const isLongHaul = duration > 600; // More than 10 hours
-  const baggageEstimate = hasBags ? (isLongHaul ? 80 : 50) : 0;
+  console.log(`Provider returned ${provider.flights.length} option(s)`);
 
-  // Transfer estimate
-  const transferEstimate = stops > 0 ? 25 : 0;
-
-  // Extra fees estimate
-  const extraFees = 15;
-
-  const totalCost = baseFare + baggageEstimate + transferEstimate + extraFees;
-
-  // Enhanced timing advice based on price statistics
-  const departureDate = new Date(travelWindowStart);
-  const now = new Date();
-  const daysUntilDeparture = Math.ceil((departureDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  let timingAdvice: "buy" | "wait" | "neutral" = "neutral";
-  let timingReason = "";
-
-  if (selectedFlight && avgPrice > 0) {
-    // Use real price data for smarter timing advice
-    const priceRatio = selectedFlight.price / avgPrice;
-    
-    if (priceRatio < 0.85) {
-      timingAdvice = "buy";
-      timingReason = `This price is ${Math.round((1 - priceRatio) * 100)}% below the average for this route. Great deal!`;
-    } else if (priceRatio > 1.15) {
-      timingAdvice = "wait";
-      timingReason = `This price is ${Math.round((priceRatio - 1) * 100)}% above average. Consider waiting for better deals.`;
-    } else if (daysUntilDeparture < 7) {
-      timingAdvice = "buy";
-      timingReason = "Less than a week until departure. Prices typically increase closer to travel date.";
-    } else if (daysUntilDeparture >= 21 && daysUntilDeparture <= 45) {
-      timingAdvice = "buy";
-      timingReason = "You're in the sweet spot for booking. Current prices look competitive.";
-    } else {
-      timingAdvice = "neutral";
-      timingReason = "Pricing is around average for this route and timing.";
-    }
-  } else {
-    // Fallback timing logic
-    if (daysUntilDeparture < 7) {
-      timingAdvice = "buy";
-      timingReason = "Less than a week until departure. Prices typically increase closer to travel date.";
-    } else if (daysUntilDeparture > 60) {
-      timingAdvice = "wait";
-      timingReason = "You're booking far in advance. Consider waiting 2-3 weeks for potential deals.";
-    } else if (daysUntilDeparture >= 21 && daysUntilDeparture <= 45) {
-      timingAdvice = "buy";
-      timingReason = "This is often the sweet spot for booking. Prices are usually competitive.";
-    } else {
-      timingAdvice = "neutral";
-      timingReason = "Pricing appears average for this timeframe. Compare a few options.";
-    }
-  }
-
-  // Enhanced risk alerts
-  const riskAlerts: RiskAlert[] = [];
-
-  if (stops > 0 && priority !== "low_risk") {
-    riskAlerts.push({
-      type: "connection_risk",
-      severity: "medium",
-      message: `This route involves ${stops} connection(s). Ensure adequate layover time for transfers.`,
-    });
-  }
-
-  if (stops >= 2) {
-    riskAlerts.push({
-      type: "multiple_connections",
-      severity: "high",
-      message: "Multiple connections increase delay risk and baggage issues. Consider direct or 1-stop options.",
-    });
-  }
-
-  if (isLongHaul && !hasBags) {
-    riskAlerts.push({
-      type: "baggage_notice",
-      severity: "low",
-      message: "Long-haul flights often have stricter carry-on limits. Consider adding checked baggage.",
-    });
-  }
-
-  if (daysUntilDeparture < 3) {
-    riskAlerts.push({
-      type: "last_minute",
-      severity: "high",
-      message: "Very short booking window. Prices may be elevated and seat availability limited.",
-    });
-  }
-
-  if (duration > 1200) { // More than 20 hours
-    riskAlerts.push({
-      type: "ultra_long_haul",
-      severity: "low",
-      message: "This is an ultra-long journey. Consider your comfort needs and layover rest options.",
-    });
-  }
-
-  // Price volatility warning
-  if (flights.length > 3 && maxPrice > minPrice * 2) {
-    riskAlerts.push({
-      type: "price_volatility",
-      severity: "medium",
-      message: "Prices vary significantly for this route. Compare multiple options before deciding.",
-    });
-  }
-
-  const routeSummary = stops === 0 
-    ? `${origin} to ${destination} (direct)`
-    : `${origin} to ${destination} via ${stops} connection(s)`;
-
-  return {
-    recommendedRoute: {
-      summary: routeSummary,
-      airline,
-      stops,
-      duration,
-    },
-    estimatedTotalCost: Math.round(totalCost),
-    costBreakdown: {
-      fare: Math.round(baseFare),
-      baggage: baggageEstimate,
-      transfers: transferEstimate,
-      extraFees,
-    },
-    timingAdvice,
-    timingReason,
-    riskAlerts,
-    affiliateLinks: [
-      { provider: "Aviasales", url: affiliateUrl },
-    ],
-    // Additional context for UI
-    priceContext: flights.length > 0 ? {
-      optionsFound: flights.length,
-      averagePrice: Math.round(avgPrice),
-      lowestPrice: Math.round(minPrice),
-      highestPrice: Math.round(maxPrice),
-    } : null,
-  };
+  return buildOptimizerOutcome({
+    origin,
+    destination,
+    priority,
+    flights: provider.flights,
+    marker: Deno.env.get("MARKER_ID") || "",
+  });
 }
 
 serve(async (req) => {
@@ -398,60 +115,63 @@ serve(async (req) => {
 
     const body: OptimizerRequest = await req.json();
 
-    // Validate required fields
     if (!body.origin || !body.destination || !body.travelWindowStart) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: origin, destination, travelWindowStart" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Get user ID if authenticated (optional)
+    // ── Auth, plan and quota (unchanged behaviour) ────────────────────────
     let userId: string | null = null;
     let userPlan = "free";
     let monthlyUses = 0;
-    
+
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
       const { data: userData } = await supabase.auth.getUser(token);
       userId = userData?.user?.id || null;
-      
+
       if (userId) {
-        // Check user's plan and usage
         const { data: profile } = await supabase
           .from("user_profiles")
           .select("plan, monthly_optimizer_uses, last_optimizer_reset")
           .eq("user_id", userId)
           .single();
-        
+
         if (profile) {
           userPlan = profile.plan || "free";
-          
-          // Check if we need to reset monthly uses
+
           const now = new Date();
-          const lastReset = profile.last_optimizer_reset ? new Date(profile.last_optimizer_reset) : null;
-          const needsReset = !lastReset || 
-            (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear());
-          
+          const lastReset = profile.last_optimizer_reset
+            ? new Date(profile.last_optimizer_reset)
+            : null;
+          const needsReset =
+            !lastReset ||
+            now.getMonth() !== lastReset.getMonth() ||
+            now.getFullYear() !== lastReset.getFullYear();
+
           if (needsReset) {
             monthlyUses = 0;
-            await supabase.from("user_profiles").update({
-              monthly_optimizer_uses: 0,
-              last_optimizer_reset: now.toISOString(),
-            }).eq("user_id", userId);
+            await supabase
+              .from("user_profiles")
+              .update({
+                monthly_optimizer_uses: 0,
+                last_optimizer_reset: now.toISOString(),
+              })
+              .eq("user_id", userId);
           } else {
             monthlyUses = profile.monthly_optimizer_uses || 0;
           }
-          
-          // Check subscription status for Pro users
+
           if (userPlan === "pro") {
             const { data: subscription } = await supabase
               .from("subscriptions")
               .select("status")
               .eq("user_id", userId)
               .single();
-            
+
             if (subscription?.status !== "active") {
               userPlan = "free"; // Downgrade if subscription not active
             }
@@ -459,21 +179,21 @@ serve(async (req) => {
         }
       }
     }
-    
-    // Enforce paywall: Free users get 1 optimization per month
+
     const FREE_LIMIT = 1;
     if (userPlan === "free" && monthlyUses >= FREE_LIMIT) {
       return new Response(
-        JSON.stringify({ 
-          error: "paywall", 
+        JSON.stringify({
+          error: "paywall",
           message: "You've used your free optimization this month. Upgrade to Pro for unlimited optimizations.",
-          upgradeUrl: "/pricing"
+          upgradeUrl: "/pricing",
         }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Store the optimization request
+    // Record the request. This is a record of what was asked, not a claim
+    // about travel, so it is stored regardless of the provider outcome.
     const { data: requestData, error: insertError } = await supabase
       .from("optimizer_requests")
       .insert({
@@ -493,32 +213,38 @@ serve(async (req) => {
       console.error("Error storing request:", insertError);
     }
 
-    // Run the optimization with real API data
-    const result = await generateOptimization(body);
+    const result = await runOptimization(body);
 
-    // Store the result
-    if (requestData?.id) {
-      const { error: resultError } = await supabase
-        .from("optimizer_results")
-        .insert({
-          request_id: requestData.id,
-          recommended_route: result.recommendedRoute,
-          estimated_total_cost: result.estimatedTotalCost,
-          fare_estimate: result.costBreakdown.fare,
-          baggage_estimate: result.costBreakdown.baggage,
-          transfer_estimate: result.costBreakdown.transfers,
-          extra_fees_estimate: result.costBreakdown.extraFees,
-          timing_advice: result.timingAdvice,
-          timing_reason: result.timingReason,
-          risk_alerts: result.riskAlerts,
-          affiliate_links: result.affiliateLinks,
-        });
+    // ── Persistence guard ────────────────────────────────────────────────
+    // A result row is written ONLY for a genuine provider-backed answer. The
+    // no-data state is never persisted, so no fabricated row can ever enter
+    // optimizer_results, and a run that produced no answer does not consume
+    // the traveller's quota.
+    if (result.status === "ok" && requestData?.id) {
+      const { error: resultError } = await supabase.from("optimizer_results").insert({
+        request_id: requestData.id,
+        recommended_route: result.recommendedRoute,
+        // Legacy schema: estimated_total_cost is NOT NULL. The provider fare is
+        // the only monetary value we can substantiate, so it is stored here and
+        // the fabricated estimate columns are explicitly left NULL.
+        estimated_total_cost: result.fare,
+        fare_estimate: result.fare,
+        baggage_estimate: null,
+        transfer_estimate: null,
+        extra_fees_estimate: null,
+        // Timing prediction is not produced. The column is NOT NULL with a
+        // CHECK over ('buy','wait','neutral'); 'neutral' is the only honest
+        // value, and the reason carries the scoped factual comparison.
+        timing_advice: "neutral",
+        timing_reason: result.fareComparison,
+        risk_alerts: result.notes,
+        affiliate_links: result.affiliateLinks,
+      });
 
       if (resultError) {
         console.error("Error storing result:", resultError);
       }
 
-      // Increment usage counter if user is authenticated
       if (userId) {
         const { data: profile } = await supabase
           .from("user_profiles")
@@ -535,6 +261,8 @@ serve(async (req) => {
       }
     }
 
+    // The no-data state is a truthful outcome, not a server fault, so it is
+    // returned with 200 and a typed status the client can render honestly.
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -542,7 +270,7 @@ serve(async (req) => {
     console.error("Optimizer error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
