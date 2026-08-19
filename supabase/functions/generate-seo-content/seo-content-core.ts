@@ -25,7 +25,8 @@ const SHARED_PROHIBITIONS = `Do NOT state or imply any of the following, even as
 - savings percentages or discount claims
 - weather, seasons, or climate facts
 - visa or entry requirements
-- popularity, "most popular", or scarcity/urgency claims ("limited seats", "book now", "rooms selling fast")`;
+- popularity, "most popular", or scarcity/urgency claims ("limited seats", "book now", "rooms selling fast")
+- related, nearby, or popular cities/routes, or any other geography/catalogue relationship you were not explicitly given — you do not have a list of which places are genuinely nearby or popular, so do not invent one`;
 
 export function buildFlightsPrompt(origin: string, destination: string): string {
   return `Generate SEO editorial copy for a "Flights from ${origin} to ${destination}" comparison page on BookingsFinder, a flight comparison site with no live fare, schedule, airline or visa data available to you.
@@ -42,11 +43,10 @@ Return a JSON object with these exact fields:
   "introParagraph": "2-3 sentence intro paragraph with no price or fact claims",
   "mainContent": "400-600 word article about using BookingsFinder to compare this route. Use markdown ## subheadings.",
   "travelTips": [{"title": "Tip title", "content": "1-2 sentence actionable, non-factual tip"}],
-  "faqs": [{"question": "Question about USING the comparison tool for this route", "answer": "1-2 sentence answer that does not assert a travel fact"}],
-  "popularCities": [{"name": "City Name", "code": "XXX"}]
+  "faqs": [{"question": "Question about USING the comparison tool for this route", "answer": "1-2 sentence answer that does not assert a travel fact"}]
 }
 
-Include exactly 5 travel tips, 5 FAQs, and 4 well-known nearby cities.`;
+Include exactly 5 travel tips and 5 FAQs. Do not include any other fields.`;
 }
 
 export function buildHotelsPrompt(destination: string): string {
@@ -64,11 +64,10 @@ Return a JSON object with these exact fields:
   "introParagraph": "2-3 sentence intro paragraph with no price or fact claims",
   "mainContent": "400-600 word article about using BookingsFinder to compare hotels here. Use markdown ## subheadings.",
   "travelTips": [{"title": "Tip title", "content": "1-2 sentence actionable, non-factual tip"}],
-  "faqs": [{"question": "Question about USING the comparison tool for this destination", "answer": "1-2 sentence answer that does not assert a travel fact"}],
-  "popularCities": [{"name": "City Name", "code": "XXX"}]
+  "faqs": [{"question": "Question about USING the comparison tool for this destination", "answer": "1-2 sentence answer that does not assert a travel fact"}]
 }
 
-Include exactly 5 travel tips, 5 FAQs, and 4 nearby cities.`;
+Include exactly 5 travel tips and 5 FAQs. Do not include any other fields.`;
 }
 
 export const SEO_CONTENT_SYSTEM_PROMPT =

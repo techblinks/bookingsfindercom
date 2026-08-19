@@ -213,3 +213,27 @@ export function buildRouteGenerationUpdate(
   }
   return { generation_status: GenerationStatus.GENERATED_PENDING_REVIEW, violations: [], content: fields };
 }
+
+/**
+ * Published-row protection (BF-0R-3 review follow-up, P0-1).
+ *
+ * A currently published `seo_route_pages` row represents content a human
+ * already reviewed and approved. AI generation must never overwrite that
+ * approved content ahead of a fresh review — doing so would let a route stay
+ * publicly visible and indexable while its live text is silently replaced by
+ * unreviewed model output. This predicate is the single source of truth for
+ * "is this row off-limits to a generation call right now": callers MUST
+ * check it, for every requested slug, BEFORE the first mutating write for
+ * that slug (before even the transient `generation_status: 'generating'`
+ * update) and skip entirely — no field on a published row may be touched by
+ * a generation request, including status bookkeeping.
+ *
+ * This phase deliberately does not introduce draft-versioning (a separate
+ * "candidate" row/column that could be generated and reviewed alongside a
+ * live published row). That is a legitimate future architecture, but it is
+ * schema work outside a trust/security repair: for now, a published route is
+ * simply not eligible for regeneration until it is explicitly unpublished.
+ */
+export function isRegenerationBlocked(existingRow: { is_published?: unknown } | null | undefined): boolean {
+  return existingRow?.is_published === true;
+}

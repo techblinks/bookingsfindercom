@@ -49,6 +49,15 @@ describe("prompts must not request unsourced facts", () => {
       expect(promptText).toMatch(/weather, seasons, or climate facts/i);
       expect(promptText).toMatch(/visa or entry requirements/i);
     });
+
+    it(`${label} prompt does not request popularCities (BF-0R-3 review follow-up, P0-2)`, () => {
+      // The model has no genuine source for which places are nearby or
+      // popular — asking for this is the same class of defect as asking for
+      // a fare or an airline.
+      expect(promptText).not.toMatch(/"popularCities"/);
+      expect(promptText).not.toMatch(/nearby cities/i);
+      expect(promptText).toMatch(/related, nearby, or popular cities\/routes/i);
+    });
   }
 });
 
@@ -89,6 +98,30 @@ describe("index.ts — the provenance gate rejects rather than launders violatin
     const block = indexSource.slice(blockStart, blockEnd);
     expect(block).toMatch(/status: 422/);
     expect(block).not.toMatch(/content:/);
+  });
+});
+
+describe("index.ts — the response is an explicit field whitelist, never a raw spread (BF-0R-3 review follow-up, P0-2)", () => {
+  it("does not spread parsedContent into the response", () => {
+    // The old code did `...parsedContent`, which would forward ANY field the
+    // model returned — including popularCities — regardless of what the
+    // prompt asked for. A model can ignore instructions; only an explicit
+    // whitelist is a real guarantee.
+    expect(indexSource).not.toMatch(/\.\.\.parsedContent/);
+  });
+
+  it("never forwards popularCities even if the model returns it anyway", () => {
+    const responseBlockStart = indexSource.indexOf("content: {");
+    const responseBlockEnd = indexSource.indexOf("},", responseBlockStart);
+    expect(responseBlockStart).toBeGreaterThan(-1);
+    const responseBlock = indexSource.slice(responseBlockStart, responseBlockEnd);
+    expect(responseBlock).not.toMatch(/popularCities/);
+  });
+
+  it("the whitelist covers exactly the fields the provenance gate validated", () => {
+    for (const field of ["title", "metaDescription", "h1Title", "introParagraph", "mainContent", "travelTips", "faqs"]) {
+      expect(indexSource).toMatch(new RegExp(`${field}:`));
+    }
   });
 });
 

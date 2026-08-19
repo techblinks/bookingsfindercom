@@ -1,17 +1,24 @@
 /**
  * Admin authorization gate for privileged edge functions — BF-0R-3.
  *
- * `supabase/config.toml` sets `verify_jwt = false` on every function in this
- * repo (required so the sitemap and public catalogue endpoints stay reachable
- * by crawlers and anonymous shoppers who cannot present a JWT). That setting
- * only disables Supabase's platform-level JWT gate; it does NOT mean a
- * function may skip its own authorization. Functions that perform privileged,
+ * Most functions in `supabase/config.toml` have `verify_jwt = false`, because
+ * they must stay reachable by anonymous callers with no JWT to present (search
+ * engine crawlers hitting /sitemap.xml, anonymous shoppers on the public
+ * catalogue endpoints). That setting only disables Supabase's *platform-level*
+ * JWT gate; it never meant a function could skip its own authorization.
+ *
+ * `generate-route-page` and `generate-seo-content` are different: no
+ * legitimate anonymous caller exists for either, so BF-0R-3 set
+ * `verify_jwt = true` for both. This module is the SECOND, independent layer
+ * for those two (and any future admin-only function): even a valid,
+ * authenticated-but-non-admin JWT — which the platform gate alone would let
+ * through — is rejected here with 403. Functions that perform privileged,
  * service-role database mutation (writing AI-generated content, admin stats)
- * MUST verify the caller themselves and fail closed. This mirrors the
- * existing convention in get-admin-stats/index.ts: read the bearer token,
- * resolve the user via `auth.getUser`, then require an explicit 'admin' row
- * in `user_roles` (the same table and role the client-side `useAdminAuth`
- * hook and the `has_role` RLS policies already trust).
+ * MUST call this and fail closed regardless of what verify_jwt is set to.
+ * This mirrors the existing convention in get-admin-stats/index.ts: read the
+ * bearer token, resolve the user via `auth.getUser`, then require an explicit
+ * 'admin' row in `user_roles` (the same table and role the client-side
+ * `useAdminAuth` hook and the `has_role` RLS policies already trust).
  *
  * `requireAdmin` takes the resolved Supabase client and the incoming Request
  * so it has no Deno-specific dependency of its own; `evaluateAdminAuthState`

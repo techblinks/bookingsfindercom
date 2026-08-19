@@ -15,6 +15,7 @@ import {
   validateGeneratedRouteContent,
   buildRouteGenerationUpdate,
   GenerationStatus,
+  isRegenerationBlocked,
   type GeneratedRouteFields,
 } from "../content-trust.ts";
 
@@ -168,5 +169,30 @@ describe("buildRouteGenerationUpdate — the publication decision", () => {
 
   it("GENERATED_PENDING_REVIEW is distinct from PUBLISHED — AI completion is not publication", () => {
     expect(GenerationStatus.GENERATED_PENDING_REVIEW).not.toBe(GenerationStatus.PUBLISHED);
+  });
+});
+
+describe("isRegenerationBlocked — published-row protection (BF-0R-3 review follow-up, P0-1)", () => {
+  it("blocks regeneration when the existing row is published", () => {
+    expect(isRegenerationBlocked({ is_published: true })).toBe(true);
+  });
+
+  it("allows regeneration when the existing row is unpublished", () => {
+    expect(isRegenerationBlocked({ is_published: false })).toBe(false);
+  });
+
+  it("allows regeneration when there is no existing row at all (genuinely new slug)", () => {
+    expect(isRegenerationBlocked(null)).toBe(false);
+    expect(isRegenerationBlocked(undefined)).toBe(false);
+  });
+
+  it("treats anything other than a strict boolean true as NOT blocked-by-mistake, and anything else as safe to fail open only for absence", () => {
+    // Defensive: is_published is a NOT NULL boolean column, so these values
+    // should never occur in practice, but the predicate must not throw and
+    // must not treat a truthy-but-wrong-typed value as a block by accident
+    // (e.g. a string "false" must never be read as blocking).
+    expect(isRegenerationBlocked({ is_published: "true" })).toBe(false);
+    expect(isRegenerationBlocked({ is_published: 1 })).toBe(false);
+    expect(isRegenerationBlocked({})).toBe(false);
   });
 });

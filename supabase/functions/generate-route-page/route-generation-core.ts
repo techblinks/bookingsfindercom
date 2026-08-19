@@ -21,6 +21,13 @@ export interface RouteRequest {
   destination_iata: string;
 }
 
+/** The one place a route's slug is computed — used for lookups AND writes. */
+export function buildRouteSlug(route: RouteRequest): string {
+  const origin = route.origin_city.toLowerCase().replace(/\s+/g, "-");
+  const destination = route.destination_city.toLowerCase().replace(/\s+/g, "-");
+  return `${origin}-to-${destination}`;
+}
+
 /**
  * Build the prompt sent to the model. Deliberately asks for editorial/
  * structural fields ONLY — no price, airline, duration, timing or savings
@@ -42,6 +49,7 @@ BookingsFinder does not have live fare, schedule, airline or visa data for you t
 - weather, seasons, or climate
 - visa or entry requirements
 - popularity, "most popular", or scarcity/urgency claims ("limited seats", "book now")
+- related or nearby routes/cities, or any other geography/catalogue relationship you were not explicitly given — you do not have a list of which routes or cities are genuinely related, popular, or nearby, so do not invent one
 
 Instead, write general, honest, non-factual editorial content: what BookingsFinder's comparison tool does, how searching and comparing works, and encouragement to search live results. Tips must be actionable behaviours, not factual claims (e.g. "Compare a few different dates side by side" is fine; "Tuesday flights are cheaper" is not).
 
@@ -53,11 +61,10 @@ Return JSON with these exact fields:
   "introParagraph": "2-3 sentence hook mentioning the route and airports, with no price or fact claims",
   "mainContent": "400-600 word article about using BookingsFinder to compare this route. Use ## subheadings.",
   "travelTips": [{"title": "Tip", "content": "1-2 sentence actionable, non-factual tip"}],
-  "faqs": [{"question": "Question about USING the comparison tool for this route", "answer": "1-2 sentence answer that does not assert a travel fact"}],
-  "relatedRoutes": [{"origin": "City", "destination": "City", "slug": "city-to-city"}]
+  "faqs": [{"question": "Question about USING the comparison tool for this route", "answer": "1-2 sentence answer that does not assert a travel fact"}]
 }
 
-Include 5 tips, 5 FAQs, and 4 related routes (well-known nearby or popular cities, not a factual claim).`;
+Include 5 tips and 5 FAQs. Do not include any other fields.`;
 }
 
 export const ROUTE_GENERATION_SYSTEM_PROMPT =

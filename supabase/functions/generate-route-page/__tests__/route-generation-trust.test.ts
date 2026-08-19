@@ -84,6 +84,15 @@ describe("buildRoutePagePrompt — the prompt itself must not request unsourced 
     expect(prompt).toContain("LON");
     expect(prompt).toContain("DXB");
   });
+
+  it("does not ask the model to invent related routes (BF-0R-3 review follow-up, P0-2)", () => {
+    // The model has no genuine source for which routes are related, nearby,
+    // or popular — asking for this is the same class of defect as asking for
+    // a fare or an airline: an unsourced fact dressed up as editorial help.
+    expect(prompt).not.toMatch(/"relatedRoutes"/);
+    expect(prompt).not.toMatch(/related routes/i);
+    expect(fullPromptText).toMatch(/related or nearby routes\/cities/i);
+  });
 });
 
 describe("index.ts — authorization runs before any privileged mutation", () => {
@@ -109,13 +118,49 @@ describe("index.ts — authorization runs before any privileged mutation", () =>
 
 describe("index.ts — the provenance gate decides what may be stored", () => {
   it("imports and applies buildRouteGenerationUpdate from content-trust", () => {
-    expect(indexSource).toMatch(/import\s*\{\s*buildRouteGenerationUpdate,\s*GenerationStatus\s*\}\s*from\s*"\.\.\/_shared\/content-trust\.ts"/);
+    expect(indexSource).toMatch(/import\s*\{\s*buildRouteGenerationUpdate,\s*GenerationStatus,\s*isRegenerationBlocked\s*\}\s*from\s*"\.\.\/_shared\/content-trust\.ts"/);
     expect(indexSource).toMatch(/buildRouteGenerationUpdate\(\{/);
   });
 
   it("discards content and marks FAILED_VALIDATION when the gate rejects it", () => {
     expect(indexSource).toMatch(/GenerationStatus\.FAILED_VALIDATION/);
     expect(indexSource).toMatch(/!gate\.content/);
+  });
+});
+
+describe("index.ts — a published row is off-limits to regeneration (BF-0R-3 review follow-up, P0-1)", () => {
+  it("imports isRegenerationBlocked from content-trust", () => {
+    expect(indexSource).toMatch(/import\s*\{\s*buildRouteGenerationUpdate,\s*GenerationStatus,\s*isRegenerationBlocked\s*\}\s*from\s*"\.\.\/_shared\/content-trust\.ts"/);
+  });
+
+  it("resolves existing is_published state for every requested slug before the generation loop", () => {
+    const lookupIndex = indexSource.indexOf(".select('slug, is_published')");
+    const loopIndex = indexSource.indexOf("for (const route of routes)");
+    expect(lookupIndex).toBeGreaterThan(-1);
+    expect(loopIndex).toBeGreaterThan(-1);
+    expect(lookupIndex).toBeLessThan(loopIndex);
+  });
+
+  it("fails closed (throws, mutates nothing) if the existing-state lookup itself errors", () => {
+    expect(indexSource).toMatch(/existingRowsError[\s\S]{0,200}throw new Error/);
+  });
+
+  it("skips a published slug with NO database write at all — not even the transient GENERATING status", () => {
+    const skipIndex = indexSource.indexOf("publishedSlugs.has(slug)");
+    expect(skipIndex).toBeGreaterThan(-1);
+    const generatingIndex = indexSource.indexOf("GenerationStatus.GENERATING");
+    // The published-slug check must appear in the loop BEFORE the first
+    // mutating write (marking the row 'generating'), so a published row is
+    // never touched even transiently.
+    expect(skipIndex).toBeLessThan(generatingIndex);
+    // And it must `continue` — no code path between the check and the next
+    // iteration may call .update(...) for this slug.
+    const checkBlock = indexSource.slice(skipIndex, indexSource.indexOf("continue;", skipIndex) + "continue;".length);
+    expect(checkBlock).not.toMatch(/\.update\(/);
+  });
+
+  it("builds the published-slugs set using isRegenerationBlocked, not an ad-hoc check", () => {
+    expect(indexSource).toMatch(/filter\(isRegenerationBlocked\)/);
   });
 });
 
@@ -154,6 +199,47 @@ describe("index.ts — AI/provider errors fail closed", () => {
 
   it("does not silently swallow a non-rate-limit provider failure", () => {
     expect(indexSource).toMatch(/throw new Error\(`AI error: \$\{result\.reason\}`\)/);
+  });
+});
+
+describe("index.ts — a rate-limited route is retried, never abandoned mid-flight (BF-0R-3 review follow-up, P1)", () => {
+  it("no longer contains the old bug: `continue` immediately inside the rate_limited branch", () => {
+    // The old code was:
+    //   if (result.reason === "rate_limited") { await delay; continue; }
+    // `continue` here skipped to the NEXT route entirely, abandoning the
+    // current one already marked 'generating' — it never got a second
+    // attempt and its row was stuck forever. That exact shape must be gone.
+    expect(indexSource).not.toMatch(/rate_limited"\)\s*\{\s*[\s\S]{0,120}continue;\s*\}/);
+  });
+
+  it("calls provider.complete a second time for the SAME route after a rate-limit backoff", () => {
+    const matches = indexSource.match(/provider\.complete\(\{ messages, temperature: 0\.8 \}\)/g) ?? [];
+    // Once for the initial attempt, once for the retry.
+    expect(matches.length).toBe(2);
+  });
+
+  it("the retry is gated specifically on the rate_limited reason", () => {
+    expect(indexSource).toMatch(/!result\.ok && result\.reason === "rate_limited"/);
+  });
+
+  it("only ever performs one retry — a second rate_limited result is treated as a genuine failure", () => {
+    // After the single retry block, the next check is the general
+    // `if (!result.ok) throw` — there is no loop or further retry logic.
+    const retryIndex = indexSource.indexOf('result.reason === "rate_limited"');
+    const afterRetry = indexSource.slice(retryIndex);
+    expect(afterRetry).toMatch(/if \(!result\.ok\) \{\s*throw new Error/);
+  });
+
+  it("the rate-limit branch itself contains no bare `continue;` statement", () => {
+    // Every exit from the per-route try block must either retry, update the
+    // row again (failed_validation / success / failed), or be the
+    // published-row skip (which never wrote GENERATING in the first place).
+    // Isolate just the rate_limited branch's own block and confirm it has no
+    // `continue;` of its own — retrying is the only exit it takes.
+    const branchStart = indexSource.indexOf('result.reason === "rate_limited"');
+    const branchEnd = indexSource.indexOf("\n        }", branchStart);
+    const branch = indexSource.slice(branchStart, branchEnd);
+    expect(branch).not.toMatch(/continue;/);
   });
 });
 

@@ -10,27 +10,42 @@
  * directly from model output in one update — so AI completion WAS
  * publication, with no human review and no source for any of the "facts".
  *
+ * BF-0R-3 review follow-up fixed a second defect in the first pass: because
+ * a request can re-generate an existing slug, an already-PUBLISHED row's
+ * approved content could be silently overwritten by fresh, unreviewed model
+ * output while the row stayed live and indexable — publication truth
+ * (`is_published`) and displayed content could disagree. See the
+ * "published rows are off-limits" block below.
+ *
  * This version:
  *   - requires an authenticated admin caller (see _shared/admin-auth.ts) and
  *     fails closed (401/403) before touching the database;
+ *   - resolves every requested slug's CURRENT `is_published` state before any
+ *     write, and skips (no mutation at all — not even the transient
+ *     'generating' status) any slug that is already published;
  *   - asks the model for editorial/organisational copy only (see
- *     route-generation-core.ts) and never requests a fact it cannot source;
+ *     route-generation-core.ts) and never requests a fact it cannot source,
+ *     including no invented related routes;
  *   - re-validates every response against the provenance gate in
  *     _shared/content-trust.ts — content that still asserts an unsourced fact
  *     is discarded (never written to the row), and the row is marked
  *     'failed_validation';
+ *   - retries a rate-limited request exactly once for the SAME route rather
+ *     than abandoning it mid-flight (which used to leave the row stuck in
+ *     'generating' forever);
  *   - NEVER sets `is_published`. Successful generation lands as
  *     'generated_pending_review' with `is_published` left at its schema
- *     default (false). Publication is a separate, explicit human action (see
- *     src/pages/AdminRouteGenerator.tsx) gated by the existing
- *     "Admins can manage route pages" RLS policy.
+ *     default (false). Publication is a separate, explicit human action,
+ *     gated behind a mandatory content-review surface (see
+ *     src/pages/AdminRouteGenerator.tsx) and enforced independently by the
+ *     existing "Admins can manage route pages" RLS policy.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireAdmin } from "../_shared/admin-auth.ts";
 import { createLovableGatewayProvider, parseProviderJson } from "../_shared/ai-provider.ts";
-import { buildRouteGenerationUpdate, GenerationStatus } from "../_shared/content-trust.ts";
-import { buildRoutePagePrompt, ROUTE_GENERATION_SYSTEM_PROMPT, type RouteRequest } from "./route-generation-core.ts";
+import { buildRouteGenerationUpdate, GenerationStatus, isRegenerationBlocked } from "../_shared/content-trust.ts";
+import { buildRoutePagePrompt, buildRouteSlug, ROUTE_GENERATION_SYSTEM_PROMPT, type RouteRequest } from "./route-generation-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,10 +72,13 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // ── Authorization: fail closed before any database mutation ──────────
-    // verify_jwt=false at the platform level only means Supabase itself
-    // won't reject unauthenticated requests; this function must still prove
-    // the caller is an admin before it is allowed to drive service-role
-    // writes. See _shared/admin-auth.ts for the shared convention.
+    // config.toml sets verify_jwt=true for this function, so the platform
+    // already rejects a request with no/invalid JWT before this code runs.
+    // That is layer one. requireAdmin is layer two: it additionally rejects
+    // a valid, authenticated JWT that does not belong to an admin — the
+    // platform gate alone would let that caller through. Both layers are
+    // required before this function is allowed to drive service-role writes.
+    // See _shared/admin-auth.ts for the shared convention.
     const auth = await requireAdmin(req, supabase);
     if (!auth.ok) {
       return new Response(
@@ -76,7 +94,7 @@ serve(async (req) => {
 
     // Insert pending records first
     const pendingRecords = routes.map(r => ({
-      slug: `${r.origin_city.toLowerCase().replace(/\s+/g, '-')}-to-${r.destination_city.toLowerCase().replace(/\s+/g, '-')}`,
+      slug: buildRouteSlug(r),
       origin_city: r.origin_city,
       destination_city: r.destination_city,
       origin_iata: r.origin_iata,
@@ -90,7 +108,9 @@ serve(async (req) => {
       is_published: false,
     }));
 
-    // Upsert to avoid duplicates
+    // Upsert to avoid duplicates. `ignoreDuplicates` means this never
+    // touches a row that already exists for a slug (published or not) — it
+    // only inserts genuinely new rows.
     const { data: inserted, error: insertError } = await supabase
       .from('seo_route_pages')
       .upsert(pendingRecords, { onConflict: 'slug', ignoreDuplicates: true })
@@ -101,13 +121,44 @@ serve(async (req) => {
       throw new Error(`Failed to create route records: ${insertError.message}`);
     }
 
+    // ── Published-row protection (P0-1) ─────────────────────────────────
+    // Resolve every requested slug's CURRENT is_published state up front.
+    // A row a human already reviewed and published must not be touched by
+    // this call at all — not its content, not even its generation_status —
+    // until it is explicitly unpublished. Failing to look this up is
+    // treated the same as finding it published: fail closed, skip the
+    // whole batch, rather than risk silently overwriting approved content.
+    const requestedSlugs = routes.map(buildRouteSlug);
+    const { data: existingRows, error: existingRowsError } = await supabase
+      .from('seo_route_pages')
+      .select('slug, is_published')
+      .in('slug', requestedSlugs);
+
+    if (existingRowsError) {
+      console.error("Failed to resolve existing publication state:", existingRowsError);
+      throw new Error(`Failed to verify existing route state: ${existingRowsError.message}`);
+    }
+
+    const publishedSlugs = new Set(
+      (existingRows ?? []).filter(isRegenerationBlocked).map(row => row.slug as string),
+    );
+
     // Process each route with AI (sequentially to avoid rate limits)
     let generated = 0;
     let failed = 0;
     let failedValidation = 0;
+    let skippedPublished = 0;
 
     for (const route of routes) {
-      const slug = `${route.origin_city.toLowerCase().replace(/\s+/g, '-')}-to-${route.destination_city.toLowerCase().replace(/\s+/g, '-')}`;
+      const slug = buildRouteSlug(route);
+
+      if (publishedSlugs.has(slug)) {
+        // Off-limits: this slug is currently published. No AI call, no
+        // database write of any kind for it in this request.
+        console.warn(`Skipping ${slug}: row is published — regeneration is blocked until it is explicitly unpublished.`);
+        skippedPublished++;
+        continue;
+      }
 
       try {
         // Mark as generating
@@ -116,21 +167,22 @@ serve(async (req) => {
           .eq('slug', slug);
 
         const prompt = buildRoutePagePrompt(route);
+        const messages = [
+          { role: "system" as const, content: ROUTE_GENERATION_SYSTEM_PROMPT },
+          { role: "user" as const, content: prompt },
+        ];
 
-        const result = await provider.complete({
-          messages: [
-            { role: "system", content: ROUTE_GENERATION_SYSTEM_PROMPT },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.8,
-        });
+        let result = await provider.complete({ messages, temperature: 0.8 });
+
+        if (!result.ok && result.reason === "rate_limited") {
+          // Exactly one retry, for THIS route, after a real backoff — the
+          // previous version's `continue` here abandoned the route mid-flight
+          // and left its row stuck in 'generating' forever.
+          await new Promise(r => setTimeout(r, 5000));
+          result = await provider.complete({ messages, temperature: 0.8 });
+        }
 
         if (!result.ok) {
-          if (result.reason === "rate_limited") {
-            // Rate limited — wait and retry once
-            await new Promise(r => setTimeout(r, 5000));
-            continue;
-          }
           throw new Error(`AI error: ${result.reason}`);
         }
 
@@ -168,7 +220,10 @@ serve(async (req) => {
 
         // Update the record with generated content. `is_published` is
         // deliberately never referenced here — it keeps its schema default
-        // (false) until an explicit human publish action sets it.
+        // (false) until an explicit human publish action sets it. There is
+        // also no `related_routes` write here (P0-2): the model is not a
+        // source of genuine route relationships, so that field is left
+        // untouched rather than populated from model memory.
         await supabase.from('seo_route_pages').update({
           title: content.title || `Cheap Flights ${route.origin_city} to ${route.destination_city}`,
           meta_description: content.metaDescription || '',
@@ -177,7 +232,6 @@ serve(async (req) => {
           main_content: content.mainContent || '',
           travel_tips: content.travelTips || [],
           faqs: content.faqs || [],
-          related_routes: (parsed.relatedRoutes ?? parsed.related_routes) || [],
           generation_status: GenerationStatus.GENERATED_PENDING_REVIEW,
         }).eq('slug', slug);
 
@@ -196,7 +250,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, generated, failed, failedValidation, total: routes.length }),
+      JSON.stringify({ success: true, generated, failed, failedValidation, skippedPublished, total: routes.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

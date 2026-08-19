@@ -19,7 +19,12 @@
  *     _shared/content-trust.ts. Content that still asserts an unsourced fact
  *     is REJECTED (422, `content` omitted) rather than handed back to the
  *     admin UI as though it were safe to publish — the caller must
- *     regenerate, it cannot silently save fabricated text.
+ *     regenerate, it cannot silently save fabricated text;
+ *   - returns an explicit field whitelist, not the raw parsed model output
+ *     (BF-0R-3 review follow-up, P0-2). The prompt no longer requests
+ *     `popularCities` — the model has no genuine source for which places are
+ *     nearby or popular — and even if a response includes it anyway, this
+ *     function never forwards it.
  *
  * This function still performs no database write of its own; publication of
  * whatever the admin chooses to save remains gated by the existing
@@ -59,9 +64,10 @@ serve(async (req) => {
     }
 
     // ── Authorization: fail closed before spending an AI-gateway call ────
-    // verify_jwt=false at the platform level only means Supabase itself
-    // won't reject unauthenticated requests; this function must still prove
-    // the caller is an admin. See _shared/admin-auth.ts.
+    // config.toml sets verify_jwt=true for this function (layer one — no
+    // request without a valid JWT reaches this code). requireAdmin is layer
+    // two: it additionally rejects a valid JWT that isn't an admin's, which
+    // the platform gate alone would let through. See _shared/admin-auth.ts.
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -138,6 +144,13 @@ serve(async (req) => {
       ? `cheap-flights-${origin.toLowerCase().replace(/\s+/g, '-')}-to-${destination.toLowerCase().replace(/\s+/g, '-')}`
       : `hotels-in-${destination.toLowerCase().replace(/\s+/g, '-')}`;
 
+    // P0-2: build the response from an explicit field whitelist rather than
+    // spreading `parsedContent`. The prompt no longer asks for popularCities
+    // (or any other geography/catalogue field), but a model can ignore
+    // instructions — spreading its raw output would let such a field reach
+    // the admin UI (and from there `country_landing_pages`) regardless of
+    // what was requested. Only fields the provenance gate above actually
+    // validated are ever returned.
     return new Response(
       JSON.stringify({
         success: true,
@@ -146,7 +159,13 @@ serve(async (req) => {
           type,
           origin,
           destination,
-          ...parsedContent,
+          title: parsedContent.title ?? "",
+          metaDescription: parsedContent.metaDescription ?? parsedContent.meta_description ?? "",
+          h1Title: parsedContent.h1Title ?? parsedContent.h1_title ?? "",
+          introParagraph: parsedContent.introParagraph ?? parsedContent.intro_paragraph ?? "",
+          mainContent: parsedContent.mainContent ?? parsedContent.main_content ?? "",
+          travelTips: parsedContent.travelTips ?? parsedContent.travel_tips ?? [],
+          faqs: parsedContent.faqs ?? [],
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
