@@ -357,6 +357,23 @@ REVOKE INSERT ON public.admin_profiles FROM anon, authenticated;
 
 DROP POLICY IF EXISTS "Allow increment tracking" ON public.ad_placements;
 
+-- Round-4 pre-merge correction: migration 20260113151333 already created
+-- three admin-only write policies on this table — "Admins can insert ads"
+-- (INSERT), "Admins can update ads" (UPDATE), "Admins can delete ads"
+-- (DELETE), all has_role(auth.uid(), 'admin')-gated. This migration's
+-- combined "Admins can manage ad placements" FOR ALL policy was added
+-- alongside them without dropping them first. That never reopened the
+-- vulnerability — every one of the four policies is admin-gated, so a
+-- non-admin still could not write — but it left four redundant permissive
+-- policies covering the same rows and made the "ONLY" claim below
+-- inaccurate. All four (the three legacy ones plus this migration's own,
+-- the latter DROPped defensively for idempotency on a re-run) are dropped
+-- here and replaced with exactly one explicit policy.
+DROP POLICY IF EXISTS "Admins can insert ads" ON public.ad_placements;
+DROP POLICY IF EXISTS "Admins can update ads" ON public.ad_placements;
+DROP POLICY IF EXISTS "Admins can delete ads" ON public.ad_placements;
+DROP POLICY IF EXISTS "Admins can manage ad placements" ON public.ad_placements;
+
 REVOKE ALL ON public.ad_placements FROM anon;
 GRANT SELECT ON public.ad_placements TO anon;
 
@@ -364,8 +381,9 @@ REVOKE ALL ON public.ad_placements FROM authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.ad_placements TO authenticated;
 -- The grant above is necessary for the admin path to be reachable at all;
 -- RLS is what actually stops a non-admin authenticated user from using it —
--- see the admin-only policy below, which is the ONLY INSERT/UPDATE/DELETE
--- policy on this table after this migration.
+-- see the admin-only policy below, which is now genuinely the ONLY
+-- INSERT/UPDATE/DELETE policy on this table after this migration (the
+-- three legacy admin policies above were dropped, not left redundant).
 
 CREATE POLICY "Admins can manage ad placements"
   ON public.ad_placements
@@ -639,7 +657,7 @@ COMMENT ON FUNCTION public.create_saved_search(
 -- every subscriber, keyed by nothing.
 --
 -- Forensic audit performed before touching any SQL, per instruction:
---   1. Final local policies after all 31+1 migrations (pg_policies):
+--   1. Final local policies after all 30+1 migrations (pg_policies):
 --      "Admins can view all subscribers" (SELECT, has_role-gated),
 --      "Admins can update subscribers" (UPDATE, has_role-gated),
 --      "Admins can delete subscribers" (DELETE, has_role-gated),

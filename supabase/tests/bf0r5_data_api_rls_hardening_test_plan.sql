@@ -279,6 +279,34 @@ BEGIN
     RAISE EXCEPTION 'FAIL: the dangerous unscoped ad_placements tracking policy still exists';
   END IF;
 
+  -- Round-4 pre-merge correction: the three legacy admin write policies
+  -- from migration 20260113151333 must be dropped, not left redundant
+  -- alongside "Admins can manage ad placements". Each was never itself a
+  -- vulnerability (all has_role-gated), but their continued presence made
+  -- the "ONLY INSERT/UPDATE/DELETE policy" claim in this migration's
+  -- comments inaccurate, and left duplicate permissive policies covering
+  -- the same rows.
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ad_placements'
+             AND policyname = 'Admins can insert ads') THEN
+    RAISE EXCEPTION 'FAIL: legacy "Admins can insert ads" policy still exists on ad_placements';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ad_placements'
+             AND policyname = 'Admins can update ads') THEN
+    RAISE EXCEPTION 'FAIL: legacy "Admins can update ads" policy still exists on ad_placements';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ad_placements'
+             AND policyname = 'Admins can delete ads') THEN
+    RAISE EXCEPTION 'FAIL: legacy "Admins can delete ads" policy still exists on ad_placements';
+  END IF;
+  -- Confirm exactly one INSERT/UPDATE/DELETE-capable policy remains on the
+  -- table (the combined "Admins can manage ad placements" FOR ALL policy),
+  -- not just that the three named legacy policies are gone by name — this
+  -- also catches any other stray write policy that might exist.
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ad_placements'
+      AND (cmd = 'INSERT' OR cmd = 'UPDATE' OR cmd = 'DELETE' OR cmd = 'ALL')) <> 1 THEN
+    RAISE EXCEPTION 'FAIL: ad_placements does not have exactly one write-capable policy (expected only "Admins can manage ad placements")';
+  END IF;
+
   IF EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
              WHERE c.relname = 'ad_placements' AND t.tgname = 'guard_ad_placement_tracking_columns') THEN
     RAISE EXCEPTION 'FAIL: the round-1 trigger should have been removed in favour of the RPC design';
@@ -399,6 +427,7 @@ DECLARE
   v_other_user_id uuid := '00000000-0000-0000-0000-000000000003';
   v_admin_id uuid := '00000000-0000-0000-0000-000000000002';
   v_ad_id uuid;
+  v_ad_id2 uuid;
   v_search_id uuid;
   v_caught boolean;
   v_impressions_before int;
@@ -813,6 +842,24 @@ BEGIN
   UPDATE public.ad_placements SET title = 'Admin Edited Title' WHERE id = v_ad_id;
   IF (SELECT title FROM public.ad_placements WHERE id = v_ad_id) <> 'Admin Edited Title' THEN
     RAISE EXCEPTION 'FAIL 10: admin was NOT able to update ad_placements.title (regression)';
+  END IF;
+
+  -- Round-4 pre-merge correction test: admin INSERT and DELETE must still
+  -- work through the single consolidated "Admins can manage ad placements"
+  -- FOR ALL policy, now that the three separate legacy INSERT/UPDATE/
+  -- DELETE policies it replaced are gone. FOR ALL covers every command by
+  -- design, but this proves it behaviourally rather than by inspection —
+  -- the specific regression risk this cleanup could have introduced.
+  INSERT INTO public.ad_placements (name, type, placement, page, title, destination_url, is_active, impressions, clicks)
+  VALUES ('bf0r5-round4-admin-insert-test', 'sponsored_card', 'after_result_3', 'both', 'Admin Insert Test', 'https://example.test/admin-insert', true, 0, 0)
+  RETURNING id INTO v_ad_id2;
+  IF v_ad_id2 IS NULL THEN
+    RAISE EXCEPTION 'FAIL R4-ad-insert: admin was NOT able to INSERT into ad_placements (regression)';
+  END IF;
+
+  DELETE FROM public.ad_placements WHERE id = v_ad_id2;
+  IF EXISTS (SELECT 1 FROM public.ad_placements WHERE id = v_ad_id2) THEN
+    RAISE EXCEPTION 'FAIL R4-ad-delete: admin was NOT able to DELETE from ad_placements (regression)';
   END IF;
 
   -- Round 3 test 14: admin subscriber management remains functional.

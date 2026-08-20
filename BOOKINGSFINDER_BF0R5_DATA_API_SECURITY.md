@@ -174,6 +174,22 @@ boundary — impressions/clicks drive no billing or access decision anywhere
 in this codebase. The RPC comments say this explicitly; rate-limiting
 bot-driven inflation is a separate, out-of-scope follow-up.
 
+**Pre-merge correction (PR #66 review):** migration `20260113151333`
+already created three admin-only write policies on this table —
+`"Admins can insert ads"`, `"Admins can update ads"`, `"Admins can delete
+ads"`, each `has_role(auth.uid(), 'admin')`-gated — before this migration
+was ever written. This migration added `"Admins can manage ad placements"`
+(the combined `FOR ALL` policy) alongside them without dropping the three
+originals. That was never itself a vulnerability — every one of the four
+policies required the admin role, so no non-admin write path was ever
+open — but it left four redundant permissive policies on the same rows
+and made the "the **only** INSERT/UPDATE/DELETE policy" claim above
+inaccurate until this correction. All three legacy policies (and this
+migration's own combined policy, dropped defensively for idempotency) are
+now dropped and exactly one combined policy is recreated, so the "only"
+claim above is now literally true, verified by a Part A2 check that
+counts exactly one write-capable policy on the table.
+
 ## §4. `subscribers` — forensic audit and final contract
 
 **Forensic audit performed before writing any SQL** (see the migration's
@@ -302,8 +318,8 @@ alone.
 
 ## §7. Local verification results
 
-**Round 4.** Fresh `npx supabase db reset` applied all 31 pre-existing
-migrations plus this one cleanly. The round-4 test plan run initially
+**Round 4.** Fresh `npx supabase db reset` applied all 30 pre-existing
+migrations plus this one (31 total) cleanly. The round-4 test plan run initially
 failed on `PART A2` with `subscribe_email still contains a DO UPDATE
 clause` — a false positive: the structural check for "no reactivating
 `DO UPDATE`" matched a phrase inside the function's own explanatory SQL
@@ -331,9 +347,9 @@ address, and an already-active fixture row's `subscribed_at` is unchanged
 too — proving both the opted-out-protection and the non-distinguishing-
 response requirements behaviourally, not just by return-type inspection.
 
-**Round 3.** Fresh `npx supabase db reset` applied all 31 pre-existing migrations plus
-this one cleanly, twice (once before, once after the test-methodology fix
-below).
+**Round 3.** Fresh `npx supabase db reset` applied all 30 pre-existing migrations
+plus this one (31 total) cleanly, twice (once before, once after the
+test-methodology fix below).
 
 **Test-methodology bug found and fixed while writing the round-3 test
 plan** (documented here honestly, not hidden — same discipline as round
