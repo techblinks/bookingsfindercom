@@ -1,18 +1,29 @@
 # BF-0R-5 — Data API / RLS Least-Privilege Hardening (round 4)
 
-Branch: `fix/bf0r5-data-api-rls-hardening` (based on fresh `origin/main`, independent of PR #65).
-Migrations:
+Branch: `fix/bf0r5-data-api-rls-hardening` (based on fresh `origin/main`, independent of PR #65), PR #66.
+Migrations — **both applied to production** (`pjehrnhmjrxrlrhuhqgf`):
 - `supabase/migrations/20260820000000_bf0r5_data_api_rls_hardening.sql` —
-  **already applied to production** (`pjehrnhmjrxrlrhuhqgf`) after a full
-  read-only pre-apply audit and fresh backup. Production postflight
-  returned 54 PASS / 1 FAIL (`user_roles: anon has no write privilege`).
+  applied after a full read-only pre-apply audit and fresh backup. The
+  production postflight that ran immediately afterward returned 54 PASS /
+  1 FAIL (`user_roles: anon has no write privilege`).
 - `supabase/migrations/20260820170000_bf0r5_user_roles_grant_hardening.sql`
   — the postflight correction for that one FAIL, addressing `user_roles`
   only. See §6a. Forward-only; does not modify `20260820000000`.
-Status: **`20260820000000` is live on production. The postflight-correction
-migration is committed and pushed on `fix/bf0r5-data-api-rls-hardening` for
-review; NOT yet applied to production; PR #66 NOT merged; no frontend/Edge
-deployment performed.**
+
+**Current production state:** both migrations live; production migration
+history is **32/32 applied, zero pending, zero drift**; the final
+production postflight (re-run after the correction, including the new
+`user_roles` checks) is **58 PASS / 0 FAIL**.
+
+**Cloudflare deployment (human-confirmed from the dashboard):** production
+frontend deploys from `techblinks/bookingsfindercom`, branch `main`, via a
+Git-connected Worker build — merging PR #66 **will** trigger an automatic
+production frontend build/deploy.
+
+Status: **Database hardening is fully live in production (both migrations
+applied, postflight clean). PR #66 is NOT yet merged. The frontend has NOT
+yet been production-deployed. No Edge Function deployment, no secret
+changes.**
 
 ## Round 4 corrections (summary)
 
@@ -394,6 +405,13 @@ auth.users` with the function owner's privilege — entirely independent of
 the `anon`/`authenticated`/`service_role` grants this correction touches.
 It is unaffected.
 
+**Resolution, confirmed live:** `20260820170000` has been applied to
+production. The full read-only production postflight, re-run after the
+correction and extended with the granular `user_roles` checks in this
+section (exact `anon`/`service_role` privileges, both policies' continued
+presence and scoping, exactly-2-policies), now returns **58 PASS / 0
+FAIL** — the original 1 FAIL is closed, and no other check regressed.
+
 ## §7. Local verification results
 
 **Round 4.** Fresh `npx supabase db reset` applied all 30 pre-existing
@@ -501,7 +519,7 @@ Other checks (re-run in round 4, against the round-4 migration):
 - `src/components/flights/SavedSearchesPanel.tsx` (unchanged since round 3: renders the honest "temporarily unavailable" state instead of attempting denied calls)
 - `supabase/.branches/` (local Supabase CLI artifact — not a project file, not tracked)
 
-## §9. Rollout plan (not executed) — DB + frontend, ordering and degradation window
+## §9. Rollout plan — DB portion complete, frontend deploy pending merge
 
 **This change has two coupled parts that must ship together, not
 independently:** a database migration (grants/policies/RPCs) and frontend
@@ -545,18 +563,30 @@ immediately after the migration, ideally as an atomic release step) is a
 deployment-process decision for whoever executes this rollout, not
 something this migration can eliminate on its own.
 
-**Steps (not executed):**
-1. Take a fresh backup (as in BF-0R-4).
-2. Apply `20260820000000_bf0r5_data_api_rls_hardening.sql` via the
-   project's normal migration path.
-3. Run the read-only production postflight script (printed in the chat
-   report alongside this document) — every row must read `PASS`, including
-   the round-4 exact-service_role-privilege and optimizer-table-lockdown
-   checks.
-4. Deploy the frontend changes in this branch (`usePriceAlerts.ts`,
-   `useHomeAds.ts`, `HeroEmailCapture.tsx`, `ExitIntentPopup.tsx`,
-   `SavedSearchesPanel.tsx`, `types.ts`) as immediately after step 2 as the
-   deployment pipeline allows, to minimize the degradation window above.
+**Steps:**
+1. ✅ **Done.** Fresh backup taken (schema, data, roles, migration history,
+   SHA-256 manifest) at `C:\Users\MSIV\Desktop\BF-BACKUPS\bookingsfinder-20260820-pre-bf0r5\`,
+   outside the git repo, prior to any production write.
+2. ✅ **Done.** `20260820000000_bf0r5_data_api_rls_hardening.sql` applied
+   to production, followed by `20260820170000_bf0r5_user_roles_grant_hardening.sql`
+   (the postflight correction, §6a) after the first postflight run
+   surfaced one FAIL. Production migration history: **32/32 applied, zero
+   pending, zero drift**.
+3. ✅ **Done.** The read-only production postflight (58 checks, including
+   the round-4 exact-service_role-privilege, optimizer-table-lockdown, and
+   postflight-correction `user_roles` checks) returns **58 PASS / 0 FAIL**.
+4. ⏳ **Pending — tied to merging PR #66.** Cloudflare has been
+   human-confirmed (dashboard) to build/deploy the production Worker
+   automatically from `techblinks/bookingsfindercom`'s `main` branch —
+   merging PR #66 **will** trigger this deploy. Because the database
+   portion (steps 1-3) is already live, the ordering risk described above
+   is now resolved in the safe direction: the RPCs
+   (`create_saved_search`, `subscribe_email`, `increment_ad_impression`,
+   `increment_ad_click`) the new frontend calls already exist in
+   production, so merging and deploying the frontend now will **not**
+   hit the "frontend before migration" failure mode — only the (much
+   smaller, already-mitigated) "migration before frontend" window applied,
+   and it has already closed now that both migrations are live.
 5. Separately and later (BF-0R-6, §10): decide on a secure-ownership
    design for viewing/managing existing alerts (My Alerts); restrict/
    rate-limit `send-welcome-email`; add scheduler/admin verification to
@@ -564,9 +594,9 @@ something this migration can eliminate on its own.
    creation and for a future subscriber resubscription flow. All
    explicitly out of scope for this migration.
 
-None of the above has been executed. The migration and its matching
-frontend changes are committed and pushed to `fix/bf0r5-data-api-rls-hardening`
-for review; no production migration, no deploy.
+**Current state:** both migrations are live in production (step 1-3 done).
+PR #66 is **not yet merged**; the frontend has **not yet** been
+production-deployed; no Edge Function deployment; no secret changes.
 
 ## §10. BF-0R-6 — documented, not fixed here (next Edge/alerts security phase)
 
