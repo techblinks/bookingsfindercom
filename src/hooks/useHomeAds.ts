@@ -66,44 +66,24 @@ export function useHomeAds(): UseHomeAdsReturn {
     return () => clearTimeout(timer);
   }, [isMobile, geoData?.countryCode]);
 
+  // BF-0R-5 round 3: anon/authenticated no longer have a raw UPDATE grant on
+  // ad_placements — impression/click tracking goes through two narrow
+  // SECURITY DEFINER RPCs that can only add exactly one to one counter on
+  // one active row (supabase/migrations/20260820000000_bf0r5_...).
   const trackImpression = async (adId: string) => {
     if (impressionTracked.has(adId)) return;
     setImpressionTracked(prev => new Set(prev).add(adId));
-    
-    // Update impression count in database - use raw SQL increment
+
     try {
-      const { data: ad } = await supabase
-        .from('ad_placements')
-        .select('impressions')
-        .eq('id', adId)
-        .single();
-      
-      if (ad) {
-        await supabase
-          .from('ad_placements')
-          .update({ impressions: (ad.impressions || 0) + 1 })
-          .eq('id', adId);
-      }
+      await supabase.rpc('increment_ad_impression', { p_ad_id: adId });
     } catch (err) {
       console.error('Failed to track impression:', err);
     }
   };
 
   const trackClick = async (adId: string) => {
-    // Update click count in database
     try {
-      const { data: ad } = await supabase
-        .from('ad_placements')
-        .select('clicks')
-        .eq('id', adId)
-        .single();
-      
-      if (ad) {
-        await supabase
-          .from('ad_placements')
-          .update({ clicks: (ad.clicks || 0) + 1 })
-          .eq('id', adId);
-      }
+      await supabase.rpc('increment_ad_click', { p_ad_id: adId });
     } catch (err) {
       console.error('Failed to track click:', err);
     }

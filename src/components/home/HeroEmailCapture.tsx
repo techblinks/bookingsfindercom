@@ -14,20 +14,17 @@ const HeroEmailCapture = () => {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("subscribers").insert({
-        email: email.trim(),
-        subscription_source: "hero_banner",
+      // BF-0R-5 round 3: subscribers has no raw client INSERT/SELECT grant
+      // any more — subscribe_email() is the only client-reachable write
+      // path (it upserts and never raises a unique-violation, closing the
+      // email-existence oracle the old error-code check relied on).
+      const { error } = await supabase.rpc("subscribe_email", {
+        p_email: email.trim(),
+        p_source: "hero_banner",
       });
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.success("You're already subscribed!");
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success("You're in! We'll alert you when prices drop.");
-      }
+      if (error) throw error;
+      toast.success("You're in! We'll alert you when prices drop.");
       setEmail("");
     } catch {
       toast.error("Something went wrong. Please try again.");
