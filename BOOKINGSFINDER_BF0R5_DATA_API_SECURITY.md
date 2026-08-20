@@ -2,7 +2,8 @@
 
 Branch: `fix/bf0r5-data-api-rls-hardening` (based on fresh `origin/main`, independent of PR #65).
 Migration: `supabase/migrations/20260820000000_bf0r5_data_api_rls_hardening.sql`.
-Status: **prepared, verified locally, NOT committed, NOT pushed, NOT applied to production.**
+Status: **committed and pushed on `fix/bf0r5-data-api-rls-hardening` for
+review; NOT merged; NOT applied to production; no deployment performed.**
 
 ## Round 4 corrections (summary)
 
@@ -194,8 +195,8 @@ assumption); the local test suite proves it exploitable in a from-scratch
 schema regardless of the bootstrap-grant question.
 
 **F. Final contract (round 4, `subscribe_email` corrected):**
-- `anon`/`authenticated`: zero raw table privilege. Subscribing is possible
-  only via `subscribe_email(p_email, p_source)`. Round 4 correction: it now
+- `anon`: zero raw table privilege of any kind. Signing up is possible only
+  via `subscribe_email(p_email, p_source)`. Round 4 correction: it now
   **inserts a genuinely new row only** (`ON CONFLICT (email) DO NOTHING`)
   and **returns `void`** — no boolean, no row, no `unsubscribe_token`. A
   previously-unsubscribed email is never reactivated by this RPC no matter
@@ -204,10 +205,16 @@ schema regardless of the bootstrap-grant question.
   new, already actively subscribed, or previously unsubscribed. See "Round
   4 corrections" above for why the round-3 boolean design was a
   subscriber-status oracle and an unverified-reactivation vector.
-- `authenticated` (admin only, via the pre-existing `has_role`-gated
-  policies, **unchanged**): `SELECT`/`UPDATE`/`DELETE` for
-  `AdminSubscribers.tsx`. The raw grant is retained for the same
-  admin/non-admin-same-role reason as `ad_placements`.
+- `authenticated`: holds the raw `SELECT`/`UPDATE`/`DELETE` table grant
+  (needed so the admin path — `AdminSubscribers.tsx` — is reachable at
+  all) but no raw `INSERT` grant — subscriber creation is RPC-only for
+  every client role, admin included, same as `anon`. For a **non-admin**
+  authenticated caller that grant is inert: the pre-existing
+  `has_role`-gated policies (unchanged) are the only `SELECT`/`UPDATE`/
+  `DELETE` policies on this table, so RLS — not the grant — is what
+  actually stops a non-admin from reading or writing any row. The raw
+  grant is retained for the same admin/non-admin-same-role reason as
+  `ad_placements`.
 - `service_role`: `SELECT, UPDATE` explicitly (`unsubscribe`,
   `send-bulk-email`), preceded by an explicit `REVOKE ALL ... FROM
   service_role` (round 4 — see summary above). No `INSERT` (creation is
@@ -386,7 +393,7 @@ Other checks (re-run in round 4, against the round-4 migration):
 - `git diff --check` — clean, exit 0 (only harmless CRLF/LF line-ending
   notices on two files).
 
-## §8. Files changed (nothing committed)
+## §8. Files changed (committed and pushed for review, not merged)
 
 - `supabase/migrations/20260820000000_bf0r5_data_api_rls_hardening.sql` (rewritten, round 4: service_role explicit REVOKE-then-GRANT on 7 tables; subscribe_email rewritten to ON CONFLICT DO NOTHING + RETURNS void; optimizer_requests/optimizer_results client SELECT policies dropped and grant revoked; BF-0R-6 findings section added)
 - `supabase/tests/bf0r5_data_api_rls_hardening_test_plan.sql` (rewritten, round 4: new optimizer_requests/optimizer_results SELECT-forbidden assertions in Part A/A2/B; subscribe_email boolean-return tests replaced with void-return + opted-out-protection + non-distinguishing-response tests in Part B; new subscribe_email structural checks in Part A2)
@@ -462,8 +469,9 @@ something this migration can eliminate on its own.
    creation and for a future subscriber resubscription flow. All
    explicitly out of scope for this migration.
 
-None of the above has been executed. No production migration, no deploy, no
-push, no commit.
+None of the above has been executed. The migration and its matching
+frontend changes are committed and pushed to `fix/bf0r5-data-api-rls-hardening`
+for review; no production migration, no deploy.
 
 ## §10. BF-0R-6 — documented, not fixed here (next Edge/alerts security phase)
 

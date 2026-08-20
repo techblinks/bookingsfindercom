@@ -710,18 +710,26 @@ COMMENT ON FUNCTION public.create_saved_search(
 -- from-scratch schema regardless of the bootstrap-grant question, which is
 -- the correct conservative assumption.
 --
--- TARGET CONTRACT:
---   - anon/authenticated: no raw table privilege at all. Subscribing or
---     resubscribing is possible ONLY via subscribe_email(...), which never
---     returns a row, never accepts is_subscribed/unsubscribe_token/
---     subscribed_at/email-of-another-row as input, and only ever mutates
---     the single row matching the caller-supplied email.
---   - authenticated (admin only, enforced by the pre-existing has_role
---     policies below, unchanged): SELECT/UPDATE/DELETE via
---     AdminSubscribers.tsx. The raw table grant is retained for
---     authenticated because, exactly as with ad_placements, Postgres
---     cannot distinguish "admin" from "non-admin" within one role — RLS is
---     what actually stops a non-admin authenticated user here.
+-- TARGET CONTRACT (corrected wording — the grants below were never
+-- changed, only this comment; see the migration commentary correction
+-- alongside this section):
+--   - anon: zero raw table privilege of any kind. Signing up is possible
+--     ONLY via subscribe_email(...), which never returns a row, never
+--     accepts is_subscribed/unsubscribe_token/subscribed_at/
+--     email-of-another-row as input, and only ever INSERTs a brand-new
+--     row (ON CONFLICT (email) DO NOTHING) — it never mutates an existing
+--     row, active or previously unsubscribed.
+--   - authenticated: has the raw SELECT/UPDATE/DELETE table grant (needed
+--     so the admin path — AdminSubscribers.tsx — is reachable at all) but
+--     NO raw INSERT grant (subscriber creation is RPC-only for every
+--     client role, admin included). For a non-admin authenticated caller,
+--     that SELECT/UPDATE/DELETE grant is inert: the pre-existing
+--     has_role-gated policies below are the ONLY SELECT/UPDATE/DELETE
+--     policies on this table, so RLS — not the grant — is what actually
+--     stops a non-admin authenticated user from reading or writing any
+--     row. Exactly as with ad_placements, Postgres cannot distinguish
+--     "admin" from "non-admin" within one role, so the grant must stay
+--     broad and RLS does the real work.
 --   - service_role: SELECT + UPDATE explicitly (unsubscribe,
 --     send-bulk-email). No INSERT (subscriber creation is RPC-only, never
 --     performed by an Edge Function) and no DELETE (no Edge Function

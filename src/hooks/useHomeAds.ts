@@ -75,7 +75,8 @@ export function useHomeAds(): UseHomeAdsReturn {
     setImpressionTracked(prev => new Set(prev).add(adId));
 
     try {
-      await supabase.rpc('increment_ad_impression', { p_ad_id: adId });
+      const { error } = await supabase.rpc('increment_ad_impression', { p_ad_id: adId });
+      if (error) throw error;
     } catch (err) {
       console.error('Failed to track impression:', err);
     }
@@ -83,7 +84,8 @@ export function useHomeAds(): UseHomeAdsReturn {
 
   const trackClick = async (adId: string) => {
     try {
-      await supabase.rpc('increment_ad_click', { p_ad_id: adId });
+      const { error } = await supabase.rpc('increment_ad_click', { p_ad_id: adId });
+      if (error) throw error;
     } catch (err) {
       console.error('Failed to track click:', err);
     }

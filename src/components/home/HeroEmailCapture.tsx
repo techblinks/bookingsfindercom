@@ -14,17 +14,24 @@ const HeroEmailCapture = () => {
 
     setIsSubmitting(true);
     try {
-      // BF-0R-5 round 3: subscribers has no raw client INSERT/SELECT grant
+      // BF-0R-5 round 4: subscribers has no raw client INSERT/SELECT grant
       // any more — subscribe_email() is the only client-reachable write
-      // path (it upserts and never raises a unique-violation, closing the
-      // email-existence oracle the old error-code check relied on).
+      // path. It is NOT an upsert: it inserts a new subscriber only when no
+      // row exists for this email (ON CONFLICT (email) DO NOTHING) and
+      // leaves any existing row — active or previously unsubscribed —
+      // completely untouched. It returns void, so the response here can't
+      // and mustn't distinguish new/already-active/previously-unsubscribed.
       const { error } = await supabase.rpc("subscribe_email", {
         p_email: email.trim(),
         p_source: "hero_banner",
       });
 
       if (error) throw error;
-      toast.success("You're in! We'll alert you when prices drop.");
+      // Deliberately generic: subscribe_email never reports whether this
+      // email was new, already subscribed, or previously unsubscribed (a
+      // previously-unsubscribed address is NOT reactivated by this call),
+      // so the UI must not claim "you're subscribed" as a fact.
+      toast.success("Thanks — we've received your request.");
       setEmail("");
     } catch {
       toast.error("Something went wrong. Please try again.");
