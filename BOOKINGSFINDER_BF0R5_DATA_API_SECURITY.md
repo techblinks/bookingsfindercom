@@ -1,9 +1,18 @@
 # BF-0R-5 — Data API / RLS Least-Privilege Hardening (round 4)
 
 Branch: `fix/bf0r5-data-api-rls-hardening` (based on fresh `origin/main`, independent of PR #65).
-Migration: `supabase/migrations/20260820000000_bf0r5_data_api_rls_hardening.sql`.
-Status: **committed and pushed on `fix/bf0r5-data-api-rls-hardening` for
-review; NOT merged; NOT applied to production; no deployment performed.**
+Migrations:
+- `supabase/migrations/20260820000000_bf0r5_data_api_rls_hardening.sql` —
+  **already applied to production** (`pjehrnhmjrxrlrhuhqgf`) after a full
+  read-only pre-apply audit and fresh backup. Production postflight
+  returned 54 PASS / 1 FAIL (`user_roles: anon has no write privilege`).
+- `supabase/migrations/20260820170000_bf0r5_user_roles_grant_hardening.sql`
+  — the postflight correction for that one FAIL, addressing `user_roles`
+  only. See §6a. Forward-only; does not modify `20260820000000`.
+Status: **`20260820000000` is live on production. The postflight-correction
+migration is committed and pushed on `fix/bf0r5-data-api-rls-hardening` for
+review; NOT yet applied to production; PR #66 NOT merged; no frontend/Edge
+deployment performed.**
 
 ## Round 4 corrections (summary)
 
@@ -278,6 +287,17 @@ instruction not to expand scope without evidence. See §10.
 | `saved_searches` | SELECT, UPDATE | `check-price-alerts` (no INSERT — creation is RPC-only) |
 | `price_history` | INSERT | `check-price-alerts` (ongoing price observations; the *initial* point is written by `create_saved_search()` as the table owner, not by service_role) |
 | `subscribers` | SELECT, UPDATE | `unsubscribe`, `send-bulk-email` |
+| `user_roles` | SELECT (postflight correction — see §6a) | `_shared/admin-auth.ts`'s `requireAdmin()` (`generate-route-page`, `generate-seo-content`), `get-admin-stats` |
+
+**Postflight correction note:** `user_roles`'s `service_role` `SELECT` was
+added in the follow-up migration `20260820170000_bf0r5_user_roles_grant_hardening.sql`,
+not in `20260820000000`. The original migration's section 6 stated "No
+explicit service_role grant is added: no current Edge Function writes
+user_roles directly" — true about writes, but incomplete: it did not
+account for the three Edge Functions that *read* `user_roles` under a
+service_role-keyed client to authorize admin access. See §6a for the full
+account, including why `anon`'s raw grant was also closed in the same
+migration.
 
 **Round 4 design change:** every row above is now preceded, in the
 migration, by an explicit `REVOKE ALL ON <table> FROM service_role`
@@ -306,7 +326,7 @@ start from zero locally.
 | `optimizer_requests` | **none** (round 4: SELECT dropped) | **none** (round 4: SELECT dropped) | same | SELECT, INSERT |
 | `optimizer_results` | **none** (round 4: SELECT dropped) | **none** (round 4: SELECT dropped) | same | INSERT |
 | `admin_profiles` | none | none | none | (untouched) |
-| `user_roles` | none | SELECT own roles | full via `has_role` | none |
+| `user_roles` | **none** (postflight correction) | effective SELECT own roles only; writes denied by RLS | role management via has_role-gated RLS | **SELECT only** (postflight correction) |
 | `ad_placements` | SELECT active + EXECUTE tracking RPCs | SELECT active + EXECUTE tracking RPCs | full via `has_role` | (not needed; browser-only feature) |
 | `saved_searches` | EXECUTE `create_saved_search` only | same | same (no special path) | SELECT, UPDATE |
 | `price_history` | none (writes happen inside the RPC) | same | same | INSERT |
@@ -315,6 +335,64 @@ start from zero locally.
 Every `service_role` cell above is now reached via explicit
 `REVOKE ALL ... FROM service_role` + exact `GRANT` (round 4, §5), not GRANT
 alone.
+
+**§6a. `user_roles` — postflight correction (migration
+`20260820170000_bf0r5_user_roles_grant_hardening.sql`), grant layer vs.
+effective RLS access.** `20260820000000` (already applied to production)
+made no grant change to this table — its section 6 concluded "No change
+made", reasoning that RLS alone was sufficient. The production postflight
+that ran immediately after applying `20260820000000` returned 54 PASS / 1
+FAIL: `"user_roles: anon has no write privilege"` — direct inspection
+showed `anon` held raw `SELECT`/`INSERT`/`UPDATE`/`DELETE` **table-grant**
+privilege on `user_roles` (Supabase's platform bootstrap grant, the same
+untracked-grant pattern documented for every other table in this project,
+just never independently checked for this one). This table's **grant
+layer** and its **effective access** (grant + RLS combined) had diverged,
+and only the grant layer was ever documented:
+
+| Role | Grant layer (raw table privilege) | Effective access (grant + RLS) |
+|---|---|---|
+| `anon` | none, post-correction (was full SELECT/INSERT/UPDATE/DELETE pre-correction — never independently exploitable, since no permissive policy exists, but never explicitly closed either) | none |
+| `authenticated` (non-admin) | SELECT + INSERT/UPDATE/DELETE (**unchanged** by the postflight correction — see below) | SELECT own row only (`"Users can view their own roles"`); every write is denied — the only write-capable policy, `"Admins can manage roles"`, requires `has_role(auth.uid(), 'admin')`, which a non-admin fails |
+| `authenticated` (admin) | same raw grant as above | full role management via the same `has_role`-gated `"Admins can manage roles"` policy, unchanged |
+| `service_role` | **SELECT only**, post-correction (was full SELECT/INSERT/UPDATE/DELETE pre-correction via the same untracked bootstrap grant) | SELECT only — matches actual usage exactly (see below) |
+
+**Why `authenticated`'s raw grant is deliberately left untouched:** a
+repository-wide re-audit (`user_roles`, `.from("user_roles")`,
+`.from('user_roles')`, `has_role(`, `requireAdmin`) found zero
+INSERT/UPDATE/DELETE against `user_roles` from any client role anywhere in
+`src/` or `supabase/functions/`. The RLS policy already fully blocks any
+non-admin write regardless of the grant (no permissive policy exists to
+combine with it), so revoking the raw `authenticated` grant would change
+nothing observable — and doing so without a separately-proven functional
+need would be scope creep beyond this narrow postflight correction, not a
+security improvement. If a future round redesigns role management, that
+grant can be revisited then, with its own evidence.
+
+**Why `service_role` needed an explicit correction, not just documentation
+of the status quo:** three Edge Functions read `user_roles` under a
+`service_role`-keyed client — `supabase/functions/_shared/admin-auth.ts`'s
+`requireAdmin()` (used by `generate-route-page` and `generate-seo-content`)
+and `supabase/functions/get-admin-stats/index.ts`'s inline equivalent —
+all performing the identical read-only, own-row
+`.from('user_roles').select('role').eq('user_id', <resolved id>).eq('role',
+'admin').maybeSingle()`. **The BF-0R-5 documentation previously stated
+service_role has no `user_roles` requirement — that was incorrect** and is
+corrected here: service_role's `SELECT` is a real, required capability for
+admin authorization to function in these Edge Functions, and is now
+granted explicitly (not left to an untracked bootstrap grant that also,
+incorrectly, included INSERT/UPDATE/DELETE it never uses).
+
+**Browser-side readers** (`src/hooks/useAdminAuth.ts`,
+`src/lib/analytics.ts`'s internal `requireAdmin()`) use the ordinary
+`authenticated` client for the same own-row, read-only pattern — unaffected
+by this correction since `authenticated`'s grant is unchanged.
+
+**The one legitimate writer**, `handle_new_user_admin_check()` (migration
+`20260113145901`), is `SECURITY DEFINER` and runs `AFTER INSERT ON
+auth.users` with the function owner's privilege — entirely independent of
+the `anon`/`authenticated`/`service_role` grants this correction touches.
+It is unaffected.
 
 ## §7. Local verification results
 
@@ -382,8 +460,9 @@ as a parameter. Part B exercises real `anon`/`authenticated`
 (non-admin)/`authenticated` (admin) role-switches, including genuine
 `create_saved_search()` and `subscribe_email()` RPC round trips (row counts,
 returned ids, the initial `price_history` write, empty/NULL-email
-rejection, and resubscribe-vs-already-subscribed boolean semantics) — not
-just static grant checks.
+rejection, and — since the round-4 correction — the void/non-distinguishing
+response semantics for a new, an already-active, and a previously-
+unsubscribed email alike) — not just static grant checks.
 
 Other checks (re-run in round 4, against the round-4 migration):
 - `npx tsc --noEmit` — clean, exit 0. `subscribe_email`'s generated-types

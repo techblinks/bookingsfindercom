@@ -1,24 +1,35 @@
 /**
- * BF-0R5 Data API / RLS hardening — verification test plan (round 4).
+ * BF-0R5 Data API / RLS hardening — verification test plan
+ * (round 4 + production postflight correction).
  * =====================================================================
  *
  * Run against a freshly-reset LOCAL Supabase instance only. Never run
  * against production.
  *
+ * Covers two migrations:
+ *   - 20260820000000_bf0r5_data_api_rls_hardening.sql (round 4)
+ *   - 20260820170000_bf0r5_user_roles_grant_hardening.sql (postflight
+ *     correction — closes the one production postflight FAIL found after
+ *     20260820000000 was applied: user_roles' anon/service_role grants)
+ *
  * PART A: catalog-based has_table_privilege/has_column_privilege/
  *         has_function_privilege assertions, including explicit
  *         forbidden-privilege=false checks for every "exactly" claim
- *         (round 4: now also covers optimizer_requests/optimizer_results
- *         client SELECT).
+ *         (round 4: optimizer_requests/optimizer_results client SELECT;
+ *         postflight correction: user_roles anon zero-privilege and
+ *         service_role exactly-SELECT).
  * PART A2: pg_policies / pg_proc definition sanity checks (policy text,
  *          dangerous-policy absence, search_path hardening; round 4 adds
- *          subscribe_email's void-return and ON CONFLICT DO NOTHING checks).
+ *          subscribe_email's void-return and ON CONFLICT DO NOTHING checks;
+ *          postflight correction adds user_roles' exactly-2-policies check).
  * PART B: behavioural tests via SET LOCAL ROLE + forged request.jwt.claims,
  *         exercising the real INSERT/UPDATE/SELECT/RPC paths and catching
  *         the errors, INCLUDING genuine create_saved_search() and
  *         subscribe_email() RPC round trips (not just raw-grant checks),
- *         and round 4's opted-out-address protection / non-distinguishing-
- *         response proof for subscribe_email.
+ *         round 4's opted-out-address protection / non-distinguishing-
+ *         response proof for subscribe_email, and the postflight
+ *         correction's own-row-SELECT / non-admin-write-denied / admin-
+ *         write-still-works proof for user_roles.
  *
  * Every assertion RAISEs an EXCEPTION on failure; a clean run with only
  * NOTICE output is a full pass.
@@ -99,11 +110,38 @@ BEGIN
     RAISE EXCEPTION 'FAIL: a client role can still INSERT admin_profiles';
   END IF;
 
-  -- user_roles privilege escalation remains impossible (grant layer)
-  IF has_table_privilege('anon', 'public.user_roles', 'INSERT')
-     OR has_table_privilege('anon', 'public.user_roles', 'UPDATE')
-     OR has_table_privilege('anon', 'public.user_roles', 'DELETE') THEN
-    RAISE EXCEPTION 'FAIL: anon has a write privilege on user_roles';
+  -- user_roles (postflight correction: 20260820170000). anon must have
+  -- ZERO privilege of any kind, including SELECT — role information is
+  -- not meant to be publicly readable and no anon caller anywhere
+  -- legitimately needs it.
+  IF has_table_privilege('anon', 'public.user_roles', 'SELECT') THEN
+    RAISE EXCEPTION 'FAIL: anon can SELECT user_roles';
+  END IF;
+  IF has_table_privilege('anon', 'public.user_roles', 'INSERT') THEN
+    RAISE EXCEPTION 'FAIL: anon can INSERT user_roles';
+  END IF;
+  IF has_table_privilege('anon', 'public.user_roles', 'UPDATE') THEN
+    RAISE EXCEPTION 'FAIL: anon can UPDATE user_roles';
+  END IF;
+  IF has_table_privilege('anon', 'public.user_roles', 'DELETE') THEN
+    RAISE EXCEPTION 'FAIL: anon can DELETE user_roles';
+  END IF;
+
+  -- user_roles: service_role has exactly SELECT (postflight correction —
+  -- required by _shared/admin-auth.ts's requireAdmin() and get-admin-stats,
+  -- both of which read user_roles under a service_role-keyed client; no
+  -- service_role writer exists anywhere).
+  IF NOT has_table_privilege('service_role', 'public.user_roles', 'SELECT') THEN
+    RAISE EXCEPTION 'FAIL: service_role lost SELECT on user_roles (admin-auth Edge Functions would break)';
+  END IF;
+  IF has_table_privilege('service_role', 'public.user_roles', 'INSERT') THEN
+    RAISE EXCEPTION 'FAIL: service_role can INSERT user_roles (not exactly SELECT)';
+  END IF;
+  IF has_table_privilege('service_role', 'public.user_roles', 'UPDATE') THEN
+    RAISE EXCEPTION 'FAIL: service_role can UPDATE user_roles (not exactly SELECT)';
+  END IF;
+  IF has_table_privilege('service_role', 'public.user_roles', 'DELETE') THEN
+    RAISE EXCEPTION 'FAIL: service_role can DELETE user_roles (not exactly SELECT)';
   END IF;
 
   -- saved_searches / price_history (round 3: RPC-only creation — NO raw
@@ -268,6 +306,22 @@ BEGIN
     RAISE EXCEPTION 'FAIL: user_roles admin policy missing or no longer has_role-scoped: %', v_def;
   END IF;
 
+  -- user_roles (postflight correction): "Users can view their own roles"
+  -- must remain present and owner-scoped — neither policy is dropped or
+  -- weakened by 20260820170000, only the grant layer changed.
+  SELECT qual INTO v_def FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_roles' AND policyname = 'Users can view their own roles';
+  IF v_def IS NULL OR v_def NOT ILIKE '%auth.uid()%user_id%' THEN
+    RAISE EXCEPTION 'FAIL: user_roles own-row SELECT policy missing or no longer owner-scoped: %', v_def;
+  END IF;
+
+  -- user_roles: exactly these two policies exist — no additional
+  -- permissive write policy has been introduced anywhere (the postflight
+  -- correction migration adds no CREATE POLICY at all, only REVOKE/GRANT).
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'user_roles') <> 2 THEN
+    RAISE EXCEPTION 'FAIL: user_roles does not have exactly 2 policies (expected only "Users can view their own roles" and "Admins can manage roles")';
+  END IF;
+
   SELECT qual INTO v_def FROM pg_policies
     WHERE schemaname = 'public' AND tablename = 'ad_placements' AND policyname = 'Admins can manage ad placements';
   IF v_def IS NULL OR v_def NOT ILIKE '%has_role%' THEN
@@ -421,6 +475,23 @@ END $$;
 -- PART B — behavioural tests (role-switching)
 -- ═══════════════════════════════════════════════════════════════
 
+-- Test-environment-only setup, NOT part of any migration: a live read-only
+-- production audit confirmed `authenticated` already holds
+-- SELECT/INSERT/UPDATE/DELETE on public.user_roles via Supabase's
+-- untracked, implicit platform bootstrap grant — the same class of
+-- untracked grant this whole project has repeatedly had to account for.
+-- 20260820170000_bf0r5_user_roles_grant_hardening.sql deliberately leaves
+-- `authenticated`'s privileges on this table untouched (per the caller
+-- audit's conclusion that RLS, not the grant, must do the real work here —
+-- the admin write path needs the grant to stay reachable at all, exactly
+-- like ad_placements/subscribers elsewhere in this project). A fresh LOCAL
+-- `supabase db reset` does NOT reproduce that same bootstrap grant for this
+-- one table, so it is replicated here purely so the role-switch tests
+-- below exercise the SAME grant-present/RLS-decides conditions production
+-- actually has, instead of failing on a local-only permission-denied error
+-- that has nothing to do with the migration under test.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_roles TO authenticated;
+
 DO $$
 DECLARE
   v_user_id uuid := '00000000-0000-0000-0000-000000000001';
@@ -444,11 +515,18 @@ DECLARE
   v_active_email text := 'bf0r5-round4-active@example.test';
   v_active_subscribed_at_before timestamptz;
   v_active_subscribed_at_after timestamptz;
+  v_role_text text;
+  v_role_count int;
 BEGIN
   INSERT INTO auth.users (id, email) VALUES (v_user_id, 'plain-user@example.test') ON CONFLICT (id) DO NOTHING;
   INSERT INTO auth.users (id, email) VALUES (v_other_user_id, 'other-user@example.test') ON CONFLICT (id) DO NOTHING;
   INSERT INTO auth.users (id, email) VALUES (v_admin_id, 'admin-user@example.test') ON CONFLICT (id) DO NOTHING;
   INSERT INTO public.user_roles (user_id, role) VALUES (v_admin_id, 'admin') ON CONFLICT DO NOTHING;
+  -- Postflight correction fixtures: give both non-admin users their own
+  -- 'user' role row, so test 9 (own-row SELECT) and test 10 (cannot SELECT
+  -- another user's row) exercise a real row, not an empty result either way.
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'user') ON CONFLICT DO NOTHING;
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_other_user_id, 'user') ON CONFLICT DO NOTHING;
 
   INSERT INTO public.ad_placements (name, type, placement, page, title, destination_url, is_active, impressions, clicks)
   VALUES ('bf0r5-test-ad', 'sponsored_card', 'after_result_3', 'both', 'Original Title', 'https://example.test/original', true, 0, 0)
@@ -748,6 +826,46 @@ BEGIN
   END;
   IF NOT v_caught THEN RAISE EXCEPTION 'FAIL 2: authenticated can enumerate saved_searches'; END IF;
 
+  -- Postflight correction test 9: authenticated can SELECT their own role
+  -- row — "Users can view their own roles" must still work; this is the
+  -- exact pattern useAdminAuth.ts / analytics.ts's requireAdmin() rely on.
+  SELECT role INTO v_role_text FROM public.user_roles WHERE user_id = v_user_id;
+  IF v_role_text IS DISTINCT FROM 'user' THEN
+    RAISE EXCEPTION 'FAIL R4-ur-9: authenticated could not SELECT their own user_roles row (regression)';
+  END IF;
+
+  -- Postflight correction test 10: authenticated cannot SELECT another
+  -- user's role row — RLS-filtered to zero rows, not an exception (same
+  -- row-invisibility mode used throughout this suite for non-admin reads).
+  SELECT count(*) INTO v_role_count FROM public.user_roles WHERE user_id = v_other_user_id;
+  IF v_role_count <> 0 THEN
+    RAISE EXCEPTION 'FAIL R4-ur-10: authenticated (non-admin) can SELECT another user''s user_roles row';
+  END IF;
+
+  -- Postflight correction test 11: authenticated (non-admin) cannot INSERT
+  -- a user_roles row (e.g. a self-granted 'admin' escalation attempt) — the
+  -- "Admins can manage roles" WITH CHECK clause rejects the new row
+  -- outright, which Postgres raises as an explicit RLS-violation error
+  -- (unlike UPDATE/DELETE's silent zero-row behaviour below).
+  v_caught := false;
+  BEGIN
+    INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'admin');
+  EXCEPTION WHEN OTHERS THEN v_caught := true;
+  END;
+  IF NOT v_caught THEN RAISE EXCEPTION 'FAIL R4-ur-11: authenticated (non-admin) was able to INSERT a user_roles row (privilege escalation)'; END IF;
+
+  -- Postflight correction test 12: authenticated (non-admin) cannot UPDATE
+  -- a user_roles row, including their own — "Admins can manage roles"'
+  -- USING clause makes every row invisible to a non-admin for this
+  -- command, so the UPDATE silently affects zero rows; no exception is
+  -- raised (same failure mode as ad_placements FAIL 9 / subscribers
+  -- R3-9c above). The actual no-op is verified in superuser context below.
+  UPDATE public.user_roles SET role = 'admin' WHERE user_id = v_user_id;
+
+  -- Postflight correction test 13: authenticated (non-admin) cannot DELETE
+  -- a user_roles row, including their own — same row-invisibility mode.
+  DELETE FROM public.user_roles WHERE user_id = v_user_id;
+
   -- 12 (behavioural). authenticated (non-admin) cannot write user_profiles.plan.
   v_caught := false;
   BEGIN
@@ -834,6 +952,16 @@ BEGIN
     RAISE EXCEPTION 'FAIL R3-9b: authenticated (non-admin) was able to rewrite a subscribers row';
   END IF;
 
+  -- Postflight correction tests 12/13 (superuser verification): confirm
+  -- the non-admin UPDATE and DELETE attempts against user_roles above
+  -- genuinely did nothing — v_user_id's row must still exist, unchanged,
+  -- with role='user', not escalated to 'admin' and not removed. Checked
+  -- BEFORE the admin block below, for the same reason as R3-9b above.
+  SELECT role INTO v_role_text FROM public.user_roles WHERE user_id = v_user_id;
+  IF v_role_text IS DISTINCT FROM 'user' THEN
+    RAISE EXCEPTION 'FAIL R4-ur-12-13: authenticated (non-admin) was able to UPDATE or DELETE their own user_roles row (got role=%)', v_role_text;
+  END IF;
+
   -- ── authenticated, admin ─────────────────────────────────────
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims', json_build_object('role', 'authenticated', 'sub', v_admin_id)::text, true);
@@ -873,6 +1001,16 @@ BEGIN
     RAISE EXCEPTION 'FAIL R3-14b: admin was NOT able to update a subscribers row (regression)';
   END IF;
 
+  -- Postflight correction test 14: authenticated admin still passes the
+  -- intended "Admins can manage roles" policy — genuine role-management
+  -- write, not just SELECT. Confirms the postflight correction (which
+  -- touched only anon/service_role grants, never this policy) left the
+  -- admin write path fully functional.
+  UPDATE public.user_roles SET role = 'moderator' WHERE user_id = v_other_user_id;
+  IF (SELECT role FROM public.user_roles WHERE user_id = v_other_user_id) IS DISTINCT FROM 'moderator' THEN
+    RAISE EXCEPTION 'FAIL R4-ur-14: admin was NOT able to UPDATE a user_roles row via "Admins can manage roles" (regression)';
+  END IF;
+
   RESET ROLE;
 
   -- Round 3 test 6/7 continued (superuser context): confirm the initial
@@ -904,7 +1042,7 @@ BEGIN
     'victim@example.test', 'new-visitor@example.test', 'second-visitor@example.test', 'attacker@example.test'
   );
   DELETE FROM public.subscribers WHERE email IN (v_sub_email, v_optout_email, v_active_email);
-  DELETE FROM public.user_roles WHERE user_id = v_admin_id;
+  DELETE FROM public.user_roles WHERE user_id IN (v_admin_id, v_user_id, v_other_user_id);
 
   RAISE NOTICE 'PART B: all behavioural RLS/RPC tests passed.';
 END $$;
