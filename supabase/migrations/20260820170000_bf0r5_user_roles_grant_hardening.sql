@@ -1,0 +1,78 @@
+-- BF-0R-5 postflight correction: user_roles grant-layer hardening
+-- ============================================================================
+-- Forward-only. Does NOT modify 20260820000000_bf0r5_data_api_rls_hardening.sql
+-- (already applied to production). No row is deleted. No backfill.
+--
+-- CONTEXT: after 20260820000000 was applied to production, the full read-only
+-- production postflight ran and returned 54 PASS / 1 FAIL. The failure:
+--   "user_roles: anon has no write privilege" -> FAIL
+-- Direct read-only inspection of production confirmed `anon` holds raw
+-- SELECT/INSERT/UPDATE/DELETE table-level grants on public.user_roles, and
+-- `authenticated` holds raw INSERT/UPDATE/DELETE as well — Supabase's
+-- untracked platform bootstrap grant, same pattern documented for every
+-- other table in 20260820000000, but never made explicit for user_roles
+-- because that migration's section 6 concluded "No change made", reasoning
+-- that RLS alone (the has_role-gated "Admins can manage roles" ALL policy,
+-- with no permissive `true` policy anywhere on this table) already blocks
+-- any non-admin write. That reasoning about RLS was, and remains, CORRECT —
+-- re-verified live: exactly 2 policies exist on user_roles ("Users can view
+-- their own roles" SELECT, owner-scoped; "Admins can manage roles" ALL,
+-- has_role-gated), unchanged, no permissive escape hatch. A genuinely
+-- anonymous request has no auth.uid(), so has_role(NULL, 'admin') evaluates
+-- false — the raw grant was never independently exploitable. But it was
+-- never independently VERIFIED either, unlike every other table in this
+-- migration series, where "REVOKE ALL then GRANT exactly what's needed" was
+-- applied specifically BECAUSE the grant was checked rather than assumed.
+-- This migration closes that one gap, bringing user_roles in line with the
+-- same explicit-grant discipline used everywhere else, without touching
+-- the RLS policies or the authenticated-role architecture that were already
+-- correct.
+--
+-- CALLER RE-AUDIT performed before writing this migration (repository-wide
+-- search of src/ and supabase/functions/ for "user_roles", ".from(\"user_roles\")",
+-- ".from('user_roles')", "has_role(", "requireAdmin"):
+--   - src/hooks/useAdminAuth.ts: browser client (anon/authenticated public
+--     key), `.from('user_roles').select('role').eq('user_id', userId).eq(
+--     'role', 'admin').maybeSingle()` — own-row SELECT only, read-only.
+--   - src/lib/analytics.ts (requireAdmin, internal to that file): same
+--     pattern — browser client, own-row SELECT only, read-only.
+--   - supabase/functions/_shared/admin-auth.ts (requireAdmin, shared by
+--     generate-route-page and generate-seo-content) and
+--     supabase/functions/get-admin-stats/index.ts (inline equivalent): all
+--     three construct their Supabase client with SUPABASE_SERVICE_ROLE_KEY
+--     and perform the identical own-row `.from('user_roles').select('role')
+--     ...maybeSingle()` — read-only, service_role.
+--   - Zero matches anywhere in src/ or supabase/functions/ for an
+--     INSERT/UPDATE/DELETE/upsert against user_roles from any client role.
+--     The only writer is the pre-existing `handle_new_user_admin_check()`
+--     trigger (migration 20260113145901), which is SECURITY DEFINER and
+--     runs with the function owner's privilege, AFTER INSERT ON auth.users
+--     — entirely independent of the anon/authenticated/service_role grants
+--     touched below.
+--
+-- CONCLUSION:
+--   - anon: zero legitimate use, confirmed by the audit above (no anon
+--     caller anywhere touches this table, and none legitimately could —
+--     role information is not meant to be publicly readable). REVOKE ALL.
+--   - service_role: SELECT only, explicitly, tracing to the three Edge
+--     Function readers above. No INSERT/UPDATE/DELETE by service_role
+--     anywhere. Prior documentation ("service_role has no user_roles
+--     requirement") was WRONG and is corrected in
+--     BOOKINGSFINDER_BF0R5_DATA_API_SECURITY.md alongside this migration.
+--   - authenticated: UNCHANGED in this migration. The caller audit found
+--     no authenticated write path anywhere (browser or Edge) and no
+--     separately-proven reason to redesign the existing
+--     grant-present/RLS-blocks-non-admin architecture — the same pattern
+--     already relied on for ad_placements and subscribers. Changing it
+--     here without a proven need would be scope creep beyond this narrow
+--     postflight correction. "Users can view their own roles" and "Admins
+--     can manage roles" (has_role-gated) are NOT dropped or modified.
+
+REVOKE ALL ON public.user_roles FROM anon;
+
+REVOKE ALL ON public.user_roles FROM service_role;
+GRANT SELECT ON public.user_roles TO service_role;
+
+-- authenticated: intentionally untouched. See CONCLUSION above.
+-- "Users can view their own roles" (SELECT, owner-scoped) and
+-- "Admins can manage roles" (ALL, has_role-gated) are unchanged.

@@ -921,12 +921,35 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_price_cache: { Args: never; Returns: undefined }
+      create_saved_search: {
+        Args: {
+          p_cabin_class?: string
+          p_current_price?: number
+          p_departure_date: string
+          p_destination: string
+          p_email: string
+          p_origin: string
+          p_passengers?: number
+          p_return_date?: string
+          p_target_price?: number
+        }
+        Returns: {
+          created_at: string
+          id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_ad_click: { Args: { p_ad_id: string }; Returns: undefined }
+      increment_ad_impression: { Args: { p_ad_id: string }; Returns: undefined }
+      subscribe_email: {
+        Args: { p_email: string; p_source?: string }
+        Returns: undefined
       }
     }
     Enums: {
