@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -6,12 +6,14 @@ import Footer from "@/components/layout/Footer";
 import OptimizerForm from "@/components/optimizer/OptimizerForm";
 import OptimizerResults from "@/components/optimizer/OptimizerResults";
 import OptimizerNoData from "@/components/optimizer/OptimizerNoData";
+import OptimizerAuthGate from "@/components/optimizer/OptimizerAuthGate";
 import {
   useOptimizer,
   OptimizerRequest,
   OptimizerResult,
   isOptimizerSuccess,
 } from "@/hooks/useOptimizer";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Shield, DollarSign, Clock, Zap, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,9 +22,14 @@ const TripOptimizer = () => {
   const navigate = useNavigate();
   const [result, setResult] = useState<OptimizerResult | null>(null);
   const [request, setRequest] = useState<OptimizerRequest | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
   const { runOptimizer, isLoading, error, paywallError, clearPaywallError } = useOptimizer();
 
-  const handleSubmit = async (data: OptimizerRequest) => {
+  // Holds a submitted-while-signed-out request so it can be re-submitted the
+  // moment a session appears, without the traveller re-entering anything.
+  const pendingRequestRef = useRef<OptimizerRequest | null>(null);
+
+  const executeOptimizer = async (data: OptimizerRequest) => {
     setRequest(data);
     const optimizerResult = await runOptimizer(data);
     if (optimizerResult) {
@@ -30,10 +37,43 @@ const TripOptimizer = () => {
     }
   };
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && pendingRequestRef.current) {
+        const held = pendingRequestRef.current;
+        pendingRequestRef.current = null;
+        setNeedsAuth(false);
+        void executeOptimizer(held);
+      }
+    });
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSubmit = async (data: OptimizerRequest) => {
+    // run-optimizer now requires an authenticated user (BF-0R-4) — an
+    // anonymous submit would only fail closed at the Edge Function, wasting a
+    // round-trip. Check locally first and hold the request until sign-in.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      pendingRequestRef.current = data;
+      setNeedsAuth(true);
+      return;
+    }
+    await executeOptimizer(data);
+  };
+
   const handleReset = () => {
     setResult(null);
     setRequest(null);
+    setNeedsAuth(false);
+    pendingRequestRef.current = null;
     clearPaywallError();
+  };
+
+  const handleCancelAuth = () => {
+    pendingRequestRef.current = null;
+    setNeedsAuth(false);
   };
 
   const handleUpgrade = () => {
@@ -123,6 +163,8 @@ const TripOptimizer = () => {
                     </p>
                   </div>
                 </div>
+              ) : needsAuth ? (
+                <OptimizerAuthGate onCancel={handleCancelAuth} />
               ) : paywallError ? (
                 <div className="max-w-lg mx-auto">
                   <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
