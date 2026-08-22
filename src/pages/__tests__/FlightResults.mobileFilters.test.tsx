@@ -198,7 +198,8 @@ describe("mobile flight results — filters entry point", () => {
     hoisted.isMobile = false;
     await renderWithResults();
     expect(screen.getByRole("heading", { name: "Filters", level: 2 })).toBeTruthy();
-    expect(screen.getByText("Price")).toBeTruthy();
+    // "Recent fare" (BF-0R-7.1 Phase C) — was "Price".
+    expect(screen.getByText("Recent fare")).toBeTruthy();
     expect(screen.getByText("Stops")).toBeTruthy();
   });
 
@@ -206,7 +207,7 @@ describe("mobile flight results — filters entry point", () => {
     await renderWithResults();
     await openFilters();
     const panel = within(sheet());
-    expect(panel.getByText("Price")).toBeTruthy();
+    expect(panel.getByText("Recent fare")).toBeTruthy();
     expect(panel.getByText("Stops")).toBeTruthy();
     expect(panel.getByText("Airlines")).toBeTruthy();
     expect(panel.getByText("Departure Time")).toBeTruthy();

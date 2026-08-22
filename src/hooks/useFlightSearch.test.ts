@@ -144,3 +144,76 @@ describe("useFlightSearch filter range staleness regression", () => {
     expect(result.current.filters.priceRange).toEqual([63, 72]);
   });
 });
+
+// ── enabled: false — BF-0R-7.1 Phase B ──
+
+describe("useFlightSearch enabled flag", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.mock("@/integrations/supabase/client", () => ({
+      supabase: { auth: { getSession: () => Promise.resolve({ data: { session: null } }) } },
+    }));
+    vi.mock("@/lib/supabaseConfig", () => ({
+      getFunctionUrl: () => "https://mock.test/functions/v1/search-flights",
+    }));
+  });
+
+  it("never calls fetch when enabled is false, even with a complete search", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useFlightSearch({
+        origin: "BNE",
+        destination: "SYD",
+        departureDate: "2026-08-10",
+        passengers: 1,
+        cabinClass: "business",
+        currency: "USD",
+        enabled: false,
+      })
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.flights).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("resumes fetching once enabled flips back to true", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          flights: [
+            { id: "f1", airline: "JQ", airline_code: "JQ", price: 90, currency: "USD", duration_minutes: 100, stops: 0, segments: [{ from: "BNE", to: "SYD", depart_time: "2026-08-10T08:00:00Z", arrive_time: null, airline: "JQ", airline_code: "JQ" }], link: "/search/1" },
+          ],
+          meta: { total_found: 1, is_complete: true },
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ enabled }) =>
+        useFlightSearch({
+          origin: "BNE",
+          destination: "SYD",
+          departureDate: "2026-08-10",
+          passengers: 1,
+          cabinClass: "business",
+          currency: "USD",
+          enabled,
+        }),
+      { initialProps: { enabled: false } }
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    rerender({ enabled: true });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.flights.length).toBe(1);
+  });
+});
