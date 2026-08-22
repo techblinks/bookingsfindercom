@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Helmet } from "react-helmet-async";
-import { ArrowLeft, Plane, ChevronDown, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plane, ChevronDown, AlertTriangle, ExternalLink } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile, useIsBelowDesktop } from "@/hooks/use-mobile";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -71,6 +71,22 @@ const FlightResults = () => {
   const infants = validated?.infants ?? null;
   const hasExplicitPassengers =
     adults !== null && children !== null && infants !== null;
+
+  /*
+   * BF-0R-7 Round 1.1 item 2 (smallest truthful design): Travelpayouts'
+   * Data API does not price against cabin class — every cached fare on
+   * this page is effectively an unknown/standard-cabin observation. A text
+   * disclosure next to a Business/First/Premium Economy search result list
+   * would not be enough: the prominently-displayed NUMBER itself would
+   * still misrepresent what that cabin actually costs (often by a large
+   * multiple), not just its freshness. So for any non-economy cabin
+   * search, no cached numeric fares are shown at all — the results list is
+   * replaced with a direct path to the partner's live search for that
+   * cabin. Economy searches keep the existing recent/indicative card list
+   * (labelled per Phase E) plus the one page-level disclosure below.
+   */
+  const isNonEconomyCabin = !!cabinClass && cabinClass !== "economy";
+  const cabinClassLabel = cabinClass ? cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1) : "";
 
   const { geoData } = useGeoLocation();
   const currencyCode = geoData?.currency || "USD";
@@ -214,7 +230,33 @@ const FlightResults = () => {
     let finalUrl: string | null = null;
     let outboundHost: string | undefined;
 
+    /*
+     * BF-0R-7 Phase F: the displayed price (FlightCard) and this handoff
+     * are deliberately two different things, and this function does not
+     * try to make them look like the same offer.
+     *
+     * Neither path below preserves "the exact priced offer the traveller
+     * saw": buildWhiteLabelFlightUrl() below builds a brand-new generic
+     * White Label search from route/dates/passengers/cabin only (never
+     * flight.link/id/price); the getRedirectUrl() fallback's flight.link,
+     * when present, is itself just a cached-provider search link from the
+     * same Data API response the displayed price came from — Travelpayouts
+     * does not document that following it re-quotes or preserves that
+     * specific cached price, and this codebase has no proven expiry/TTL
+     * behaviour for it either. Preferring flight.link here would fabricate
+     * a continuity between the two numbers that isn't actually provable,
+     * which is why this order is NOT "prefer flight.link" — see the
+     * BF-0R-7 audit for why that recommendation was reversed.
+     *
+     * What both paths correctly do is send the traveller to the partner's
+     * live search for the real route/dates/passengers, where the actual
+     * current price and availability are confirmed — hence "Check live
+     * price" as the button label (FlightCard.tsx), not "Book this fare".
+     */
     if (hasExplicitPassengers) {
+      // Preferred path: a full White Label search carrying the complete
+      // supported query contract (origin, destination, dates, adults,
+      // children, infants, cabin class) — see whiteLabelUrl.ts.
       const wlResult = buildWhiteLabelFlightUrl({
         origin, destination, outboundDate: departureDate,
         returnDate: returnDate || undefined,
@@ -228,6 +270,11 @@ const FlightResults = () => {
     }
 
     if (!finalUrl) {
+      // Fallback path only: get-redirect prefers flight.link when present
+      // (a cached-provider search link tied to this specific result, not a
+      // proven-live re-quote) and otherwise builds a generic partner search
+      // itself. Reached only when White Label is unavailable/disabled or
+      // passenger details are incomplete.
       try {
         const result = await getRedirectUrl({
           id: flightId, type: 'flight', link: flight.link, origin, destination,
@@ -253,6 +300,61 @@ const FlightResults = () => {
       price: flight.price,
       currency: flight.currency,
       whiteLabelUsed: outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost(),
+      fallbackUsed: !(outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost()),
+      outboundHost: outboundHost || null,
+      landingPage: '/flights',
+    }).catch(() => {});
+
+    window.location.href = `/redirect?url=${encodeURIComponent(finalUrl)}`;
+  };
+
+  /*
+   * BF-0R-7 Round 1.1 item 2: the CTA shown instead of cached fare cards
+   * for a non-economy cabin search. Same handoff mechanism as
+   * handleBookNow (White Label first, get-redirect fallback) — just not
+   * tied to a specific cached flight, since none are displayed.
+   */
+  const handleCheckCabinLivePrices = async () => {
+    let finalUrl: string | null = null;
+    let outboundHost: string | undefined;
+
+    if (hasExplicitPassengers) {
+      const wlResult = buildWhiteLabelFlightUrl({
+        origin, destination, outboundDate: departureDate,
+        returnDate: returnDate || undefined,
+        adults: adults!, children: children!, infants: infants!,
+        cabinClass,
+      });
+      if (wlResult.success && wlResult.url) {
+        finalUrl = wlResult.url;
+        outboundHost = new URL(wlResult.url).hostname;
+      }
+    }
+
+    if (!finalUrl) {
+      try {
+        const result = await getRedirectUrl({
+          id: 'cabin-live-search', type: 'flight', origin, destination,
+          departureDate, returnDate: returnDate || undefined,
+        });
+        if (result.success && result.redirectUrl) {
+          finalUrl = result.redirectUrl;
+          outboundHost = new URL(result.redirectUrl).hostname;
+        }
+      } catch (err) { /* URL generation failed */ }
+    }
+
+    if (!finalUrl) {
+      toast.error("Could not generate a live search link");
+      return;
+    }
+
+    void logAffiliateClick({
+      partner: outboundHost || 'aviasales',
+      partnerType: 'flight',
+      route: origin + '-' + destination,
+      currency: currencyCode,
+      whiteLabelUsed: !!(outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost()),
       fallbackUsed: !(outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost()),
       outboundHost: outboundHost || null,
       landingPage: '/flights',
@@ -325,7 +427,10 @@ const FlightResults = () => {
       <FlightSearchSchema
         origin={origin} destination={destination} departureDate={departureDate}
         returnDate={returnDate || undefined} passengers={passengers} cabinClass={cabinClass}
-        lowestPrice={cheapestPrice > 0 ? cheapestPrice : undefined}
+        // BF-0R-7 Round 1.1 item 2: no cached numeric fare is attached to a
+        // non-economy cabin search anywhere on this page — see the same
+        // gating on the "From $X" summary chip below and the results list.
+        lowestPrice={!isNonEconomyCabin && cheapestPrice > 0 ? cheapestPrice : undefined}
         currency={currencyCode} totalResults={filteredFlights.length}
       />
 
@@ -357,10 +462,21 @@ const FlightResults = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {!isLoading && cheapestPrice > 0 && (
+              {/*
+                * BF-0R-7 Round 1.1 item 2: this chip must not surface a
+                * cached numeric fare for a non-economy search either — it
+                * would undermine the same fix the results list below
+                * makes. "Fastest" alone (no price) still shows.
+                */}
+              {!isLoading && !isNonEconomyCabin && cheapestPrice > 0 && (
                 <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground mr-2">
                   <span>From <span className="font-semibold text-foreground">{currencySymbol}{cheapestPrice}</span></span>
                   <span className="w-px h-4 bg-border" />
+                  <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
+                </div>
+              )}
+              {!isLoading && isNonEconomyCabin && fastestDuration > 0 && (
+                <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground mr-2">
                   <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
                 </div>
               )}
@@ -426,7 +542,12 @@ const FlightResults = () => {
           </aside>
 
           <div className="flex-1 min-w-0">
-            {!isLoading && filteredFlights.length > 0 && (
+            {/*
+              * BF-0R-7 Round 1.1 item 2: FlightQuickSelect renders cached
+              * numeric prices (cheapest/fastest/best) — same gating as the
+              * results list below, for the same reason.
+              */}
+            {!isLoading && !isNonEconomyCabin && filteredFlights.length > 0 && (
               <div className="mb-4" ref={quickSelectRef}>
                 <FlightQuickSelect flights={filteredFlights} currency="$"
                   onSelect={(id) => { document.getElementById(`flight-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}
@@ -452,7 +573,11 @@ const FlightResults = () => {
               </>
             )}
 
-            {!isLoading && bestDealFlight?.nearby_airport_savings && (
+            {/*
+              * BF-0R-7 Round 1.1 item 2: savings is derived from cached
+              * economy-priced data — same gating as FlightQuickSelect above.
+              */}
+            {!isLoading && !isNonEconomyCabin && bestDealFlight?.nearby_airport_savings && (
               <div className="mb-4">
                 <NearbyAirportSuggestion airport={bestDealFlight.nearby_airport_savings.airport} airportName={bestDealFlight.nearby_airport_savings.airport_name} savings={bestDealFlight.nearby_airport_savings.savings} currency={currencySymbol} />
               </div>
@@ -516,11 +641,42 @@ const FlightResults = () => {
               </div>
             )}
 
+            {/*
+              * BF-0R-7 Round 1.1 item 2: one concise, page-level disclosure
+              * — not repeated per card — shown only alongside the cached
+              * fare list itself (economy searches with results).
+              */}
+            {!isLoading && !error && !isNonEconomyCabin && displayedFlights.length > 0 && (
+              <p className="text-xs text-muted-foreground mb-3">
+                Recent fare snapshots are route/date observations from our flight partner. They are not adjusted for traveller type or cabin class. Your selected travellers and cabin are applied when you check the live partner search.
+              </p>
+            )}
+
             <div className="space-y-3" role="list" aria-label="Flight results">
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => <FlightCardSkeleton key={i} />)
               ) : error ? (
                 <EmptyFlightState variant="error" errorMessage={error} onRetry={retry} />
+              ) : isNonEconomyCabin ? (
+                /*
+                 * BF-0R-7 Round 1.1 item 2: cached fares are unknown/
+                 * standard-cabin observations — showing them as if they
+                 * matched a Business/First/Premium Economy search would
+                 * misrepresent the number itself, not just its freshness.
+                 * Send the traveller straight to the partner's live search
+                 * for the selected cabin instead of any numeric fare card.
+                 * The selected adults/children/infants/cabin still flow
+                 * into that handoff — see handleCheckCabinLivePrices.
+                 */
+                <div className="rounded-xl border border-border bg-card p-6 md:p-8 text-center space-y-4">
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin on the partner site instead.
+                  </p>
+                  <Button onClick={handleCheckCabinLivePrices} className="gap-1.5">
+                    Check live prices for your selected cabin
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </div>
               ) : displayedFlights.length === 0 ? (
                 <EnhancedEmptyFlightResults onClearFilters={resetFilters} origin={origin} destination={destination} departureDate={departureDate} returnDate={returnDate} />
               ) : (

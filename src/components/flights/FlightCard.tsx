@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Flight } from "@/types/flight";
 import { formatDuration } from "@/hooks/useFlightSearch";
 import { getAirlineLogo, getAirlineName } from "@/lib/airlineLogos";
-import { getAirportTimezone, calculateDayDifference, formatDayDifference } from "@/lib/timezones";
+import { getAirportTimezone, formatProviderLocalTime, formatProviderLocalDate } from "@/lib/timezones";
 import { cn } from "@/lib/utils";
 import PriceConfidenceIndicator from "./PriceConfidenceIndicator";
 import FlightWarningBadges from "./FlightWarningBadges";
@@ -27,105 +27,37 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
   const firstSegment = flight.segments[0];
   const lastSegment = flight.segments[flight.segments.length - 1];
 
-  // Get timezone info for departure and arrival airports
+  // Get timezone info for the departure airport. BF-0R-7: no arrival-side
+  // timezone lookup here — the provider gives no outbound arrival
+  // timestamp at all (see below), so there is nothing to label with one.
   const departureTimezone = getAirportTimezone(firstSegment?.from || "");
-  const arrivalTimezone = getAirportTimezone(lastSegment?.to || "");
 
-  // Format times
-  const formatTime = (isoString: string | null | undefined): string => {
-    if (!isoString) return "";
-    try {
-      if (isoString.includes('T') || isoString.includes('-')) {
-        const date = new Date(isoString);
-        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-      }
-      return isoString;
-    } catch {
-      return isoString;
-    }
-  };
-
-  // Format date with day of week (e.g., "Mon, Jan 30")
-  const formatDateWithDay = (isoString: string | null | undefined): string => {
-    if (!isoString) return "";
-    try {
-      const date = new Date(isoString);
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    } catch {
-      return "";
-    }
-  };
-
-  // Calculate arrival date from departure + duration
-  const getArrivalDate = (): Date | null => {
-    const departTime = firstSegment?.depart_time;
-    const durationMinutes = flight.duration_minutes;
-    
-    if (!departTime || durationMinutes <= 0) return null;
-    
-    try {
-      const departure = new Date(departTime);
-      return new Date(departure.getTime() + durationMinutes * 60 * 1000);
-    } catch {
-      return null;
-    }
-  };
-
-  const departureDate = formatDateWithDay(firstSegment?.depart_time);
-  const arrivalDate = (() => {
-    const arrDate = getArrivalDate();
-    if (arrDate) {
-      return arrDate.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    }
-    return "";
-  })();
-
-  // Calculate arrival time and date from departure + duration if not provided
-  const calculateArrivalInfo = (): { time: string; dayDiff: number } => {
-    const departTime = firstSegment?.depart_time;
-    const durationMinutes = flight.duration_minutes;
-    const destinationCode = lastSegment?.to;
-    
-    // If we have arrive_time in the last segment, use it
-    if (lastSegment?.arrive_time) {
-      const dayDiff = departTime ? calculateDayDifference(departTime, durationMinutes, destinationCode) : 0;
-      return {
-        time: formatTime(lastSegment.arrive_time),
-        dayDiff
-      };
-    }
-    
-    // Otherwise calculate from departure + duration
-    if (departTime && durationMinutes > 0) {
-      try {
-        const departure = new Date(departTime);
-        const arrival = new Date(departure.getTime() + durationMinutes * 60 * 1000);
-        const dayDiff = calculateDayDifference(departTime, durationMinutes, destinationCode);
-        
-        return {
-          time: arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-          dayDiff
-        };
-      } catch {
-        return { time: "", dayDiff: 0 };
-      }
-    }
-    
-    return { time: "", dayDiff: 0 };
-  };
+  /*
+   * BF-0R-7 Phase 1.1 item 1: departure/arrival time display.
+   *
+   * formatTime/formatDateWithDay read the provider's stated local
+   * date/time directly from the ISO string (timezone.ts's
+   * formatProviderLocalTime/formatProviderLocalDate) rather than via
+   * `new Date(iso).toLocaleTimeString()` — the latter reinterprets the
+   * instant through the *browser's* local timezone, which can show a
+   * different wall-clock time (or even a different calendar date near a
+   * boundary) than what the provider actually stated, while this card
+   * labels it with the airport's timezone abbreviation regardless.
+   *
+   * There is deliberately no computed arrival clock time. The Data API
+   * gives an outbound departure timestamp and a duration — computing a
+   * destination-local arrival clock from those needs the destination's
+   * UTC offset, and this codebase's only source for that is a static,
+   * DST-unaware airport table (see AIRPORT_TIMEZONES) that cannot be
+   * trusted to produce a correct clock reading for an arbitrary future
+   * date. Manufacturing a specific arrival time from an untrustworthy
+   * offset would present a fabricated fact as if it were provider data;
+   * "confirmed on partner" (below) is the honest state instead.
+   */
+  const formatTime = formatProviderLocalTime;
+  const formatDateWithDay = formatProviderLocalDate;
 
   const departureTime = formatTime(firstSegment?.depart_time || "");
-  const arrivalInfo = calculateArrivalInfo();
-  const arrivalTime = arrivalInfo.time;
-  const dayDiffLabel = formatDayDifference(arrivalInfo.dayDiff);
 
   // Get layover cities
   const layoverCities = flight.layover_cities || 
@@ -165,8 +97,16 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               <p className="text-sm font-semibold text-foreground truncate" title={airlineName}>
                 {airlineName}
               </p>
+              {/*
+               * BF-0R-7 Phase 1.1 item 2: the Data API this card is sourced
+               * from does not price against a cabin class — flight.cabin_class
+               * is never actually populated by the current backend mapper,
+               * so the previous `|| "Economy"` fallback fabricated a fact on
+               * every single card. Only render a real value; otherwise say
+               * so honestly rather than default to a specific class.
+               */}
               <p className="text-xs text-muted-foreground">
-                {flight.cabin_class || "Economy"}
+                {flight.cabin_class || "Cabin confirmed on partner"}
               </p>
             </div>
           </div>
@@ -232,26 +172,21 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               </p>
             </div>
 
-            {/* Arrival */}
+            {/* Arrival — BF-0R-7 Phase 1.1 item 1: no computed clock time.
+                The provider gives no outbound arrival timestamp, and
+                deriving one needs a destination UTC offset this codebase
+                cannot vouch for (see AIRPORT_TIMEZONES). An honest state
+                replaces what used to be a manufactured time. */}
             <div className="text-center min-w-[72px]">
-              <div className="flex items-baseline justify-center gap-0.5">
-                <p className="text-xl md:text-2xl font-bold text-foreground tracking-tight tabular-nums">
-                  {arrivalTime || "--:--"}
-                </p>
-                {dayDiffLabel && (
-                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                    {dayDiffLabel}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs font-medium text-muted-foreground uppercase">
+              <p
+                className="text-sm md:text-base font-semibold text-muted-foreground tracking-tight"
+                title="Arrival time is confirmed on the partner site"
+              >
+                See partner
+              </p>
+              <p className="text-xs font-medium text-muted-foreground uppercase mt-0.5">
                 {lastSegment?.to || "---"}
               </p>
-              {arrivalTimezone && (
-                <p className="text-[10px] text-muted-foreground/70" title={arrivalTimezone.name}>
-                  {arrivalTimezone.abbr}
-                </p>
-              )}
             </div>
           </div>
 
@@ -265,13 +200,27 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
                * claim. The one comparison we can defend — how this price sits
                * against the average of the results on screen — is stated in words
                * by UrgencyBadges below.
+               *
+               * BF-0R-7: this price comes from Travelpayouts' cached
+               * search-history data (fares other users found recently), not
+               * a live, traveller-specific quote — so it is labelled as a
+               * recent find, not presented as a guaranteed current fare.
                */}
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Recent fare found
+              </p>
               <p className="text-2xl font-bold text-foreground tabular-nums">
                 <span className="text-sm font-normal text-muted-foreground mr-0.5">{currency}</span>
                 {flight.price.toLocaleString()}
               </p>
 
-              <p className="text-xs text-muted-foreground">per person</p>
+              {/*
+               * BF-0R-7 Phase 1.1 item 2: "per person" implied this cached
+               * fare was computed for the traveller mix the user selected —
+               * the Data API does not price against passenger count, so
+               * that claim is dropped entirely rather than reworded.
+               */}
+              <p className="text-xs text-muted-foreground">Indicative ticket price &middot; confirm on partner</p>
 
               <UrgencyBadges
                 price={flight.price}
@@ -283,7 +232,7 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               size="sm"
               className="lg:w-full gap-1.5"
             >
-              View Deal
+              Check live price
               <ExternalLink className="h-3 w-3" />
             </Button>
           </div>
@@ -320,8 +269,9 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
               <div className="space-y-4">
                 {flight.segments.map((segment, index) => {
                   const segmentDepartTz = getAirportTimezone(segment.from);
-                  const segmentArriveTz = getAirportTimezone(segment.to);
-                  
+                  // No arrival-side timezone lookup — see the arrival block
+                  // below for why no arrival clock time is computed either.
+
                   return (
                     <div key={index} className="flex gap-4">
                       {/* Timeline indicator */}
@@ -356,43 +306,20 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
                         </div>
                         
                         <div className="mt-2">
-                          {(() => {
-                            // Calculate arrival time and date
-                            let arrivalTime = "--:--";
-                            let arrivalDateStr = "";
-                            
-                            if (segment.arrive_time) {
-                              arrivalTime = formatTime(segment.arrive_time);
-                              arrivalDateStr = formatDateWithDay(segment.arrive_time);
-                            } else if (segment.depart_time && segment.duration_minutes) {
-                              const departure = new Date(segment.depart_time);
-                              const arrival = new Date(departure.getTime() + segment.duration_minutes * 60 * 1000);
-                              arrivalTime = arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                              arrivalDateStr = arrival.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                            } else if (segment.depart_time && flight.duration_minutes && flight.segments.length === 1) {
-                              const departure = new Date(segment.depart_time);
-                              const arrival = new Date(departure.getTime() + flight.duration_minutes * 60 * 1000);
-                              arrivalTime = arrival.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                              arrivalDateStr = arrival.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                            }
-                            
-                            return (
-                              <>
-                                <p className="text-sm font-medium text-foreground">
-                                  {arrivalTime}
-                                  {segmentArriveTz && (
-                                    <span className="text-xs text-muted-foreground ml-1">({segmentArriveTz.abbr})</span>
-                                  )}
-                                  {' · '}{segment.to}
-                                </p>
-                                {arrivalDateStr && (
-                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                    {arrivalDateStr}
-                                  </p>
-                                )}
-                              </>
-                            );
-                          })()}
+                          {/*
+                           * BF-0R-7 Phase 1.1 item 1: segment.arrive_time is
+                           * never populated for these Data-API-sourced
+                           * results (see travelpayouts.ts) — the endpoint
+                           * gives no outbound arrival timestamp, and
+                           * deriving a clock time from departure+duration
+                           * would need a destination UTC offset this
+                           * codebase's static, DST-unaware airport table
+                           * cannot be trusted to get right. An honest state
+                           * replaces what used to be a manufactured time.
+                           */}
+                          <p className="text-sm font-medium text-muted-foreground" title="Arrival time is confirmed on the partner site">
+                            Confirmed on partner &middot; {segment.to}
+                          </p>
                         </div>
 
                         {segment.aircraft && (

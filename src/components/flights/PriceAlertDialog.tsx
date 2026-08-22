@@ -127,7 +127,10 @@ export function PriceAlertDialog({
             {currentLowestPrice && (
               <div className="flex items-center gap-2 text-sm">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span>Current lowest: </span>
+                {/* BF-0R-7: this figure is a recent cached price found via
+                    our flight partner, not a live/guaranteed current fare —
+                    labelled accordingly rather than as "current lowest". */}
+                <span>Recent lowest found: </span>
                 <span className="font-semibold text-primary">
                   {currency} {currentLowestPrice.toLocaleString()}
                 </span>

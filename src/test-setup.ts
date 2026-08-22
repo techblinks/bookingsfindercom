@@ -14,6 +14,21 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// Polyfill IntersectionObserver (used by SponsoredCard/AdEmbed impression
+// tracking and other components). jsdom does not provide it, so this empty
+// stub prevents "IntersectionObserver is not defined" errors — impression
+// tracking itself is not exercised by these tests, only that the
+// component renders without throwing.
+global.IntersectionObserver = class IntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return []; }
+  root = null;
+  rootMargin = "";
+  thresholds = [];
+} as unknown as typeof IntersectionObserver;
+
 // Polyfill window.matchMedia for components that depend on use-mobile or
 // HeroMediaCollage. jsdom does not implement matchMedia.
 Object.defineProperty(window, "matchMedia", {

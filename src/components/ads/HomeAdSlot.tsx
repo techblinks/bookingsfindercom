@@ -193,16 +193,15 @@ export function HomeAdSlot({ ad, placement, onImpression, onClick }: HomeAdSlotP
     );
   }
 
-  // HTML Embed
-  if (ad.type === 'html_embed' && ad.html_content) {
-    return (
-      <div className="container py-4">
-        <div 
-          className="relative"
-          dangerouslySetInnerHTML={{ __html: ad.html_content }}
-        />
-      </div>
-    );
+  // HTML Embed — DISABLED, fails closed (BF-0R-7 Phase H, P0 security).
+  // Previously rendered ad.html_content via dangerouslySetInnerHTML with
+  // no sanitization of any kind — a same-origin XSS surface. html_embed
+  // has been removed from Admin's selectable ad types (AdminAds.tsx); this
+  // branch additionally renders nothing for any existing html_embed row,
+  // so a legacy row cannot render/execute here either. See AdEmbed.tsx for
+  // the equivalent fix on the other ad-rendering path.
+  if (ad.type === 'html_embed') {
+    return null;
   }
 
   return null;
