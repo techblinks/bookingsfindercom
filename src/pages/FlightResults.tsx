@@ -309,10 +309,17 @@ const FlightResults = () => {
   };
 
   /*
-   * BF-0R-7 Round 1.1 item 2: the CTA shown instead of cached fare cards
-   * for a non-economy cabin search. Same handoff mechanism as
-   * handleBookNow (White Label first, get-redirect fallback) — just not
-   * tied to a specific cached flight, since none are displayed.
+   * BF-0R-7 Round 1.2 item 3: the CTA shown instead of cached fare cards for
+   * a non-economy (business) cabin search MUST FAIL CLOSED.
+   *
+   * Unlike handleBookNow, this has no generic get-redirect fallback: that
+   * fallback does not carry adults/children/infants/cabinClass, so silently
+   * falling back to it would drop the exact thing this CTA promises to
+   * preserve while still appearing to have "checked live prices for your
+   * selected cabin". Only cabin classes with a verified White Label
+   * encoding ever reach this panel (see isNonEconomyCabin/cabinClasses.ts),
+   * so a WL failure here means something is genuinely wrong (rollout mode
+   * disabled, host misconfigured, etc.) — not a normal case to paper over.
    */
   const handleCheckCabinLivePrices = async () => {
     let finalUrl: string | null = null;
@@ -332,20 +339,7 @@ const FlightResults = () => {
     }
 
     if (!finalUrl) {
-      try {
-        const result = await getRedirectUrl({
-          id: 'cabin-live-search', type: 'flight', origin, destination,
-          departureDate, returnDate: returnDate || undefined,
-        });
-        if (result.success && result.redirectUrl) {
-          finalUrl = result.redirectUrl;
-          outboundHost = new URL(result.redirectUrl).hostname;
-        }
-      } catch (err) { /* URL generation failed */ }
-    }
-
-    if (!finalUrl) {
-      toast.error("Could not generate a live search link");
+      toast.error(`Live ${cabinClassLabel} search is temporarily unavailable. Please try again.`);
       return;
     }
 
@@ -642,13 +636,18 @@ const FlightResults = () => {
             )}
 
             {/*
-              * BF-0R-7 Round 1.1 item 2: one concise, page-level disclosure
-              * — not repeated per card — shown only alongside the cached
-              * fare list itself (economy searches with results).
+              * BF-0R-7 Round 1.1 item 2 / Round 1.2 item 4: one concise,
+              * page-level disclosure — not repeated per card — shown only
+              * alongside the cached fare list itself (economy searches with
+              * results). Wording deliberately does not promise that every
+              * handoff preserves every detail — handleBookNow's fallback
+              * path can't carry cabin/passenger specifics, so an absolute
+              * "your selected travellers and cabin are applied" claim would
+              * be false whenever that fallback is used.
               */}
             {!isLoading && !error && !isNonEconomyCabin && displayedFlights.length > 0 && (
               <p className="text-xs text-muted-foreground mb-3">
-                Recent fare snapshots are route/date observations from our flight partner. They are not adjusted for traveller type or cabin class. Your selected travellers and cabin are applied when you check the live partner search.
+                Recent fare snapshots are route/date observations from our flight partner. They are not adjusted for traveller type or cabin class. We pass supported search details to the partner where available; confirm travellers, cabin, current price and availability on the partner site.
               </p>
             )}
 
@@ -661,12 +660,18 @@ const FlightResults = () => {
                 /*
                  * BF-0R-7 Round 1.1 item 2: cached fares are unknown/
                  * standard-cabin observations — showing them as if they
-                 * matched a Business/First/Premium Economy search would
-                 * misrepresent the number itself, not just its freshness.
-                 * Send the traveller straight to the partner's live search
-                 * for the selected cabin instead of any numeric fare card.
-                 * The selected adults/children/infants/cabin still flow
-                 * into that handoff — see handleCheckCabinLivePrices.
+                 * matched a Business search would misrepresent the number
+                 * itself, not just its freshness. Send the traveller
+                 * straight to the partner's live search for the selected
+                 * cabin instead of any numeric fare card.
+                 *
+                 * Round 1.2 item 1: only cabin classes with a verified White
+                 * Label handoff (economy, business) ever reach results mode
+                 * — see cabinClasses.ts — so this branch only ever fires
+                 * for business. Round 1.2 item 3: the CTA below fails
+                 * closed rather than falling back to a generic redirect
+                 * that would drop the selected cabin/passengers — see
+                 * handleCheckCabinLivePrices.
                  */
                 <div className="rounded-xl border border-border bg-card p-6 md:p-8 text-center space-y-4">
                   <p className="text-sm text-muted-foreground max-w-md mx-auto">

@@ -5,12 +5,16 @@
  * stubbed) to prove, end to end:
  *   - an economy search shows the cached fare cards plus exactly one
  *     page-level disclosure about passenger/cabin non-specificity;
- *   - a non-economy (business/first/premium) search shows NO numeric
- *     cached fare cards at all, and instead a "Check live prices for your
- *     selected cabin" CTA;
+ *   - a non-economy (business — the only non-economy cabin the White Label
+ *     handoff supports as of Round 1.2, see cabinClasses.ts) search shows NO
+ *     numeric cached fare cards at all, and instead a "Check live prices for
+ *     your selected cabin" CTA;
  *   - that CTA's White Label handoff still carries the complete supported
  *     query contract — adults, children, infants and cabin class are not
- *     dropped by the cabin-gating change.
+ *     dropped by the cabin-gating change;
+ *   - (Round 1.2 item 3) that CTA fails closed — no generic redirect
+ *     fallback — when the verified White Label URL can't be built, rather
+ *     than silently dropping the selected cabin/passengers.
  *
  * Mirrors the render/mocking setup already established in
  * FlightResults.editSearch.test.tsx.
@@ -21,6 +25,14 @@ import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { TripProvider } from "@/context/TripContext";
 import FlightResults from "@/pages/FlightResults";
+
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({ toast: { error: (...a: unknown[]) => mockToastError(...a), success: vi.fn(), message: vi.fn() } }));
+
+const mockGetRedirectUrl = vi.fn();
+vi.mock("@/services/travelApi", () => ({
+  getRedirectUrl: (...args: unknown[]) => mockGetRedirectUrl(...args),
+}));
 
 const hoisted = vi.hoisted(() => ({ isMobile: false, isBelowDesktop: false }));
 
@@ -90,6 +102,8 @@ const BUSINESS_URL =
 describe("FlightResults — economy search shows cached fares with one page-level disclosure", () => {
   beforeEach(() => {
     mockBuildWhiteLabelFlightUrl.mockReset();
+    mockToastError.mockReset();
+    mockGetRedirectUrl.mockReset();
   });
 
   it("renders the fare cards and exactly one passenger/cabin disclosure", async () => {
@@ -106,6 +120,21 @@ describe("FlightResults — economy search shows cached fares with one page-leve
     expect(screen.getAllByText("300").length).toBeGreaterThan(0);
   });
 
+  // BF-0R-7 Round 1.2 item 4/9: the disclosure must not make an absolute
+  // claim that every handoff preserves traveller/cabin details — the
+  // Economy result-card fallback (handleBookNow's getRedirectUrl path)
+  // can't carry cabin/passenger specifics, so "your selected travellers and
+  // cabin are applied" would be false whenever that fallback is used.
+  it("disclosure does not promise unsupported preservation", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+
+    expect(screen.getByText(/we pass supported search details to the partner where available/i)).toBeTruthy();
+    expect(screen.queryByText(/your selected travellers and cabin are applied/i)).toBeNull();
+  });
+
   it("does not show the non-economy cabin CTA for an economy search", async () => {
     stubFlights(FLIGHTS);
     renderResults(ECONOMY_URL);
@@ -118,6 +147,8 @@ describe("FlightResults — economy search shows cached fares with one page-leve
 describe("FlightResults — non-economy cabin search (BF-0R-7 Round 1.1 item 2)", () => {
   beforeEach(() => {
     mockBuildWhiteLabelFlightUrl.mockReset();
+    mockToastError.mockReset();
+    mockGetRedirectUrl.mockReset();
   });
 
   it("shows NO numeric cached fare cards for a business-class search, even though the provider returned results", async () => {
@@ -170,5 +201,25 @@ describe("FlightResults — non-economy cabin search (BF-0R-7 Round 1.1 item 2)"
         cabinClass: "business",
       })
     );
+  });
+
+  // BF-0R-7 Round 1.2 item 3/8: the fail-closed contract. If the verified
+  // White Label URL can't be built, the CTA must NOT fall back to a generic
+  // redirect (which would drop the selected cabin/passengers while implying
+  // they were preserved) — it must show an honest error instead.
+  it("does NOT generic-fallback when the verified White Label URL generation fails — fails closed with an honest error", async () => {
+    mockBuildWhiteLabelFlightUrl.mockReturnValue({ success: false, url: null, reason: "White Label is not enabled" });
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    fireEvent.click(cta);
+
+    await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringMatching(/live business search is temporarily unavailable/i)
+    ));
+    // No generic-redirect fallback: getRedirectUrl must never be reached.
+    expect(mockGetRedirectUrl).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,7 @@ import { PassengerPickerSheet, type PassengerCount } from "@/components/search/P
 
 const DEFAULT: PassengerCount = { adults: 1, children: 0, infants: 0 };
 
-function renderSheet(overrides?: { passengers?: PassengerCount; cabinClass?: "economy" | "premium" | "business" | "first" }) {
+function renderSheet(overrides?: { passengers?: PassengerCount; cabinClass?: "economy" | "business" }) {
   return render(
     <PassengerPickerSheet isOpen={true} onClose={vi.fn()}
       passengers={overrides?.passengers ?? DEFAULT} cabinClass={overrides?.cabinClass ?? "economy"}
@@ -55,12 +55,16 @@ describe("PassengerPickerSheet — total limit", () => {
 });
 
 describe("PassengerPickerSheet — cabin", () => {
-  it("renders all four cabin options", () => {
+  // BF-0R-7 Round 1.2 item 1/2: Premium Economy and First are not offered —
+  // whiteLabelUrl.ts only has a verified handoff for economy/business (see
+  // src/lib/cabinClasses.ts), so offering them would let a traveller select
+  // a cabin the live-search handoff can't actually carry through.
+  it("renders only the two supported cabin options", () => {
     renderSheet();
     expect(screen.getByText("Economy")).toBeTruthy();
-    expect(screen.getByText("Premium Economy")).toBeTruthy();
     expect(screen.getByText("Business")).toBeTruthy();
-    expect(screen.getByText("First")).toBeTruthy();
+    expect(screen.queryByText("Premium Economy")).toBeNull();
+    expect(screen.queryByText("First")).toBeNull();
   });
 
   it("cabin selection calls onCabinChange", () => {

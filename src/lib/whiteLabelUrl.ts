@@ -15,6 +15,7 @@
  */
 
 import { PARTNERS } from "./travelConfig";
+import { SUPPORTED_CABIN_CLASSES, isSupportedCabinClass } from "./cabinClasses";
 
 // ── Types ──
 
@@ -30,9 +31,6 @@ export interface WhiteLabelUrlResult {
 
 const IATA_RE = /^[A-Z]{3}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Supported cabin classes for White Label. */
-const SUPPORTED_CABIN_CLASSES = ["economy", "business"] as const;
 
 // ── Rollout Mode ──
 
@@ -159,7 +157,7 @@ export function buildWhiteLabelFlightUrl(params: {
   }
 
   // Cabin class — must be explicitly "economy" or "business"
-  if (!(SUPPORTED_CABIN_CLASSES as readonly string[]).includes(params.cabinClass)) {
+  if (!isSupportedCabinClass(params.cabinClass)) {
     return { success: false, url: null, reason: `Cabin class must be one of: ${SUPPORTED_CABIN_CLASSES.join(", ")}` };
   }
 

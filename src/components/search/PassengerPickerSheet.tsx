@@ -7,21 +7,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { X, Minus, Plus } from "lucide-react";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
+import { type CabinClass, CABIN_CLASS_OPTIONS } from "@/lib/cabinClasses";
 
 export interface PassengerCount {
   adults: number;
   children: number;
   infants: number;
 }
-
-type CabinClass = "economy" | "premium" | "business" | "first";
-
-const CABIN_OPTIONS: { value: CabinClass; label: string }[] = [
-  { value: "economy", label: "Economy" },
-  { value: "premium", label: "Premium Economy" },
-  { value: "business", label: "Business" },
-  { value: "first", label: "First" },
-];
 
 interface Props {
   isOpen: boolean;
@@ -128,7 +120,7 @@ export function PassengerPickerSheet({
           <div>
             <div className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Cabin class</div>
             <div className="grid grid-cols-2 gap-2">
-              {CABIN_OPTIONS.map((c) => (
+              {CABIN_CLASS_OPTIONS.map((c) => (
                 <button
                   key={c.value}
                   onClick={() => { setLocalCabin(c.value); onCabinChange(c.value); }}

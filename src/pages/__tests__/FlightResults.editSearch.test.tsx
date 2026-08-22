@@ -102,7 +102,8 @@ vi.mock("@/components/search/PassengerPickerSheet", () => ({
         <span data-testid="picker-passengers">{`${passengers.adults}/${passengers.children}/${passengers.infants}`}</span>
         <span data-testid="picker-cabin">{cabinClass}</span>
         <button onClick={() => onPassengersChange({ adults: 1, children: 0, infants: 0 })}>set-solo</button>
-        <button onClick={() => onCabinChange("first")}>set-cabin-first</button>
+        {/* BF-0R-7 Round 1.2: only economy/business are supported cabin classes. */}
+        <button onClick={() => onCabinChange("business")}>set-cabin-business</button>
       </div>
     );
   },
@@ -338,12 +339,12 @@ describe("results edit — updating the search", () => {
     await openEdit();
     openTravellers();
     fireEvent.click(screen.getByRole("button", { name: "set-solo" }));
-    fireEvent.click(screen.getByRole("button", { name: "set-cabin-first" }));
+    fireEvent.click(screen.getByRole("button", { name: "set-cabin-business" }));
     fireEvent.click(updateSearch());
 
     await waitFor(() => expect(lastUrl()).toContain("adults=1&children=0&infants=0"));
     expect(lastUrl()).toContain("passengers=1");
-    expect(lastUrl()).toContain("cabinClass=first");
+    expect(lastUrl()).toContain("cabinClass=business");
   });
 
   it("switching a round trip to one way drops the return date", async () => {
