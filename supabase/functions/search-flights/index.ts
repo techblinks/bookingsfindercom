@@ -2,6 +2,7 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateRequest, ValidationError } from "../_shared/validation.ts";
 import { getFlightPrices, deduplicateFlights, getConfig, TravelpayoutsError } from "../_shared/travelpayouts.ts";
+import { isExactDateMatch } from "../_shared/flightDateMatch.ts";
 
 // Zod schema for flight search request
 const FlightSearchSchema = z.object({
@@ -54,12 +55,37 @@ Deno.serve(async (req) => {
     // Deduplicate flights
     const uniqueFlights = deduplicateFlights(flights);
 
-    console.log(`Search complete: found ${uniqueFlights.length} unique flights`);
+    // BF-0R-7 Phase D: Travelpayouts documents that prices_for_dates may
+    // return the nearest available cached date when no result exists for
+    // the exact requested dates. A result whose provider-stated calendar
+    // date doesn't match what was actually searched is not a match for
+    // this search and must not be displayed under the requested date —
+    // exclude it rather than silently show a different date's price.
+    const exactMatches = uniqueFlights.filter((flight) =>
+      isExactDateMatch({
+        requestedDepartureDate: body.depart_date,
+        requestedReturnDate: body.return_date,
+        providerDepartureAt: flight.provider_departure_at,
+        providerReturnAt: flight.provider_return_at,
+      })
+    );
 
+    const filteredOutCount = uniqueFlights.length - exactMatches.length;
+    if (filteredOutCount > 0) {
+      console.log(
+        `Excluded ${filteredOutCount} cached result(s) for a different date than requested (${body.depart_date}${body.return_date ? ` / ${body.return_date}` : ""})`
+      );
+    }
+
+    console.log(`Search complete: found ${exactMatches.length} unique flights for the exact requested date(s)`);
+
+    // Honest empty state: if every cached result was for a different date,
+    // this returns zero flights rather than silently substituting a
+    // nearest-date price under the requested search.
     return jsonResponse({
-      flights: uniqueFlights,
+      flights: exactMatches,
       meta: {
-        total_found: uniqueFlights.length,
+        total_found: exactMatches.length,
         is_complete: true,
       },
     });

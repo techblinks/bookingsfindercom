@@ -35,16 +35,8 @@ describe("validateFlightSearch", () => {
     ).toEqual([]);
   });
 
-  it("returns no errors for premium economy cabin", () => {
-    expect(validateFlightSearch(makeValues({ cabinClass: "premium" }))).toEqual([]);
-  });
-
   it("returns no errors for business cabin", () => {
     expect(validateFlightSearch(makeValues({ cabinClass: "business" }))).toEqual([]);
-  });
-
-  it("returns no errors for first class cabin", () => {
-    expect(validateFlightSearch(makeValues({ cabinClass: "first" }))).toEqual([]);
   });
 
   it("returns no errors with multiple passengers", () => {
@@ -131,6 +123,20 @@ describe("validateFlightSearch", () => {
 
   it("rejects empty cabin class", () => {
     const errors = validateFlightSearch(makeValues({ cabinClass: "" }));
+    expect(errors.some(e => e.field === "cabinClass")).toBe(true);
+  });
+
+  // BF-0R-7 Round 1.2 item 1/2: Premium Economy and First are rejected —
+  // the White Label handoff (whiteLabelUrl.ts) has no verified encoding for
+  // them, so accepting them here would let a search reach results mode
+  // promising a cabin the live-search handoff can't actually carry through.
+  it("rejects premium economy cabin", () => {
+    const errors = validateFlightSearch(makeValues({ cabinClass: "premium" }));
+    expect(errors.some(e => e.field === "cabinClass")).toBe(true);
+  });
+
+  it("rejects first class cabin", () => {
+    const errors = validateFlightSearch(makeValues({ cabinClass: "first" }));
     expect(errors.some(e => e.field === "cabinClass")).toBe(true);
   });
 });
@@ -250,6 +256,32 @@ describe("parseAndValidateFlightSearchParams", () => {
     const result = parseAndValidateFlightSearchParams(params);
     expect(result.mode).toBe("form");
     expect(result.errors.some(e => e.field === "cabinClass")).toBe(true);
+  });
+
+  // BF-0R-7 Round 1.2 item 2: a shared/bookmarked URL requesting a cabin
+  // whose White Label handoff isn't verified must fail safely back to form
+  // mode — never silently become "economy" as if that were what was asked
+  // for. See src/lib/cabinClasses.ts for the supported set.
+  it("returns form mode for cabinClass=premium, not silently downgraded to economy", () => {
+    const params = new URLSearchParams(
+      "origin=BNE&destination=SYD&departureDate=2026-08-10&cabinClass=premium"
+    );
+    const result = parseAndValidateFlightSearchParams(params);
+    expect(result.mode).toBe("form");
+    expect(result.errors.some(e => e.field === "cabinClass")).toBe(true);
+    expect(result.prefill.cabinClass).toBeUndefined();
+    expect(result.validated).toBeNull();
+  });
+
+  it("returns form mode for cabinClass=first, not silently downgraded to economy", () => {
+    const params = new URLSearchParams(
+      "origin=BNE&destination=SYD&departureDate=2026-08-10&cabinClass=first"
+    );
+    const result = parseAndValidateFlightSearchParams(params);
+    expect(result.mode).toBe("form");
+    expect(result.errors.some(e => e.field === "cabinClass")).toBe(true);
+    expect(result.prefill.cabinClass).toBeUndefined();
+    expect(result.validated).toBeNull();
   });
 
   // ── E. Invalid date → form mode ──

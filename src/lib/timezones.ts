@@ -223,3 +223,60 @@ export function formatDayDifference(days: number): string | null {
   if (days <= 0) return null;
   return `+${days}`;
 }
+
+// ── BF-0R-7: timezone-safe provider timestamp parsing ──────────────────
+//
+// Travelpayouts timestamps carry an explicit local offset (e.g.
+// "2026-09-03T21:25:00+03:00"). `new Date(iso).toLocaleTimeString()` /
+// `.toLocaleDateString()` re-interpret that instant through the *browser's*
+// local timezone, which can display a different wall-clock time or even a
+// different calendar date than what the provider actually stated — e.g. a
+// departure timestamp with a +11:00 offset, reinterpreted through a
+// browser running in UTC-8, shows the wrong hour and can cross a midnight
+// boundary. The digits immediately after "T" in the ISO string ARE the
+// provider's stated local date/time for that leg; reading them directly
+// is correct, converting them through Date is not.
+
+export interface ProviderLocalDateTime {
+  year: number;
+  month: number; // 1-12
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+/** Parse the calendar date + wall-clock time exactly as stated in a provider ISO 8601 timestamp. */
+export function parseProviderLocalDateTime(isoTimestamp: string | null | undefined): ProviderLocalDateTime | null {
+  if (!isoTimestamp) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(isoTimestamp);
+  if (!match) return null;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+  };
+}
+
+/** "HH:MM" as literally stated by the provider — never shifted by the browser's local timezone. */
+export function formatProviderLocalTime(isoTimestamp: string | null | undefined): string {
+  const parsed = parseProviderLocalDateTime(isoTimestamp);
+  if (!parsed) return "";
+  return `${String(parsed.hour).padStart(2, "0")}:${String(parsed.minute).padStart(2, "0")}`;
+}
+
+/**
+ * e.g. "Mon, Jan 30" as literally stated by the provider — never shifted by
+ * the browser's local timezone. Anchored at UTC noon and formatted with
+ * timeZone: 'UTC' so neither construction nor formatting can cross a day
+ * boundary in the browser's local timezone.
+ */
+export function formatProviderLocalDate(isoTimestamp: string | null | undefined): string {
+  const parsed = parseProviderLocalDateTime(isoTimestamp);
+  if (!parsed) return "";
+  const anchored = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day, 12, 0, 0));
+  return anchored.toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
+  });
+}

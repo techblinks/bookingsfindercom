@@ -62,8 +62,11 @@ vi.mock("react-router-dom", async importOriginal => {
   };
 });
 
+// Economy so this fixture's cached fare cards render (BF-0R-7 Round 1.1 item
+// 2 hides numeric cached fares for non-economy cabins) — this suite is about
+// the write boundary of the Edit panel, not cabin-truth display.
 const ROUND_TRIP =
-  "/flights?origin=BNE&destination=KTM&departureDate=2030-01-10&returnDate=2030-01-20&adults=2&children=1&infants=0&cabinClass=business&passengers=3";
+  "/flights?origin=BNE&destination=KTM&departureDate=2030-01-10&returnDate=2030-01-20&adults=2&children=1&infants=0&cabinClass=economy&passengers=3";
 
 const at = (hour: number) => new Date(2030, 0, 10, hour, 0, 0).toISOString();
 
@@ -175,7 +178,7 @@ describe("FlightResults desktop Edit — write boundary", () => {
     expect(entry.departureDate).toBe("2030-01-10");
     expect(entry.returnDate).toBe("2030-01-20");
     expect(entry.travellers).toEqual({ adults: 2, children: 1, infants: 0 });
-    expect(entry.cabinClass).toBe("business");
+    expect(entry.cabinClass).toBe("economy");
   });
 
   it("records through ModernFlightSearch only — FlightResults adds no second writer", async () => {

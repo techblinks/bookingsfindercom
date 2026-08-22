@@ -270,11 +270,11 @@ const EnhancedEmptyFlightResults = ({
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Consider these popular destinations instead
+              Consider these popular destinations instead — recent prices found via our flight partner
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {alternativeRoutes.map((route, index) => (
-                <Link 
+                <Link
                   key={`${route.origin}-${route.destination}-${index}`}
                   to={getFlightSearchUrl({ destination: route.destination })}
                 >
@@ -291,7 +291,7 @@ const EnhancedEmptyFlightResults = ({
                         <Skeleton className="h-5 w-16" />
                       ) : route.price ? (
                         <span className="font-semibold text-primary">
-                          {currency}{route.price.toLocaleString()}
+                          from {currency}{route.price.toLocaleString()}
                         </span>
                       ) : (
                         <span className="text-sm text-muted-foreground">View prices</span>

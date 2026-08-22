@@ -12,14 +12,31 @@ interface HomeAdSlotProps {
   onClick?: (adId: string) => void;
 }
 
+/**
+ * Ad types this component actually renders. html_embed and any future/
+ * unrecognized type render nothing (see the fail-closed branches below) and
+ * must not be counted as an impression either — BF-0R-7 Round 1.2 item 6.
+ */
+const RENDERABLE_AD_TYPES = new Set(['hero_banner', 'inline_promo', 'banner', 'native', 'sponsored_card']);
+
 export function HomeAdSlot({ ad, placement, onImpression, onClick }: HomeAdSlotProps) {
+  const isRenderable = !!ad && RENDERABLE_AD_TYPES.has(ad.type);
+
+  /*
+   * BF-0R-7 Round 1.2 item 6: this used to fire on any truthy `ad`,
+   * regardless of whether its type was actually rendered below — so a
+   * disabled html_embed row (or any other non-renderable type) could record
+   * an impression for content that was never shown, especially before the
+   * updated get-ads Edge Function (which filters unsupported types before
+   * priority selection) is deployed.
+   */
   useEffect(() => {
-    if (ad && onImpression) {
+    if (isRenderable && ad && onImpression) {
       onImpression(ad.id);
     }
-  }, [ad, onImpression]);
+  }, [ad, isRenderable, onImpression]);
 
-  if (!ad) return null;
+  if (!isRenderable || !ad) return null;
 
   const handleClick = () => {
     if (onClick) onClick(ad.id);
@@ -193,17 +210,12 @@ export function HomeAdSlot({ ad, placement, onImpression, onClick }: HomeAdSlotP
     );
   }
 
-  // HTML Embed
-  if (ad.type === 'html_embed' && ad.html_content) {
-    return (
-      <div className="container py-4">
-        <div 
-          className="relative"
-          dangerouslySetInnerHTML={{ __html: ad.html_content }}
-        />
-      </div>
-    );
-  }
-
+  // Unreachable: html_embed (DISABLED, fails closed — BF-0R-7 Phase H, P0
+  // security — it previously rendered ad.html_content via
+  // dangerouslySetInnerHTML with no sanitization, a same-origin XSS
+  // surface; see AdEmbed.tsx for the equivalent fix on the other
+  // ad-rendering path) and any other non-renderable type are already
+  // excluded by the isRenderable guard above, before an impression could be
+  // recorded for them.
   return null;
 }

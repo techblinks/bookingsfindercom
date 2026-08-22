@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { selectTopAdPerPlacement } from "../_shared/adSelection.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +29,16 @@ const pagePlacements: Record<string, string[]> = {
   flights: ['after_result_3', 'after_result_5', 'bottom'],
   hotels: ['after_result_3', 'after_result_5', 'bottom'],
   home: ['hero_below', 'between_sections', 'sidebar', 'footer_above'],
+};
+
+// Ad types each surface's frontend actually renders. `html_embed` is
+// deliberately excluded everywhere (BF-0R-7 Round 1 P0 XSS fix neutered its
+// renderer — see AdEmbed.tsx) so a disabled/unsupported-type row can never
+// win priority ordering over a type that would actually render.
+const supportedTypesByPage: Record<string, string[]> = {
+  flights: ['sponsored_card'],
+  hotels: ['sponsored_card'],
+  home: ['hero_banner', 'inline_promo', 'banner', 'native', 'sponsored_card'],
 };
 
 Deno.serve(async (req) => {
@@ -92,24 +103,12 @@ Deno.serve(async (req) => {
 
     // Get valid placements for this page
     const validPlacements = pagePlacements[page] || [];
+    const supportedTypes = supportedTypesByPage[page] || [];
 
-    // Group ads by placement
-    const adsByPlacement: Record<string, AdPlacement[]> = {};
-    validPlacements.forEach(placement => {
-      adsByPlacement[placement] = [];
-    });
-
-    filteredAds.forEach((ad: AdPlacement) => {
-      if (adsByPlacement[ad.placement]) {
-        adsByPlacement[ad.placement].push(ad);
-      }
-    });
-
-    // Return only the highest priority ad for each placement
-    const result: Record<string, AdPlacement | null> = {};
-    validPlacements.forEach(placement => {
-      result[placement] = adsByPlacement[placement][0] || null;
-    });
+    // Pick the highest-priority ad per placement, but only among types this
+    // page's frontend actually supports — an unsupported/disabled type (e.g.
+    // html_embed) must never suppress a lower-priority supported ad.
+    const result = selectTopAdPerPlacement(filteredAds, validPlacements, supportedTypes);
 
     return new Response(
       JSON.stringify({ ads: result }),

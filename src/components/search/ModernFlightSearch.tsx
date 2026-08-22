@@ -40,6 +40,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { validateFlightSearch, type FlightSearchFormValues } from "@/lib/flightSearchValidation";
+import { CABIN_CLASS_OPTIONS, CABIN_CLASS_LABELS } from "@/lib/cabinClasses";
 import { logSearch as logAnalyticsSearch } from "@/lib/analytics";
 import { resolveLocationDisplay, resolveLocationLabel } from "@/lib/locationResolution";
 import { recordActivity } from "@/lib/recentActivity";
@@ -200,13 +201,7 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
   };
 
   const getCabinLabel = () => {
-    const labels: Record<string, string> = {
-      economy: "Economy",
-      premium: "Premium Economy",
-      business: "Business",
-      first: "First Class",
-    };
-    return labels[cabinClass] || "Economy";
+    return CABIN_CLASS_LABELS[cabinClass as keyof typeof CABIN_CLASS_LABELS] || "Economy";
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -675,12 +670,7 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
                   Cabin class
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: "economy", label: "Economy" },
-                    { value: "premium", label: "Premium" },
-                    { value: "business", label: "Business" },
-                    { value: "first", label: "First" },
-                  ].map((cabin) => (
+                  {CABIN_CLASS_OPTIONS.map((cabin) => (
                     <button
                       key={cabin.value}
                       onClick={() => setCabinClass(cabin.value)}
@@ -912,7 +902,7 @@ const ModernFlightSearch = ({ prefill, onDark = false }: ModernFlightSearchProps
                 <div className="pt-4 border-t">
                   <div className="text-sm font-semibold mb-3">Cabin class</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {[{ value: "economy", label: "Economy" },{ value: "premium", label: "Premium" },{ value: "business", label: "Business" },{ value: "first", label: "First" }].map((cabin) => (
+                    {CABIN_CLASS_OPTIONS.map((cabin) => (
                       <button key={cabin.value} onClick={() => setCabinClass(cabin.value)} className={cn("py-2.5 px-3 rounded-lg text-sm font-medium transition-colors", cabinClass === cabin.value ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted")}>{cabin.label}</button>
                     ))}
                   </div>
