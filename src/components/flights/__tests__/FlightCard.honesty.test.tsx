@@ -347,10 +347,12 @@ describe("FlightQuickSelect — cheapest / fastest / best remain", () => {
   ];
 
   it("still offers the three genuine trade-off comparisons", () => {
+    // BF-0R-7.1 Phase C: labelled "Recent ..." — these are cached fare
+    // observations, not live prices.
     const { container } = render(<FlightQuickSelect flights={flights} currency="$" onSelect={vi.fn()} />);
-    expect(within(container).getByText("Cheapest")).toBeTruthy();
-    expect(within(container).getByText("Fastest")).toBeTruthy();
-    expect(within(container).getByText("Best")).toBeTruthy();
+    expect(within(container).getByText("Recent cheapest")).toBeTruthy();
+    expect(within(container).getByText("Recent fastest fare")).toBeTruthy();
+    expect(within(container).getByText("Recent best")).toBeTruthy();
   });
 
   it("makes no market or urgency claim while doing so", () => {

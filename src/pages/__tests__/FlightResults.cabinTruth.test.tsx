@@ -74,10 +74,12 @@ function apiFlight(id: string, airline: string, price: number) {
 const FLIGHTS = [apiFlight("f1", "QF", 200), apiFlight("f2", "JQ", 300)];
 
 function stubFlights(flights: unknown[]) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+  const fetchMock = vi.fn().mockResolvedValue({
     ok: true,
     json: () => Promise.resolve({ flights, meta: { total_found: flights.length, is_complete: true } }),
-  }));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }
 
 function renderResults(route: string) {
@@ -106,33 +108,112 @@ describe("FlightResults — economy search shows cached fares with one page-leve
     mockGetRedirectUrl.mockReset();
   });
 
-  it("renders the fare cards and exactly one passenger/cabin disclosure", async () => {
+  it("renders the fare cards (item 12)", async () => {
     stubFlights(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
 
-    expect(screen.getAllByText(/not adjusted for traveller type or cabin class/i)).toHaveLength(1);
     // Cached numeric fares ARE shown for an economy search. "200" also
-    // appears in the header's "From $200" summary chip alongside the fare
-    // card itself, so there are 2+ matches, not exactly 1.
+    // appears in the header's "Recent from $200" summary chip alongside the
+    // fare card itself, so there are 2+ matches, not exactly 1.
     expect(screen.getAllByText("200").length).toBeGreaterThan(0);
     expect(screen.getAllByText("300").length).toBeGreaterThan(0);
+  });
+
+  // BF-0R-7.1 Phase D: a single concise top-level disclosure, placed before
+  // the first cached-price surface in the main content, replaces the old
+  // longer paragraph that used to sit below several already-shown prices.
+  it("shows exactly one concise disclosure (item 17 setup)", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+
+    expect(screen.getAllByText(/recent indicative fares from our flight partner/i)).toHaveLength(1);
   });
 
   // BF-0R-7 Round 1.2 item 4/9: the disclosure must not make an absolute
   // claim that every handoff preserves traveller/cabin details — the
   // Economy result-card fallback (handleBookNow's getRedirectUrl path)
-  // can't carry cabin/passenger specifics, so "your selected travellers and
-  // cabin are applied" would be false whenever that fallback is used.
+  // can't carry cabin/passenger specifics.
   it("disclosure does not promise unsupported preservation", async () => {
     stubFlights(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
 
-    expect(screen.getByText(/we pass supported search details to the partner where available/i)).toBeTruthy();
     expect(screen.queryByText(/your selected travellers and cabin are applied/i)).toBeNull();
+    expect(screen.queryByText(/we pass supported search details to the partner where available/i)).toBeNull();
+  });
+
+  // BF-0R-7.1 Phase D / Phase G item 17: the disclosure must appear before
+  // the first cached-price surface within the results content (the page's
+  // sticky header chip is a separate, already self-labelled "Recent from"
+  // surface — see item 14 — so ordering is checked within <main>, where the
+  // disclosure and FlightQuickSelect actually compete for position).
+  it("disclosure appears before the first cached-fare surface (FlightQuickSelect) — item 17", async () => {
+    stubFlights(FLIGHTS);
+    const { container } = renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+
+    const mainText = container.querySelector("main")!.textContent!;
+    const disclosureIndex = mainText.indexOf("Recent indicative fares");
+    const quickSelectIndex = mainText.indexOf("Recent best");
+    expect(disclosureIndex).toBeGreaterThanOrEqual(0);
+    expect(quickSelectIndex).toBeGreaterThan(disclosureIndex);
+  });
+
+  // Item 13: FlightCard's own per-card honesty wording is untouched by this
+  // page-level restructure.
+  it("FlightCard still shows 'Recent fare found' (item 13)", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    expect(screen.getAllByText(/recent fare found/i).length).toBeGreaterThan(0);
+  });
+
+  // Item 18: the per-card CTA is untouched.
+  it("FlightCard still offers 'Check live price' (item 18)", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    expect(screen.getAllByRole("button", { name: /check live price/i }).length).toBeGreaterThan(0);
+  });
+
+  // Item 14: the header summary chip is self-labelled, not a bare number.
+  it("header cached price is labelled 'Recent from' (item 14)", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    expect(screen.getByText(/recent from/i)).toBeTruthy();
+  });
+
+  // Item 15: FlightQuickSelect's Best/Cheapest/Fastest cards are labelled.
+  it("Quick Select prices carry recent/indicative context (item 15)", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    expect(screen.getByText("Recent best")).toBeTruthy();
+    expect(screen.getByText("Recent cheapest")).toBeTruthy();
+    expect(screen.getByText("Recent fastest fare")).toBeTruthy();
+  });
+
+  // Item 16: Price Calendar heading — its request contract has no
+  // passenger/cabin fields (see usePriceCalendar.ts), so it is always a
+  // generic recent-fare surface, never traveller-specific.
+  it("Price Calendar is labelled recent (item 16)", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    expect(screen.getByText("Recent Fare Calendar")).toBeTruthy();
+    expect(screen.getByText("Recent Fare Heatmap")).toBeTruthy();
   });
 
   it("does not show the non-economy cabin CTA for an economy search", async () => {
@@ -144,14 +225,14 @@ describe("FlightResults — economy search shows cached fares with one page-leve
   });
 });
 
-describe("FlightResults — non-economy cabin search (BF-0R-7 Round 1.1 item 2)", () => {
+describe("FlightResults — non-economy (Business) cabin search contains zero cached-fare UI (BF-0R-7.1 Phase B, items 1-11)", () => {
   beforeEach(() => {
     mockBuildWhiteLabelFlightUrl.mockReset();
     mockToastError.mockReset();
     mockGetRedirectUrl.mockReset();
   });
 
-  it("shows NO numeric cached fare cards for a business-class search, even though the provider returned results", async () => {
+  it("item 1: does not display any currency amount from cached results, even though the provider returned results", async () => {
     stubFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
@@ -160,9 +241,87 @@ describe("FlightResults — non-economy cabin search (BF-0R-7 Round 1.1 item 2)"
     expect(resultCards().length).toBe(0);
     expect(screen.queryByText("200")).toBeNull();
     expect(screen.queryByText("300")).toBeNull();
+    expect(screen.queryByText(/\$\d/)).toBeNull();
   });
 
-  it("shows the 'check live prices for your selected cabin' CTA, naming the selected cabin", async () => {
+  it("item 2: does not render PriceCalendar", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByText("Recent Fare Calendar")).toBeNull();
+  });
+
+  it("item 3: does not render WeeklyPriceHeatmap", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByText("Recent Fare Heatmap")).toBeNull();
+  });
+
+  it("item 4: does not render FlightFiltersPanel / MobileFiltersSheet", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByRole("heading", { name: "Filters" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^filters/i })).toBeNull();
+  });
+
+  it("item 5: does not render a result count", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByText(/flights? found/i)).toBeNull();
+  });
+
+  it("item 6: does not render cached airline/stop/departure-time filter categories", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByText("Recent fare")).toBeNull(); // the Price filter section
+    expect(screen.queryByText("Stops")).toBeNull();
+    expect(screen.queryByText("Airlines")).toBeNull();
+  });
+
+  it("item 7: does not render sort controls", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByRole("radiogroup", { name: /sort flights/i })).toBeNull();
+    expect(screen.queryByText(/^sort:/i)).toBeNull();
+  });
+
+  it("item 8: does not render 'Showing all...'", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByText(/showing all/i)).toBeNull();
+  });
+
+  it("item 9: does not call search-flights at all — the cached Data API is never hit for Business", async () => {
+    const fetchMock = stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not render FlightQuickSelect or NearbyAirportSuggestion", async () => {
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_URL);
+
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    expect(screen.queryByText(/Recent best/i)).toBeNull();
+    expect(screen.queryByText(/Recent cheapest/i)).toBeNull();
+  });
+
+  it("shows the 'check live prices for your selected cabin' CTA, naming the selected cabin (item 10)", async () => {
     stubFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
@@ -171,15 +330,15 @@ describe("FlightResults — non-economy cabin search (BF-0R-7 Round 1.1 item 2)"
     expect(screen.getByText(/Business search/i)).toBeTruthy();
   });
 
-  it("does not show the passenger/cabin disclosure (that disclosure is for the fare-card list, which isn't shown here)", async () => {
+  it("does not show the economy fare-list disclosure (that disclosure is for the cached fare list, which isn't shown here)", async () => {
     stubFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    expect(screen.queryByText(/not adjusted for traveller type or cabin class/i)).toBeNull();
+    expect(screen.queryByText(/recent indicative fares from our flight partner/i)).toBeNull();
   });
 
-  it("the cabin CTA's White Label handoff preserves adults, children, infants AND cabin class (item 7 — nothing dropped by cabin gating)", async () => {
+  it("item 11: the cabin CTA's White Label handoff preserves adults, children, infants AND cabin class (nothing dropped by cabin gating)", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({
       success: true,
       url: "https://flights.bookingsfinder.com/?flightSearch=SYD1001MEL121c211",

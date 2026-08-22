@@ -104,8 +104,10 @@ const FlightFiltersPanel = ({
       )}
 
       <div className={cn(!isPlain && "p-4")}>
-        {/* Price Range */}
-        <FilterSection title="Price">
+        {/* Price Range — BF-0R-7.1 Phase C: "Recent fare" because these
+          * ranges are computed from cached search-flights results, not a
+          * live quote. */}
+        <FilterSection title="Recent fare">
           <div className="px-1">
             <Slider
               value={filters.priceRange}
