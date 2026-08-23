@@ -16,6 +16,7 @@
 
 import { PARTNERS } from "./travelConfig";
 import { SUPPORTED_CABIN_CLASSES, isSupportedCabinClass } from "./cabinClasses";
+import { isValidCurrencyCode, isWhiteLabelSupportedCurrency } from "./currency";
 
 // ── Types ──
 
@@ -25,6 +26,24 @@ export interface WhiteLabelUrlResult {
   success: boolean;
   url: string | null;
   reason?: string;
+  /**
+   * BF-FLIGHTS-LIVE-2 Round 2 Phase B: the explicit currency contract a
+   * caller checks before redirecting.
+   *
+   *   requestedCurrency — the valid currency code the caller asked for,
+   *     if any (undefined when no currency, or an invalid one, was passed).
+   *   currencyApplied   — true only when requestedCurrency was actually
+   *     added to the URL as `&currency=...`. False both when no currency
+   *     was requested and when one was requested but isn't
+   *     White-Label-verified (see WHITE_LABEL_SUPPORTED_CURRENCIES).
+   *
+   * A caller must treat `requestedCurrency set && currencyApplied === false`
+   * as "the White Label will NOT honor this currency" and warn the
+   * traveller before redirecting — never silently proceed as if it was
+   * preserved. See UnsupportedCurrencyDialog.tsx / FlightResults.tsx.
+   */
+  currencyApplied?: boolean;
+  requestedCurrency?: string;
 }
 
 // ── Constants ──
@@ -102,6 +121,15 @@ function buildPassengerSuffix(adults: number, children: number, infants: number)
  *   - White Label host is configured
  *
  * If ANY condition fails → { success: false }. Caller MUST fall back.
+ *
+ * `currency` (BF-FLIGHTS-LIVE-2 Phase D) is optional and additive: it is
+ * never required for a successful build, and an unsupported/unverified
+ * code never fails the build either — it is silently omitted so the White
+ * Label falls back to its own configured default (verified: USD) rather
+ * than this codebase claiming a currency the White Label cannot actually
+ * display. See currency.ts's WHITE_LABEL_SUPPORTED_CURRENCIES for exactly
+ * which codes were live-verified. Check result.currencyApplied to know
+ * whether the requested currency was actually included.
  */
 export function buildWhiteLabelFlightUrl(params: {
   origin: string;
@@ -112,6 +140,7 @@ export function buildWhiteLabelFlightUrl(params: {
   children: number;
   infants: number;
   cabinClass: string;
+  currency?: string;
 }): WhiteLabelUrlResult {
   // Rollout
   if (getWhiteLabelRolloutMode() === "disabled") {
@@ -185,8 +214,14 @@ export function buildWhiteLabelFlightUrl(params: {
   qs.set("origin_airports", "1");
   qs.set("destination_airports", "0");
 
+  const requestedCurrency = isValidCurrencyCode(params.currency) ? params.currency : undefined;
+  const currencyApplied = isWhiteLabelSupportedCurrency(requestedCurrency);
+  if (currencyApplied) {
+    qs.set("currency", requestedCurrency!);
+  }
+
   const url = new URL("/", base);
   url.search = qs.toString();
 
-  return { success: true, url: url.toString() };
+  return { success: true, url: url.toString(), currencyApplied, requestedCurrency };
 }

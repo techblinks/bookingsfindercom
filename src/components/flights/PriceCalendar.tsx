@@ -9,11 +9,21 @@ interface PriceCalendarProps {
   origin: string;
   destination: string;
   selectedDate: string;
+  /** Display symbol only (e.g. "A$") — see currencyCode for the ISO code sent to the API. */
   currency?: string;
+  /**
+   * BF-FLIGHTS-LIVE-2 Phase G: the resolved three-letter ISO currency code
+   * (from useCurrencyPreference), forwarded to usePriceCalendar so the
+   * Recent Fare Calendar's request matches the currency it displays.
+   * Without this the hook silently defaulted to USD while the `currency`
+   * symbol prop still showed the visitor's actual currency — a real
+   * mismatch, not just a missing feature.
+   */
+  currencyCode?: string;
   onDateSelect: (date: string) => void;
 }
 
-const PriceCalendar = ({ origin, destination, selectedDate, currency = "$", onDateSelect }: PriceCalendarProps) => {
+const PriceCalendar = ({ origin, destination, selectedDate, currency = "$", currencyCode = "USD", onDateSelect }: PriceCalendarProps) => {
   const today = new Date();
   const initialMonth = selectedDate ? new Date(selectedDate) : today;
   const [currentMonth, setCurrentMonth] = useState(initialMonth);
@@ -24,6 +34,7 @@ const PriceCalendar = ({ origin, destination, selectedDate, currency = "$", onDa
     origin,
     destination,
     month: monthStr,
+    currency: currencyCode,
     enabled: !!origin && !!destination,
   });
 

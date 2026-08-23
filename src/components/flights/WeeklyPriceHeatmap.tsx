@@ -18,7 +18,15 @@ interface WeeklyPriceHeatmapProps {
   origin: string;
   destination: string;
   selectedDate: string;
+  /** Display symbol only (e.g. "A$") — see currencyCode for the ISO code sent to the API. */
   currency?: string;
+  /**
+   * BF-FLIGHTS-LIVE-2 Phase G: the resolved three-letter ISO currency code
+   * (from useCurrencyPreference), forwarded to usePriceCalendar so the
+   * Recent Fare Heatmap's request matches the currency it displays — see
+   * the matching note on PriceCalendar.tsx.
+   */
+  currencyCode?: string;
   onWeekSelect: (startDate: string) => void;
 }
 
@@ -37,6 +45,7 @@ const WeeklyPriceHeatmap = ({
   destination,
   selectedDate,
   currency = "$",
+  currencyCode = "USD",
   onWeekSelect,
 }: WeeklyPriceHeatmapProps) => {
   const today = startOfDay(new Date());
@@ -52,6 +61,7 @@ const WeeklyPriceHeatmap = ({
     origin,
     destination,
     month: month1,
+    currency: currencyCode,
     enabled: !!origin && !!destination,
   });
 
@@ -59,6 +69,7 @@ const WeeklyPriceHeatmap = ({
     origin,
     destination,
     month: month2,
+    currency: currencyCode,
     enabled: !!origin && !!destination && month2 !== month1,
   });
 
