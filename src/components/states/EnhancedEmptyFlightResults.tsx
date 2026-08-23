@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Plane, Calendar, Search, TrendingUp } from "lucide-react";
+import { Plane, Calendar, Search, TrendingUp, ExternalLink } from "lucide-react";
 import { parseISO, addDays, format, isBefore } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,15 @@ interface EnhancedEmptyFlightResultsProps {
    * always supplies () => setIsEditingSearch(true).
    */
   onModifySearch?: () => void;
+  /**
+   * BF-FLIGHTS-LIVE-1 Phase D: the primary action on a zero-recent-fare
+   * result — sends the traveller to the partner's live search (White
+   * Label) for this exact route/dates/travellers/cabin. This state means
+   * "no exact recent fare observation", not "no flights exist", so the
+   * primary CTA must not be a dead end. Omitted only when the caller has
+   * nothing to hand off (mirrors the onModifySearch omission contract).
+   */
+  onSearchLiveFlights?: () => void;
   origin?: string;
   destination?: string;
   departureDate?: string;
@@ -55,6 +64,7 @@ const ALTERNATIVE_DESTINATIONS = [
 const EnhancedEmptyFlightResults = ({
   onClearFilters,
   onModifySearch,
+  onSearchLiveFlights,
   origin = "",
   destination = "",
   departureDate = "",
@@ -63,7 +73,7 @@ const EnhancedEmptyFlightResults = ({
   children = 0,
   infants = 0,
   cabinClass = "economy",
-  message = "No flights found matching your criteria",
+  message = "We don't have an exact recent fare observation for these dates. Live flights may still be available — search live prices below.",
 }: EnhancedEmptyFlightResultsProps) => {
   /**
    * BF-0R-7.2 final correction item 2: timezone-safe calendar-date
@@ -135,7 +145,7 @@ const EnhancedEmptyFlightResults = ({
             <Plane className="h-10 w-10 text-muted-foreground" />
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">
-            No Flights Found
+            No Exact Recent Fare Data Found
           </h2>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">{message}</p>
 
@@ -154,10 +164,18 @@ const EnhancedEmptyFlightResults = ({
             </ul>
           </div>
 
+          {/*
+            * BF-FLIGHTS-LIVE-1 Phase D: primary CTA is the live-search
+            * handoff, not a dead end — a missing recent fare observation is
+            * not proof that no flights exist. Modify Search is secondary;
+            * Clear Filters remains a tertiary option for a filtered-away
+            * result set.
+            */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {onClearFilters && (
-              <Button variant="outline" onClick={onClearFilters}>
-                Clear All Filters
+            {onSearchLiveFlights && (
+              <Button className="gap-1.5" onClick={onSearchLiveFlights}>
+                Search Live Flights
+                <ExternalLink className="h-4 w-4" />
               </Button>
             )}
             {/*
@@ -165,9 +183,14 @@ const EnhancedEmptyFlightResults = ({
               * navigating to "/" — see the onModifySearch doc comment above.
               */}
             {onModifySearch && (
-              <Button className="gap-2" onClick={onModifySearch}>
+              <Button variant="outline" className="gap-2" onClick={onModifySearch}>
                 <Search className="h-4 w-4" />
                 Modify Search
+              </Button>
+            )}
+            {onClearFilters && (
+              <Button variant="outline" onClick={onClearFilters}>
+                Clear All Filters
               </Button>
             )}
           </div>

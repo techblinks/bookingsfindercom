@@ -317,19 +317,21 @@ const FlightResults = () => {
   };
 
   /*
-   * BF-0R-7 Round 1.2 item 3: the CTA shown instead of cached fare cards for
-   * a non-economy (business) cabin search MUST FAIL CLOSED.
+   * BF-FLIGHTS-LIVE-1 Phase C: the single "go to the partner's live search"
+   * handoff, shared by the non-economy (business) cabin panel's dedicated
+   * CTA (BF-0R-7 Round 1.2 item 3) and the page-level "Search Live Flights"
+   * action available on every valid search (economy included). Both call
+   * sites need the exact same behaviour, so there is one implementation:
    *
-   * Unlike handleBookNow, this has no generic get-redirect fallback: that
-   * fallback does not carry adults/children/infants/cabinClass, so silently
-   * falling back to it would drop the exact thing this CTA promises to
-   * preserve while still appearing to have "checked live prices for your
-   * selected cabin". Only cabin classes with a verified White Label
-   * encoding ever reach this panel (see isNonEconomyCabin/cabinClasses.ts),
-   * so a WL failure here means something is genuinely wrong (rollout mode
-   * disabled, host misconfigured, etc.) — not a normal case to paper over.
+   * MUST FAIL CLOSED. Unlike handleBookNow, this has no generic
+   * get-redirect fallback: that fallback does not carry
+   * adults/children/infants/cabinClass, so silently falling back to it
+   * would drop the exact thing this CTA promises to preserve while still
+   * appearing to have "checked live prices". A WL failure here means
+   * something is genuinely wrong (rollout mode disabled, host
+   * misconfigured, etc.) — not a normal case to paper over.
    */
-  const handleCheckCabinLivePrices = async () => {
+  const handleSearchLiveFlights = async () => {
     let finalUrl: string | null = null;
     let outboundHost: string | undefined;
 
@@ -347,7 +349,9 @@ const FlightResults = () => {
     }
 
     if (!finalUrl) {
-      toast.error(`Live ${cabinClassLabel} search is temporarily unavailable. Please try again.`);
+      toast.error(isNonEconomyCabin
+        ? `Live ${cabinClassLabel} search is temporarily unavailable. Please try again.`
+        : "Live flight search is temporarily unavailable. Please try again.");
       return;
     }
 
@@ -483,6 +487,24 @@ const FlightResults = () => {
                 </div>
               )}
               {/*
+                * BF-FLIGHTS-LIVE-1 Phase C: a prominent live-search handoff
+                * is available on every valid search, not just the Business
+                * cabin panel or the zero-result state (see the matching CTA
+                * in EnhancedEmptyFlightResults below). Always visible in the
+                * sticky header so it survives scrolling past a long results
+                * list.
+                */}
+              {!isEditingSearch && (
+                <Button
+                  size="sm"
+                  className="h-9 shrink-0 gap-1.5"
+                  onClick={handleSearchLiveFlights}
+                >
+                  Search Live Flights
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {/*
                 * Edit is a local UI mode, not a URL mode: it opens the same
                 * search form the user already knows, prefilled from the
                 * validated search behind these results. Available at every
@@ -548,7 +570,7 @@ const FlightResults = () => {
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin on the partner site instead.
               </p>
-              <Button onClick={handleCheckCabinLivePrices} className="gap-1.5">
+              <Button onClick={handleSearchLiveFlights} className="gap-1.5">
                 Check live prices for your selected cabin
                 <ExternalLink className="h-3 w-3" />
               </Button>
@@ -622,8 +644,17 @@ const FlightResults = () => {
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground animate-pulse">Searching for flights...</p>
                 ) : (
+                  /*
+                   * BF-FLIGHTS-LIVE-1 Phase B/D: this count is how many
+                   * cached fare observations exactly matched the requested
+                   * dates — not a statement that this many flights (or, at
+                   * zero, that no flights) exist. "0 recent fare
+                   * observations" stays true when it's zero; the old
+                   * "0 flights found" read as a live-inventory claim this
+                   * Data API cannot support.
+                   */
                   <p className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> flight{totalResults !== 1 ? 's' : ''} found
+                    <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> recent fare observation{totalResults !== 1 ? 's' : ''}
                   </p>
                 )}
               </div>
@@ -684,6 +715,7 @@ const FlightResults = () => {
                 <EnhancedEmptyFlightResults
                   onClearFilters={resetFilters}
                   onModifySearch={() => setIsEditingSearch(true)}
+                  onSearchLiveFlights={handleSearchLiveFlights}
                   origin={origin} destination={destination}
                   departureDate={departureDate} returnDate={returnDate}
                   adults={adults ?? undefined} children={children ?? undefined} infants={infants ?? undefined}
@@ -722,7 +754,7 @@ const FlightResults = () => {
 
             {!isLoading && displayedFlights.length > 0 && !hasMore && (
               <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">Showing all {totalResults} flight{totalResults !== 1 ? 's' : ''}</p>
+                <p className="text-sm text-muted-foreground">Showing all {totalResults} recent fare observation{totalResults !== 1 ? 's' : ''}</p>
               </div>
             )}
           </div>
