@@ -138,13 +138,22 @@ const EnhancedEmptyFlightResults = ({
 
   return (
     <div className="space-y-8">
-      {/* Main Empty State Card */}
+      {/*
+        * BF-FLIGHTS-LIVE-3 Phase F: shrunk from the original large card —
+        * FlightResults.tsx now shows the embedded Live Flights section
+        * ABOVE this component (not "below" as in the pre-embed layout), so
+        * this must not read as the primary/dominant result of the search.
+        * Content and CTAs are otherwise unchanged (same heading, message,
+        * suggestions, and all three buttons) to avoid regressing the
+        * BF-0R-7.2/BF-FLIGHTS-LIVE-1 behaviour already covered by
+        * EnhancedEmptyFlightResults.test.tsx and the FlightResults suites.
+        */}
       <Card className="border-border">
-        <CardContent className="p-8 md:p-12 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-            <Plane className="h-10 w-10 text-muted-foreground" />
+        <CardContent className="p-6 md:p-8 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+            <Plane className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">
+          <h2 className="text-base font-semibold text-foreground mb-2">
             No Exact Recent Fare Data Found
           </h2>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">{message}</p>

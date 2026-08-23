@@ -44,6 +44,15 @@ vi.mock("@/hooks/useGeoLocation", () => ({
   useGeoLocation: () => ({ geoData: { currency: "USD", currencySymbol: "$" } }),
 }));
 vi.mock("@/hooks/useAds", () => ({ useAds: () => ({ ads: {}, trackImpression: vi.fn(), trackClick: vi.fn() }) }));
+// BF-FLIGHTS-LIVE-3 Round 2 Issue 1: this suite tests the Page White Label
+// redirect path specifically (buildWhiteLabelFlightUrl called, full
+// context preserved) — that path is only reached when the widget is
+// "error", not "loading" (loading now scrolls instead). Pinning to
+// "error" keeps these assertions exercising the real code path they're
+// meant to verify, independent of jsdom's real widget-loading behavior.
+vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
+  useTravelpayoutsWidget: () => ({ state: "error", needsReloadForRemount: false }),
+}));
 vi.mock("@/components/layout/Header", () => ({ default: () => <header /> }));
 vi.mock("@/components/layout/Footer", () => ({ default: () => <footer /> }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -106,6 +115,12 @@ describe("FlightResults — economy search shows cached fares with one page-leve
     mockBuildWhiteLabelFlightUrl.mockReset();
     mockToastError.mockReset();
     mockGetRedirectUrl.mockReset();
+    // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
+    // (rather than redirecting) while useTravelpayoutsWidget is "loading"
+    // too, not only when "ready" — the real hook stays "loading" forever
+    // in jsdom (no network fetch of the widget script here), so any click
+    // on that CTA reaches scrollIntoView, which jsdom does not implement.
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("renders the fare cards (item 12)", async () => {
@@ -230,6 +245,12 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     mockBuildWhiteLabelFlightUrl.mockReset();
     mockToastError.mockReset();
     mockGetRedirectUrl.mockReset();
+    // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
+    // (rather than redirecting) while useTravelpayoutsWidget is "loading"
+    // too, not only when "ready" — the real hook stays "loading" forever
+    // in jsdom (no network fetch of the widget script here), so any click
+    // on that CTA reaches scrollIntoView, which jsdom does not implement.
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("item 1: does not display any currency amount from cached results, even though the provider returned results", async () => {

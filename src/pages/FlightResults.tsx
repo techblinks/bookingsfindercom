@@ -32,6 +32,22 @@ import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
 import CurrencySelector from "@/components/flights/CurrencySelector";
 import UnsupportedCurrencyDialog from "@/components/flights/UnsupportedCurrencyDialog";
 import { useCurrencyPreference } from "@/hooks/useCurrencyPreference";
+import TravelpayoutsLiveFlights from "@/components/flights/TravelpayoutsLiveFlights";
+import { useTravelpayoutsWidget } from "@/hooks/useTravelpayoutsWidget";
+
+const LIVE_FLIGHTS_SECTION_ID = "live-flights-section";
+/*
+ * BF-FLIGHTS-LIVE-3 Phase I: interim compatibility mapping — no new
+ * ad_placements DB values or migration. The `placement` column has a DB
+ * CHECK constraint limited to ('after_result_3', 'bottom', 'after_result_5')
+ * (see supabase/migrations/20260113131101_...sql), so introducing new
+ * semantic keys would require a migration. Reusing the existing two keys
+ * positionally needs none:
+ *   after_result_3 → live_results_top    (rendered before the embedded Live Flights section)
+ *   after_result_5 → live_results_bottom (rendered after the embedded Live Flights section)
+ * AdminAds.tsx's placement labels were updated to disclose this mapping
+ * rather than silently keep the old "After Result #3/#5" wording.
+ */
 import MobileFlightSearch from "@/components/search/MobileFlightSearch";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { FlightLandingPage } from "@/pages/flight/FlightLandingPage";
@@ -111,6 +127,16 @@ const FlightResults = () => {
    * other or with a deliberate override.
    */
   const { currency: currencyCode, currencySymbol, setCurrency } = useCurrencyPreference();
+
+  /*
+   * BF-FLIGHTS-LIVE-3 Phase G: "ready" gates whether Search Live Flights
+   * scrolls to the embedded widget instead of leaving the site — see
+   * handleSearchLiveFlights below. This is a second, independent call to
+   * the same hook the TravelpayoutsLiveFlights component uses; the
+   * underlying script load is deduplicated at module scope (see
+   * useTravelpayoutsWidget.ts), so this never causes a second script tag.
+   */
+  const { state: travelpayoutsWidgetState } = useTravelpayoutsWidget();
 
   const {
     flights,
@@ -386,7 +412,7 @@ const FlightResults = () => {
    * something is genuinely wrong (rollout mode disabled, host
    * misconfigured, etc.) — not a normal case to paper over.
    */
-  const handleSearchLiveFlights = async () => {
+  const handleOpenFullFlightSearch = async () => {
     let finalUrl: string | null = null;
     let outboundHost: string | undefined;
     let currencyMismatch: { requestedCurrency: string } | null = null;
@@ -424,6 +450,32 @@ const FlightResults = () => {
       outboundHost: outboundHost || null,
       landingPage: '/flights',
     }, currencyMismatch);
+  };
+
+  /*
+   * BF-FLIGHTS-LIVE-3 Round 2 Issue 1: "Search Live Flights" prefers
+   * staying on bookingsfinder.com — scrolling to the embedded
+   * Travelpayouts widget — over leaving for the Page White Label,
+   * whenever the widget has any chance of still becoming usable:
+   *   ready   → scroll (the widget's search form is right there)
+   *   loading → ALSO scroll (a normal initial load in progress is not a
+   *             reason to send the visitor away — TravelpayoutsLiveFlights
+   *             shows its own loading state at that section, and the
+   *             section's own "Open full flight search" link/button stays
+   *             available the entire time as an explicit fallback)
+   *   error   → falls through to the exact same Page White Label handoff
+   *             as before — see handleOpenFullFlightSearch, unchanged —
+   *             the only state where leaving the site makes sense.
+   * Scrolling to an on-page element is not an outbound affiliate click, so
+   * no tracking call happens on that path (see commitRedirect/attemptHandoff,
+   * which only run for an actual redirect).
+   */
+  const handleSearchLiveFlights = async () => {
+    if (travelpayoutsWidgetState === "ready" || travelpayoutsWidgetState === "loading") {
+      document.getElementById(LIVE_FLIGHTS_SECTION_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    await handleOpenFullFlightSearch();
   };
 
   const handleDateSelect = (date: string) => {
@@ -632,16 +684,30 @@ const FlightResults = () => {
            * in the sticky header above; this panel is only the honest
            * live-search handoff.
            */
-          <div className="max-w-xl mx-auto">
+          <div className="max-w-xl mx-auto space-y-6">
             <div className="rounded-xl border border-border bg-card p-6 md:p-8 text-center space-y-4">
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin on the partner site instead.
+                Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin below.
               </p>
               <Button onClick={handleSearchLiveFlights} className="gap-1.5">
                 Check live prices for your selected cabin
                 <ExternalLink className="h-3 w-3" />
               </Button>
             </div>
+            {/*
+              * BF-FLIGHTS-LIVE-3 Phase M: the embedded widget is shown here
+              * too — it never claims to be pre-set to Business (no
+              * documented mechanism exists to do that, see
+              * TravelpayoutsLiveFlights.tsx), it's simply Travelpayouts'
+              * own visible search form, where the traveller picks cabin
+              * themselves. This does not reintroduce cached Business fare
+              * observations — useFlightSearch's fetch is still disabled
+              * for this branch (see `enabled: !isNonEconomyCabin` above).
+              */}
+            <section id={LIVE_FLIGHTS_SECTION_ID} aria-label="Live Flights">
+              <h2 className="text-lg font-semibold text-foreground mb-3 text-center">Live Flights</h2>
+              <TravelpayoutsLiveFlights onOpenFullSearch={handleOpenFullFlightSearch} />
+            </section>
           </div>
         ) : (
         <div className="flex gap-6">
@@ -703,6 +769,42 @@ const FlightResults = () => {
               <div className="mb-4">
                 <NearbyAirportSuggestion airport={bestDealFlight.nearby_airport_savings.airport} airportName={bestDealFlight.nearby_airport_savings.airport_name} savings={bestDealFlight.nearby_airport_savings.savings} currency={currencySymbol} />
               </div>
+            )}
+
+            {/*
+              * BF-FLIGHTS-LIVE-3 Phase F: a plain, low-prominence truthful
+              * statement — not a large card — when there is no exact recent
+              * fare observation. The embedded Live Flights section right
+              * below is what actually answers "are there flights", so this
+              * line does not need to carry that weight (and must not claim
+              * it either).
+              */}
+            {!isLoading && meta.total_found === 0 && (
+              <p className="text-sm text-muted-foreground mb-4">
+                No exact recent fare observation is available for these dates. Live flights may still be available below.
+              </p>
+            )}
+
+            {/*
+              * BF-FLIGHTS-LIVE-3 Phase I/J: BookingsFinder-owned placements
+              * around the embedded widget, eligible regardless of cached
+              * result count — see the interim after_result_3/5 → live_results_top/bottom
+              * mapping documented above. Rendering ads.after_result_3/5 here
+              * (unconditional on displayedFlights) replaces the old
+              * per-card-index placement further down, which is removed so
+              * the same ad row is never shown twice.
+              */}
+            {ads.after_result_3 && (
+              <div className="mb-4"><AdSlot ad={ads.after_result_3} onImpression={trackImpression} onClick={trackClick} /></div>
+            )}
+
+            <section id={LIVE_FLIGHTS_SECTION_ID} aria-label="Live Flights" className="mb-4">
+              <h2 className="text-lg font-semibold text-foreground mb-3">Live Flights</h2>
+              <TravelpayoutsLiveFlights onOpenFullSearch={handleOpenFullFlightSearch} />
+            </section>
+
+            {ads.after_result_5 && (
+              <div className="mb-4"><AdSlot ad={ads.after_result_5} onImpression={trackImpression} onClick={trackClick} /></div>
             )}
 
             {/* Sort: mobile segmented control, desktop dropdown */}
@@ -795,17 +897,8 @@ const FlightResults = () => {
                       <div role="listitem" style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}>
                         <FlightCard flight={flight} currency={currencySymbol} onBookNow={handleBookNow} />
                       </div>
-                      {index === 2 && ads.after_result_3 && (
-                        <div className="my-3"><AdSlot ad={ads.after_result_3} onImpression={trackImpression} onClick={trackClick} /></div>
-                      )}
-                      {index === 4 && ads.after_result_5 && (
-                        <div className="my-3"><AdSlot ad={ads.after_result_5} onImpression={trackImpression} onClick={trackClick} /></div>
-                      )}
                     </div>
                   ))}
-                  {ads.bottom && displayedFlights.length > 0 && (
-                    <div className="mt-4"><AdSlot ad={ads.bottom} onImpression={trackImpression} onClick={trackClick} /></div>
-                  )}
                   {hasMore && (
                     <div id="load-more-sentinel" className="py-4">
                       <div className="flex justify-center">
@@ -823,6 +916,16 @@ const FlightResults = () => {
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">Showing all {totalResults} recent fare observation{totalResults !== 1 ? 's' : ''}</p>
               </div>
+            )}
+
+            {/*
+              * BF-FLIGHTS-LIVE-3 Phase J: unconditional on cached result
+              * count — a sponsored placement must not require cached
+              * FlightCard results to exist (see the same note on
+              * after_result_3/5 above).
+              */}
+            {ads.bottom && (
+              <div className="mt-4"><AdSlot ad={ads.bottom} onImpression={trackImpression} onClick={trackClick} /></div>
             )}
           </div>
         </div>

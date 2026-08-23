@@ -113,9 +113,19 @@ const adPages = [
   { value: 'all', label: 'All Pages' },
 ];
 
+/*
+ * BF-FLIGHTS-LIVE-3 Phase I: after_result_3/after_result_5 are stored
+ * `placement` values with a DB CHECK constraint (ad_placements table) — a
+ * genuinely new placement key would need a migration. On /flights these two
+ * are now positioned around the embedded Travelpayouts Live Flights section
+ * rather than after cached result cards #3/#5 (see FlightResults.tsx). The
+ * stored value is unchanged; only this label is updated so Admin isn't
+ * shown a stale description. Hotels still uses the literal "after result"
+ * positioning these values were originally named for.
+ */
 const adPlacements = [
-  { value: 'after_result_3', label: 'After Result #3' },
-  { value: 'after_result_5', label: 'After Result #5' },
+  { value: 'after_result_3', label: 'After Result #3 (Flights: before Live Flights section)' },
+  { value: 'after_result_5', label: 'After Result #5 (Flights: after Live Flights section)' },
   { value: 'bottom', label: 'Bottom of Page' },
   { value: 'hero_below', label: 'Below Hero Section' },
   { value: 'between_sections', label: 'Between Sections' },

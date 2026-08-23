@@ -37,6 +37,15 @@ vi.mock("@/hooks/useGeoLocation", () => ({
   useGeoLocation: () => ({ geoData: { currency: "USD", currencySymbol: "$" } }),
 }));
 vi.mock("@/hooks/useAds", () => ({ useAds: () => ({ ads: {}, trackImpression: vi.fn(), trackClick: vi.fn() }) }));
+// BF-FLIGHTS-LIVE-3 Round 2 Issue 1: this suite tests the Page White Label
+// redirect path specifically (buildWhiteLabelFlightUrl called, full
+// context preserved) — that path is only reached when the widget is
+// "error", not "loading" (loading now scrolls instead). Pinning to
+// "error" keeps these assertions exercising the real code path they're
+// meant to verify, independent of jsdom's real widget-loading behavior.
+vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
+  useTravelpayoutsWidget: () => ({ state: "error", needsReloadForRemount: false }),
+}));
 vi.mock("@/components/layout/Header", () => ({ default: () => <header /> }));
 vi.mock("@/components/layout/Footer", () => ({ default: () => <footer /> }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -96,6 +105,12 @@ beforeEach(() => {
   mockBuildWhiteLabelFlightUrl.mockReset();
   mockToastError.mockReset();
   mockGetRedirectUrl.mockReset();
+  // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
+  // (rather than redirecting) while useTravelpayoutsWidget is "loading"
+  // too, not only when "ready" — the real hook stays "loading" forever in
+  // jsdom (no network fetch of the widget script here), so any click on
+  // that CTA reaches scrollIntoView, which jsdom does not implement.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 // ── Items 1, 2, 12: zero cached results never claim flights don't exist ──
@@ -117,7 +132,11 @@ describe("FlightResults — zero cached results (BF-FLIGHTS-LIVE-1 Phase B/D)", 
     renderResults(ONE_WAY_URL);
 
     await waitFor(() => expect(screen.getByText(/no exact recent fare data found/i)).toBeTruthy());
-    expect(screen.getByText(/live flights may still be available/i)).toBeTruthy();
+    // BF-FLIGHTS-LIVE-3 Phase F added a second, page-level truthful
+    // statement above the embedded Live Flights section, so this phrase
+    // now legitimately appears twice — see FlightResults.tsx's zero-result
+    // line and EnhancedEmptyFlightResults' own message.
+    expect(screen.getAllByText(/live flights may still be available/i).length).toBeGreaterThan(0);
   });
 
   it("item 2: exposes a 'Search Live Flights' action", async () => {

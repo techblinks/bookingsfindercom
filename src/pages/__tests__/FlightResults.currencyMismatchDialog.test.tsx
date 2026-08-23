@@ -46,6 +46,15 @@ vi.mock("@/hooks/useGeoLocation", () => ({
 }));
 
 vi.mock("@/hooks/useAds", () => ({ useAds: () => ({ ads: {}, trackImpression: vi.fn(), trackClick: vi.fn() }) }));
+// BF-FLIGHTS-LIVE-3 Round 2 Issue 1: this suite tests the Page White Label
+// redirect + currency-mismatch-dialog path specifically — that path is
+// only reached when the widget is "error", not "loading" (loading now
+// scrolls instead). Pinning to "error" keeps these assertions exercising
+// the real code path they're meant to verify, independent of jsdom's real
+// widget-loading behavior.
+vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
+  useTravelpayoutsWidget: () => ({ state: "error", needsReloadForRemount: false }),
+}));
 vi.mock("@/components/layout/Header", () => ({ default: () => <header /> }));
 vi.mock("@/components/layout/Footer", () => ({ default: () => <footer /> }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -132,6 +141,12 @@ beforeEach(() => {
   localStorage.clear();
   hoisted.geoCurrency = "AUD";
   hoisted.geoSymbol = "A$";
+  // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
+  // (rather than redirecting) while useTravelpayoutsWidget is "loading"
+  // too, not only when "ready" — the real hook stays "loading" forever in
+  // jsdom (no network fetch of the widget script here), so any click on
+  // that CTA reaches scrollIntoView, which jsdom does not implement.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 // ── Items 1-2: supported currencies redirect immediately, no warning ──
