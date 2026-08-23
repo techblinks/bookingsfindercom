@@ -24,6 +24,10 @@ interface QuickOption {
 }
 
 const FlightQuickSelect = ({ flights, currency = "$", onSelect, activeId }: FlightQuickSelectProps) => {
+  // BF-0R-7.1 Phase C: labels say "Recent" because every price here comes
+  // from Travelpayouts' cached prices_for_dates observations, not a live
+  // quote — see FlightCard.tsx's "Recent fare found" wording for the same
+  // reason at the card level.
   const options = useMemo<QuickOption[]>(() => {
     if (flights.length === 0) return [];
 
@@ -38,7 +42,7 @@ const FlightQuickSelect = ({ flights, currency = "$", onSelect, activeId }: Flig
     const opts: QuickOption[] = [
       {
         id: "best",
-        label: "Best",
+        label: "Recent best",
         sublabel: "Score + comfort",
         price: best.price,
         detail: `${formatDuration(best.duration_minutes)} · ${best.stops === 0 ? "Direct" : `${best.stops} stop`}`,
@@ -48,7 +52,7 @@ const FlightQuickSelect = ({ flights, currency = "$", onSelect, activeId }: Flig
       },
       {
         id: "cheapest",
-        label: "Cheapest",
+        label: "Recent cheapest",
         sublabel: "Lowest fare",
         price: cheapest.price,
         detail: `${formatDuration(cheapest.duration_minutes)} · ${cheapest.stops === 0 ? "Direct" : `${cheapest.stops} stop`}`,
@@ -58,7 +62,7 @@ const FlightQuickSelect = ({ flights, currency = "$", onSelect, activeId }: Flig
       },
       {
         id: "fastest",
-        label: "Fastest",
+        label: "Recent fastest fare",
         sublabel: "Shortest time",
         price: fastest.price,
         detail: `${formatDuration(fastest.duration_minutes)} · ${fastest.stops === 0 ? "Direct" : `${fastest.stops} stop`}`,

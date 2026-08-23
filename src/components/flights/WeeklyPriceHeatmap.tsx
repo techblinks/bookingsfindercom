@@ -163,7 +163,9 @@ const WeeklyPriceHeatmap = ({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Flame className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Weekly Price Heatmap</h3>
+          {/* BF-0R-7.1 Phase C/E: same get-price-calendar contract as
+            * PriceCalendar.tsx — origin/destination/month/currency only. */}
+          <h3 className="text-sm font-semibold text-foreground">Recent Fare Heatmap</h3>
           {cheapestWeek && cheapestWeek.avgPrice && (
             <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
               <TrendingDown className="h-3 w-3" />
