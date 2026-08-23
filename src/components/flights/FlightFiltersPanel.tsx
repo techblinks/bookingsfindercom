@@ -109,7 +109,7 @@ const FlightFiltersPanel = ({
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {totalResults} flight{totalResults !== 1 ? 's' : ''} found
+            {totalResults} recent fare observation{totalResults !== 1 ? 's' : ''}
           </p>
         </div>
       )}

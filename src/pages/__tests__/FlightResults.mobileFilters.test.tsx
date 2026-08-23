@@ -232,7 +232,7 @@ describe("mobile flight results — draft, apply and discard", () => {
     checkInSheet("Direct");
 
     expect(resultCards().length).toBe(3);
-    expect(mainText()).toContain("3 flights found");
+    expect(mainText()).toContain("3 recent fare observations");
   });
 
   it("Apply commits the draft and filters the results", async () => {
@@ -474,7 +474,7 @@ describe("mobile flight results — range endpoints obey the draft rules", () =>
 
     pressOnThumb(PRICE_MAX, "ArrowLeft", 15); // $300 → $150 in the draft only
     expect(resultCards().length).toBe(3);
-    expect(mainText()).toContain("3 flights found");
+    expect(mainText()).toContain("3 recent fare observations");
     expect(triggerLabel()).toBe("Filters");
   });
 
@@ -546,13 +546,13 @@ describe("desktop sidebar — range endpoints work directly", () => {
 describe("mobile flight results — surrounding behaviour survives Apply", () => {
   it("updates the result count", async () => {
     await renderWithResults();
-    expect(mainText()).toContain("3 flights found");
+    expect(mainText()).toContain("3 recent fare observations");
 
     await openFilters();
     checkInSheet("Direct");
     fireEvent.click(showResults());
 
-    await waitFor(() => expect(mainText()).toContain("1 flight found"));
+    await waitFor(() => expect(mainText()).toContain("1 recent fare observation"));
   });
 
   it("keeps the chosen sort selected", async () => {

@@ -167,12 +167,12 @@ describe("FlightResults — economy search shows cached fares with one page-leve
 
   // Item 13: FlightCard's own per-card honesty wording is untouched by this
   // page-level restructure.
-  it("FlightCard still shows 'Recent fare found' (item 13)", async () => {
+  it("FlightCard still shows 'Recent fare observation' (item 13)", async () => {
     stubFlights(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    expect(screen.getAllByText(/recent fare found/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/recent fare observation/i).length).toBeGreaterThan(0);
   });
 
   // Item 18: the per-card CTA is untouched.

@@ -44,7 +44,7 @@ const FlightSearchSchema = ({
       "@context": "https://schema.org",
       "@type": "SearchResultsPage",
       name: `Flights from ${origin} to ${destination}`,
-      description: `Find and compare ${totalResults || "available"} flights from ${origin} to ${destination} departing ${departureDate}${returnDate ? ` with return on ${returnDate}` : ""}. ${cabinClass} class for ${passengers} ${passengers === 1 ? "passenger" : "passengers"}.`,
+      description: `Compare recent fare observations and search live flights from ${origin} to ${destination} departing ${departureDate}${returnDate ? ` with return on ${returnDate}` : ""}. ${cabinClass} class for ${passengers} ${passengers === 1 ? "passenger" : "passengers"}.`,
       mainEntity: {
         "@type": "ItemList",
         name: "Flight Search Results",
@@ -134,9 +134,13 @@ const FlightSearchSchema = ({
           name: `How many flights are available from ${origin} to ${destination}?`,
           acceptedAnswer: {
             "@type": "Answer",
+            // BF-FLIGHTS-LIVE-1 Phase B: totalResults counts cached recent
+            // fare observations for the exact requested dates, not live
+            // flight inventory — a zero count does not mean no flights
+            // exist, so this must not assert flight availability either way.
             text: totalResults
-              ? `We found ${totalResults} flights from ${origin} to ${destination} for your selected dates.`
-              : `Multiple flights are available from ${origin} to ${destination}. Search to see all options.`,
+              ? `We found ${totalResults} recent fare observation${totalResults === 1 ? "" : "s"} from ${origin} to ${destination} for your selected dates. Search live flights on our partner site to confirm current availability.`
+              : `We don't have a recent fare observation from ${origin} to ${destination} for your selected dates. Live flights may still be available — search live flights on our partner site.`,
           },
         },
       ],
@@ -166,7 +170,7 @@ const FlightSearchSchema = ({
 
     // Update meta description
     let metaDescription = document.querySelector('meta[name="description"]');
-    const descriptionContent = `Compare ${totalResults || ""} cheap flights from ${origin} to ${destination}${lowestPrice ? ` from $${lowestPrice}` : ""}. Find the best deals on ${cabinClass} class tickets.`;
+    const descriptionContent = `Compare recent fare observations and search live flights from ${origin} to ${destination}${lowestPrice ? ` from $${lowestPrice}` : ""}. Find ${cabinClass} class tickets.`;
 
     if (metaDescription) {
       metaDescription.setAttribute("content", descriptionContent);
