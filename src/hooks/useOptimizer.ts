@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface OptimizerRequest {
@@ -84,7 +84,23 @@ export const useOptimizer = () => {
   const [error, setError] = useState<string | null>(null);
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null);
 
+  /**
+   * PR #65 round 4: attempt-ID guard against stale-response/stale-error
+   * overwrite. A ref (not state) so the comparison is synchronous and never
+   * subject to React's state-update batching/timing — two overlapping
+   * `runOptimizer` calls each capture their OWN attempt id at start; when a
+   * call's network round-trip finally resolves, it only commits state
+   * (loading/error/paywall/return value) if it is STILL the most recent
+   * attempt. A response or error from an attempt that has since been
+   * superseded by a newer one is discarded rather than overwriting the
+   * newer attempt's in-flight or already-resolved state.
+   */
+  const currentAttemptRef = useRef(0);
+
   const runOptimizer = async (request: OptimizerRequest): Promise<OptimizerResult | null> => {
+    const attemptId = ++currentAttemptRef.current;
+    const isCurrent = () => currentAttemptRef.current === attemptId;
+
     setIsLoading(true);
     setError(null);
     setPaywallError(null);
@@ -93,6 +109,8 @@ export const useOptimizer = () => {
       const { data, error: fnError } = await supabase.functions.invoke("run-optimizer", {
         body: request,
       });
+
+      if (!isCurrent()) return null; // superseded by a newer attempt — discard
 
       if (fnError) {
         throw new Error(fnError.message || "Failed to run optimizer");
@@ -118,11 +136,15 @@ export const useOptimizer = () => {
 
       return data as OptimizerResult;
     } catch (err) {
+      if (!isCurrent()) return null; // stale error must not overwrite current attempt
       const message = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(message);
       return null;
     } finally {
-      setIsLoading(false);
+      // Only the most recent attempt may clear isLoading — an earlier
+      // attempt's finally block must not flip loading off while a newer
+      // attempt is still genuinely in flight.
+      if (isCurrent()) setIsLoading(false);
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -6,12 +6,14 @@ import Footer from "@/components/layout/Footer";
 import OptimizerForm from "@/components/optimizer/OptimizerForm";
 import OptimizerResults from "@/components/optimizer/OptimizerResults";
 import OptimizerNoData from "@/components/optimizer/OptimizerNoData";
+import OptimizerAuthGate from "@/components/optimizer/OptimizerAuthGate";
 import {
   useOptimizer,
   OptimizerRequest,
   OptimizerResult,
   isOptimizerSuccess,
 } from "@/hooks/useOptimizer";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Shield, DollarSign, Clock, Zap, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,9 +22,56 @@ const TripOptimizer = () => {
   const navigate = useNavigate();
   const [result, setResult] = useState<OptimizerResult | null>(null);
   const [request, setRequest] = useState<OptimizerRequest | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
   const { runOptimizer, isLoading, error, paywallError, clearPaywallError } = useOptimizer();
 
-  const handleSubmit = async (data: OptimizerRequest) => {
+  // Holds a submitted-while-signed-out request so it can be re-submitted the
+  // moment a session appears, without the traveller re-entering anything.
+  const pendingRequestRef = useRef<OptimizerRequest | null>(null);
+
+  /**
+   * PR #65 round 4: synchronous single-flight guard. `handleSubmit` used to
+   * `await supabase.auth.getSession()` as its FIRST operation, with no
+   * synchronous lock in place before that await — rapid duplicate clicks
+   * (or a duplicate synthetic submit) could all enter `handleSubmit` and
+   * reach `getSession()`/`executeOptimizer` concurrently before `isLoading`
+   * had propagated through a render. A ref is checked and set synchronously
+   * BEFORE the first `await`, so a second call arriving before the first
+   * has released the lock is rejected immediately — this covers BOTH the
+   * signed-in path (would otherwise double-invoke runOptimizer) and the
+   * signed-out path (would otherwise let a second click race the first for
+   * `pendingRequestRef`/`needsAuth`).
+   */
+  const submitInFlightRef = useRef(false);
+
+  /**
+   * PR #65 round 4.1: a SECOND, independent synchronous guard around the
+   * actual optimizer execution/provider call — not just around
+   * `handleSubmit`'s entry.
+   *
+   * `submitInFlightRef` alone left a gap: the auth-resumed continuation
+   * (`onAuthStateChange` → `executeOptimizer(held)`) runs OUTSIDE
+   * `handleSubmit` entirely, so it never held `submitInFlightRef` in the
+   * first place — that ref was already released back to `false` the moment
+   * the original signed-out `handleSubmit` call set `needsAuth` and
+   * returned. A fresh `handleSubmit` call arriving while the auth-resumed
+   * request is still awaiting its provider response would therefore pass
+   * `submitInFlightRef`'s check cleanly and reach `runOptimizer` a second
+   * time, concurrently with the first — `useOptimizer`'s attempt-id logic
+   * prevents that second call's STATE from clobbering the first, but does
+   * NOT stop the duplicate provider call itself from happening.
+   *
+   * `runOptimizerSingleFlight` is the ONE place any code path may invoke
+   * `executeOptimizer` — both `handleSubmit`'s signed-in branch and the
+   * auth-listener's continuation call through it, never `executeOptimizer`
+   * directly. This ref is set synchronously before `executeOptimizer` (and
+   * therefore before `runOptimizer`'s own network call) starts, and is
+   * released in a `finally` regardless of success, a null/no-op result, or
+   * a thrown error — so it can never end up stuck.
+   */
+  const optimizerExecutionInFlightRef = useRef(false);
+
+  const executeOptimizer = async (data: OptimizerRequest) => {
     setRequest(data);
     const optimizerResult = await runOptimizer(data);
     if (optimizerResult) {
@@ -30,10 +79,79 @@ const TripOptimizer = () => {
     }
   };
 
+  const runOptimizerSingleFlight = async (data: OptimizerRequest) => {
+    if (optimizerExecutionInFlightRef.current) return;
+    optimizerExecutionInFlightRef.current = true;
+    try {
+      await executeOptimizer(data);
+    } finally {
+      optimizerExecutionInFlightRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && pendingRequestRef.current) {
+        const held = pendingRequestRef.current;
+        pendingRequestRef.current = null;
+        setNeedsAuth(false);
+        // Fire-and-forget from an event listener, not a click handler React
+        // itself awaits — useOptimizer.runOptimizer already catches every
+        // real failure internally and resolves (never rejects), so this
+        // guards only the truly unexpected case of it throwing anyway;
+        // without it, that case would surface as an unhandled promise
+        // rejection rather than the honest error state runOptimizer already
+        // sets internally before this path would ever be reached.
+        runOptimizerSingleFlight(held).catch((err) => {
+          console.error("Unexpected error resuming optimizer after sign-in:", err);
+        });
+      }
+    });
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSubmit = async (data: OptimizerRequest) => {
+    // Synchronous guard set BEFORE the first await — see submitInFlightRef
+    // doc comment. A rapid duplicate submit arriving while this one is
+    // still resolving is dropped here, not after a network round-trip.
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+
+    try {
+      // run-optimizer now requires an authenticated user (BF-0R-4) — an
+      // anonymous submit would only fail closed at the Edge Function, wasting a
+      // round-trip. Check locally first and hold the request until sign-in.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        pendingRequestRef.current = data;
+        setNeedsAuth(true);
+        return;
+      }
+      // Routed through the execution-level guard (see
+      // optimizerExecutionInFlightRef doc comment) — this is what actually
+      // stops a fresh submit from double-invoking the provider while an
+      // auth-resumed request is still in flight.
+      await runOptimizerSingleFlight(data);
+    } finally {
+      // Released unconditionally — normal completion, the signed-out early
+      // return, and a thrown error all release the lock, so Reset/Cancel/
+      // auth transitions never find it stuck.
+      submitInFlightRef.current = false;
+    }
+  };
+
   const handleReset = () => {
     setResult(null);
     setRequest(null);
+    setNeedsAuth(false);
+    pendingRequestRef.current = null;
     clearPaywallError();
+  };
+
+  const handleCancelAuth = () => {
+    pendingRequestRef.current = null;
+    setNeedsAuth(false);
   };
 
   const handleUpgrade = () => {
@@ -123,6 +241,8 @@ const TripOptimizer = () => {
                     </p>
                   </div>
                 </div>
+              ) : needsAuth ? (
+                <OptimizerAuthGate onCancel={handleCancelAuth} />
               ) : paywallError ? (
                 <div className="max-w-lg mx-auto">
                   <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
