@@ -17,7 +17,6 @@ import SortDropdown from "@/components/flights/SortDropdown";
 import PriceCalendar from "@/components/flights/PriceCalendar";
 import WeeklyPriceHeatmap from "@/components/flights/WeeklyPriceHeatmap";
 import NearbyAirportSuggestion from "@/components/flights/NearbyAirportSuggestion";
-import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
 import FlightSearchSchema from "@/components/seo/FlightSearchSchema";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { Button } from "@/components/ui/button";
@@ -564,6 +563,7 @@ const FlightResults = () => {
                 filters={filters} airlines={airlines} stopCounts={stopCounts}
                 departureCounts={departureCounts} onFilterChange={updateFilter}
                 onReset={resetFilters} totalResults={totalResults} currency={currencySymbol}
+                hasResults={meta.total_found > 0}
               />
             </div>
           </aside>
@@ -663,6 +663,7 @@ const FlightResults = () => {
                     onApply={applyMobileFilters}
                     totalResults={totalResults}
                     currency={currencySymbol}
+                    hasResults={meta.total_found > 0}
                   />
                 </div>
               </div>
@@ -680,7 +681,14 @@ const FlightResults = () => {
               ) : error ? (
                 <EmptyFlightState variant="error" errorMessage={error} onRetry={retry} />
               ) : displayedFlights.length === 0 ? (
-                <EnhancedEmptyFlightResults onClearFilters={resetFilters} origin={origin} destination={destination} departureDate={departureDate} returnDate={returnDate} />
+                <EnhancedEmptyFlightResults
+                  onClearFilters={resetFilters}
+                  onModifySearch={() => setIsEditingSearch(true)}
+                  origin={origin} destination={destination}
+                  departureDate={departureDate} returnDate={returnDate}
+                  adults={adults ?? undefined} children={children ?? undefined} infants={infants ?? undefined}
+                  cabinClass={cabinClass}
+                />
               ) : (
                 <>
                   {displayedFlights.map((flight, index) => (

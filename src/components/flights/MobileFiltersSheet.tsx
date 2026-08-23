@@ -39,6 +39,8 @@ interface MobileFiltersSheetProps {
   onApply: (next: FilterState) => void;
   totalResults: number;
   currency?: string;
+  /** BF-0R-7.2 Phase G: forwarded to FlightFiltersPanel — see its doc comment. */
+  hasResults?: boolean;
 }
 
 const MobileFiltersSheet = ({
@@ -49,6 +51,7 @@ const MobileFiltersSheet = ({
   onApply,
   totalResults,
   currency = "$",
+  hasResults = true,
 }: MobileFiltersSheetProps) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<FilterState>(filters);
@@ -126,6 +129,7 @@ const MobileFiltersSheet = ({
             onReset={resetDraft}
             totalResults={totalResults}
             currency={currency}
+            hasResults={hasResults}
           />
         </div>
 
