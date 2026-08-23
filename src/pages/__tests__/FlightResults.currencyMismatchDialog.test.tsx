@@ -241,6 +241,41 @@ describe("FlightResults — JPY and SGD also trigger the warning", () => {
   });
 });
 
+// ── Round 3 items 4-5: unverified currencies (never tested, not the same
+// fact as "verified NOT applied") also warn, but the dialog must never
+// claim they're confirmed unsupported. ──
+
+describe("FlightResults — Round 3: unverified currencies (AED, THB) warn without a false 'unsupported' claim", () => {
+  it("item 4: AED warns before redirect, and the dialog does not claim AED is unsupported", async () => {
+    hoisted.geoCurrency = "AED";
+    hoisted.geoSymbol = "د.إ";
+    stubFetch(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+
+    expect(await screen.findByText(/live partner currency differs/i)).toBeTruthy();
+    expect(screen.getByText(/cannot currently guarantee/i)).toBeTruthy();
+    expect(screen.queryByText(/does not currently support/i)).toBeNull();
+    expect(mockLogAffiliateClick).not.toHaveBeenCalled();
+  });
+
+  it("item 5: THB (never tested, geo-reachable) also warns safely and still allows Continue", async () => {
+    hoisted.geoCurrency = "THB";
+    hoisted.geoSymbol = "฿";
+    stubFetch(FLIGHTS);
+    renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    await screen.findByText(/live partner currency differs/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /continue to live flights/i }));
+    await waitFor(() => expect(mockLogAffiliateClick).toHaveBeenCalled());
+  });
+});
+
 // ── Item 8: BookingsFinder's own currency is never silently forced to USD ──
 
 describe("FlightResults — BookingsFinder keeps displaying the unsupported currency itself", () => {
