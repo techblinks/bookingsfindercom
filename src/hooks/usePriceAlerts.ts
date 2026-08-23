@@ -1,65 +1,30 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-// Helper function to send welcome email to new subscribers
-async function sendWelcomeEmail(email: string, origin?: string, destination?: string): Promise<void> {
-  try {
-    const { error } = await supabase.functions.invoke('send-welcome-email', {
-      body: { email, origin, destination },
-    });
-    
-    if (error) {
-      console.error('Error sending welcome email:', error);
-    } else {
-      console.log('Welcome email sent to:', email);
-    }
-  } catch (error) {
-    console.error('Error invoking welcome email function:', error);
-  }
-}
 import { toast } from 'sonner';
 
-// Helper function to add subscriber when creating price alert
-// Returns true if this is a new subscriber (for sending welcome email)
-async function addSubscriber(email: string, source: string = 'price_alert'): Promise<boolean> {
+// Helper function to add subscriber when creating a price alert, via the
+// subscribe_email RPC. BF-0R-5 round 4: subscribe_email now returns void —
+// it never reveals whether the email was new, already subscribed, or
+// previously unsubscribed (that distinction was a subscriber-status
+// oracle, closed this round). Consequently this function no longer returns
+// anything meaningful to branch on; callers must NOT use its outcome to
+// decide whether to send a welcome email or otherwise infer subscriber
+// state. The welcome email itself is temporarily withheld — see the
+// BF-0R-6 follow-up note in the migration for why, and what a non-oracle
+// trigger would need to look like.
+async function addSubscriber(email: string, source: string = 'price_alert'): Promise<void> {
   try {
-    // Check if already subscribed
-    const { data: existing } = await supabase
-      .from('subscribers')
-      .select('id, is_subscribed')
-      .eq('email', email)
-      .single();
+    const { error } = await supabase.rpc('subscribe_email', {
+      p_email: email,
+      p_source: source,
+    });
 
-    if (existing) {
-      // If exists but unsubscribed, resubscribe them
-      if (!existing.is_subscribed) {
-        await supabase
-          .from('subscribers')
-          .update({ 
-            is_subscribed: true, 
-            unsubscribed_at: null,
-            subscribed_at: new Date().toISOString()
-          })
-          .eq('id', existing.id);
-        return true; // Resubscribed user should get welcome email
-      }
-      return false; // Already subscribed, no welcome email
+    if (error) {
+      console.error('Error adding subscriber:', error);
     }
-
-    // Add new subscriber
-    await supabase
-      .from('subscribers')
-      .insert({
-        email,
-        subscription_source: source,
-        is_subscribed: true,
-      });
-    
-    return true; // New subscriber, send welcome email
   } catch (error) {
     // Silently handle errors - don't block the price alert creation
     console.error('Error adding subscriber:', error);
-    return false;
   }
 }
 
@@ -99,87 +64,60 @@ export interface CreateAlertParams {
   currentPrice?: number;
 }
 
-export function usePriceAlerts(email?: string) {
-  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+export interface CreatedAlert {
+  id: string;
+  created_at: string;
+}
+
+// BF-0R-5 round 3: viewing/managing existing alerts is temporarily
+// unavailable — see src/components/flights/SavedSearchesPanel.tsx and
+// src/pages/MyAlerts.tsx. This hook no longer attempts to fetch, toggle,
+// delete, or read price history for existing alerts, since anon/
+// authenticated have no SELECT/UPDATE/DELETE privilege on saved_searches
+// or price_history at all (supabase/migrations/20260820000000_bf0r5_...).
+// Alert CREATION remains fully functional via the create_saved_search RPC.
+export function usePriceAlerts(_email?: string) {
+  const [savedSearches] = useState<SavedSearch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSavedSearches = useCallback(async () => {
-    if (!email) return;
-    
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('saved_searches')
-        .select('*')
-        .eq('email', email)
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-      setSavedSearches(data || []);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch saved searches';
-      setError(message);
-      console.error('Error fetching saved searches:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [email]);
-
-  const createAlert = useCallback(async (params: CreateAlertParams): Promise<SavedSearch | null> => {
+  const createAlert = useCallback(async (params: CreateAlertParams): Promise<CreatedAlert | null> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data, error: insertError } = await supabase
-        .from('saved_searches')
-        .insert({
-          email: params.email,
-          origin: params.origin,
-          destination: params.destination,
-          departure_date: params.departureDate,
-          return_date: params.returnDate || null,
-          passengers: params.passengers,
-          cabin_class: params.cabinClass,
-          target_price: params.targetPrice || null,
-          current_lowest_price: params.currentPrice || null,
-          is_active: true,
+      const { data, error: rpcError } = await supabase
+        .rpc('create_saved_search', {
+          p_email: params.email,
+          p_origin: params.origin,
+          p_destination: params.destination,
+          p_departure_date: params.departureDate,
+          p_return_date: params.returnDate || null,
+          p_passengers: params.passengers,
+          p_cabin_class: params.cabinClass,
+          p_target_price: params.targetPrice || null,
+          p_current_price: params.currentPrice || null,
         })
-        .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (rpcError) throw rpcError;
+      if (!data) throw new Error('Alert was not created');
 
-      // Record initial price in history
-      if (params.currentPrice && data) {
-        await supabase
-          .from('price_history')
-          .insert({
-            saved_search_id: data.id,
-            price: params.currentPrice,
-          });
-      }
-
-      // Add user to subscribers list and send welcome email if new
-      const isNewSubscriber = await addSubscriber(params.email, 'price_alert');
-      
-      if (isNewSubscriber) {
-        // Send welcome email to new subscribers
-        await sendWelcomeEmail(params.email, params.origin, params.destination);
-      }
+      // Add user to subscribers list. BF-0R-5 round 4: no welcome email is
+      // sent from the browser — send-welcome-email is an unauthenticated
+      // Resend relay (BF-0R-6 follow-up), and subscribe_email's result can
+      // no longer be used to infer new-vs-existing subscriber state (that
+      // was the closed oracle). The welcome email is temporarily withheld.
+      await addSubscriber(params.email, 'price_alert');
 
       toast.success('Price alert created!', {
         description: `We'll notify you at ${params.email} when prices drop.`,
       });
 
-      // Refresh the list
-      if (email) {
-        await fetchSavedSearches();
-      }
+      // Viewing/managing the list is temporarily unavailable (BF-0R-5 round
+      // 3) — no refetch is attempted here; see SavedSearchesPanel.tsx.
 
-      return data;
+      return data as CreatedAlert;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create price alert';
       setError(message);
@@ -189,109 +127,12 @@ export function usePriceAlerts(email?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [email, fetchSavedSearches]);
-
-  const updateAlert = useCallback(async (id: string, updates: Partial<SavedSearch>): Promise<boolean> => {
-    try {
-      const { error: updateError } = await supabase
-        .from('saved_searches')
-        .update(updates)
-        .eq('id', id);
-
-      if (updateError) throw updateError;
-
-      toast.success('Alert updated');
-      await fetchSavedSearches();
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update alert';
-      toast.error('Failed to update alert', { description: message });
-      console.error('Error updating alert:', err);
-      return false;
-    }
-  }, [fetchSavedSearches]);
-
-  const deleteAlert = useCallback(async (id: string): Promise<boolean> => {
-    try {
-      const { error: deleteError } = await supabase
-        .from('saved_searches')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
-
-      toast.success('Alert deleted');
-      await fetchSavedSearches();
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete alert';
-      toast.error('Failed to delete alert', { description: message });
-      console.error('Error deleting alert:', err);
-      return false;
-    }
-  }, [fetchSavedSearches]);
-
-  const toggleAlert = useCallback(async (id: string, isActive: boolean): Promise<boolean> => {
-    return updateAlert(id, { is_active: isActive });
-  }, [updateAlert]);
-
-  const getPriceHistory = useCallback(async (searchId: string): Promise<PriceHistory[]> => {
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('price_history')
-        .select('*')
-        .eq('saved_search_id', searchId)
-        .order('recorded_at', { ascending: true });
-
-      if (fetchError) throw fetchError;
-      return data || [];
-    } catch (err) {
-      console.error('Error fetching price history:', err);
-      return [];
-    }
   }, []);
-
-  const recordPrice = useCallback(async (searchId: string, price: number): Promise<void> => {
-    try {
-      await supabase
-        .from('price_history')
-        .insert({
-          saved_search_id: searchId,
-          price,
-        });
-
-      // Update current lowest price if this is lower
-      const search = savedSearches.find(s => s.id === searchId);
-      if (search && (!search.current_lowest_price || price < search.current_lowest_price)) {
-        await supabase
-          .from('saved_searches')
-          .update({ 
-            current_lowest_price: price,
-            last_checked_at: new Date().toISOString(),
-          })
-          .eq('id', searchId);
-      }
-    } catch (err) {
-      console.error('Error recording price:', err);
-    }
-  }, [savedSearches]);
-
-  useEffect(() => {
-    if (email) {
-      fetchSavedSearches();
-    }
-  }, [email, fetchSavedSearches]);
 
   return {
     savedSearches,
     isLoading,
     error,
     createAlert,
-    updateAlert,
-    deleteAlert,
-    toggleAlert,
-    getPriceHistory,
-    recordPrice,
-    refetch: fetchSavedSearches,
   };
 }

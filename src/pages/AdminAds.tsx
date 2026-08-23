@@ -92,9 +92,13 @@ const countryOptions = [
   { code: 'MY', name: 'Malaysia' },
 ];
 
+// BF-0R-7 Phase H (P0 security): 'html_embed' removed. The renderer
+// (AdEmbed.tsx) set innerHTML from admin-entered content and explicitly
+// re-executed any <script> tags with no sanitization — a same-origin XSS
+// surface. Existing html_embed rows are not deleted; both public renderers
+// (AdSlot/HomeAdSlot) fail closed for that type regardless of this list.
 const adTypes = [
   { value: 'sponsored_card', label: 'Sponsored Card' },
-  { value: 'html_embed', label: 'HTML Embed' },
   { value: 'banner', label: 'Banner Ad' },
   { value: 'native', label: 'Native Ad' },
   { value: 'hero_banner', label: 'Hero Banner' },
@@ -430,6 +434,19 @@ export default function AdminAds() {
                           <Badge variant="secondary" className="text-xs">
                             {adTypes.find(t => t.value === ad.type)?.label || ad.type}
                           </Badge>
+                          {/*
+                           * BF-0R-7 Phase H: html_embed is no longer a
+                           * selectable type (removed from adTypes below),
+                           * but existing rows created before this fix are
+                           * not deleted or mutated. Flag them clearly —
+                           * the public renderers (AdSlot/HomeAdSlot) fail
+                           * closed for this type and render nothing.
+                           */}
+                          {ad.type === 'html_embed' && (
+                            <Badge variant="destructive" className="text-xs">
+                              Disabled — unsupported for security
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="text-xs">
                             {adPages.find(p => p.value === ad.page)?.label || ad.page}
                           </Badge>
@@ -687,19 +704,9 @@ export default function AdminAds() {
                       />
                     </div>
                   </div>
-                  {formData.type === 'embed' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="html_content">HTML Content</Label>
-                      <Textarea
-                        id="html_content"
-                        value={formData.html_content}
-                        onChange={(e) => setFormData({ ...formData, html_content: e.target.value })}
-                        placeholder="<script>...</script>"
-                        rows={4}
-                        className="font-mono text-sm"
-                      />
-                    </div>
-                  )}
+                  {/* BF-0R-7 Phase H: HTML Content field removed along with
+                      html_embed from adTypes above — it can no longer be
+                      set through Admin. See AdEmbed.tsx / HomeAdSlot.tsx. */}
                 </div>
 
                 {/* Geo-Targeting */}

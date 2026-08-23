@@ -11,6 +11,17 @@ interface UseFlightSearchParams {
   passengers: number;
   cabinClass: string;
   currency?: string;
+  /**
+   * BF-0R-7.1 Phase B: mirrors usePriceCalendar's `enabled` contract.
+   * Defaults to true. Set false to skip the cached search-flights request
+   * entirely — e.g. a non-economy (Business) search, where the cached Data
+   * API cannot truthfully represent that cabin's pricing at all, so no
+   * request should be made merely to populate decorative UI. When
+   * disabled, this resolves to an honest empty/idle state (no error, no
+   * loading spinner) rather than reusing the "missing search fields" error
+   * path, which is a different condition.
+   */
+  enabled?: boolean;
 }
 
 interface UseFlightSearchReturn {
@@ -341,6 +352,18 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     });
 
   const fetchFlights = useCallback(async () => {
+    if (params.enabled === false) {
+      // Deliberately idle, not an error: the caller has decided this
+      // search should not hit the cached Data API at all (see the
+      // `enabled` doc comment above).
+      setIsLoading(false);
+      setIsSearching(false);
+      setError(null);
+      setFlights([]);
+      setMeta({ total_found: 0, is_complete: true });
+      return;
+    }
+
     if (!params.origin || !params.destination || !params.departureDate) {
       // Form/prefill mode invokes this hook without a complete search - that is
       // a normal state (e.g. /flights?origin=SYD&destination=MOW), not an error,
@@ -489,7 +512,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
       setIsLoading(false);
       setIsSearching(false);
     }
-  }, [params.origin, params.destination, params.departureDate, params.returnDate, params.passengers, params.cabinClass, params.currency]);
+  }, [params.origin, params.destination, params.departureDate, params.returnDate, params.passengers, params.cabinClass, params.currency, params.enabled]);
 
   useEffect(() => {
     fetchFlights();

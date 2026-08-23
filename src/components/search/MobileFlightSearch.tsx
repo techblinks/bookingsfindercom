@@ -13,17 +13,13 @@ import { resolveLocationLabel } from "@/lib/locationResolution";
 import { recordActivity } from "@/lib/recentActivity";
 import type { FlightSearchFormValues } from "@/lib/flightSearchValidation";
 import type { PassengerCount } from "./PassengerPicker";
+import { type CabinClass, CABIN_CLASS_LABELS, isSupportedCabinClass } from "@/lib/cabinClasses";
 
 /* Flights-scoped local colour tokens */
 const RAIL = { empty: "#C2CEDC", mid: "#B9C7D8", complete: null } as const;
 
 interface Airport { code: string; city: string; country: string; name: string; }
 type TripType = "roundtrip" | "oneway";
-type CabinClass = "economy" | "premium" | "business" | "first";
-
-const CABIN_LABELS: Record<CabinClass, string> = {
-  economy: "Economy", premium: "Premium Economy", business: "Business", first: "First",
-};
 
 /* City name typography ladder */
 function cityTextClass(name: string): string {
@@ -45,13 +41,11 @@ function parseIata(value: string | null): string | null {
   return IATA_RE.test(v) ? v : null;
 }
 
-const CABIN_CLASS_VALUES: CabinClass[] = ["economy", "premium", "business", "first"];
-
 /** Only accept a cabin the picker can actually represent. */
 function coerceCabinClass(value: string | undefined): CabinClass | undefined {
   if (!value) return undefined;
-  const cabin = value.trim().toLowerCase() as CabinClass;
-  return CABIN_CLASS_VALUES.includes(cabin) ? cabin : undefined;
+  const cabin = value.trim().toLowerCase();
+  return isSupportedCabinClass(cabin) ? cabin : undefined;
 }
 
 interface MobileFlightSearchProps {
@@ -417,7 +411,7 @@ export default function MobileFlightSearch({ prefill, submitLabel }: MobileFligh
             <span className="text-sm font-medium text-foreground">
               {formatTravellers(passengers.adults, passengers.children, passengers.infants)}
               {" \u00b7 "}
-              {CABIN_LABELS[cabinClass]}
+              {CABIN_CLASS_LABELS[cabinClass]}
             </span>
           </div>
           {travellersPrefill.fromTrip && !travellersPrefill.userEdited && (

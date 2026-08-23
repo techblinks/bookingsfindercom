@@ -7,6 +7,8 @@
  * and unit tests.
  */
 
+import { isSupportedCabinClass } from "./cabinClasses";
+
 export interface FlightSearchFormValues {
   origin: string;
   destination: string;
@@ -26,7 +28,6 @@ export interface ValidationError {
 
 const IATA_RE = /^[A-Z]{3}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const SUPPORTED_CABIN_CLASSES = ["economy", "premium", "business", "first"];
 
 /**
  * Format a Date as a LOCAL calendar-date string (YYYY-MM-DD).
@@ -120,7 +121,7 @@ export function validateFlightSearch(values: FlightSearchFormValues): Validation
   }
 
   // Cabin class
-  if (!SUPPORTED_CABIN_CLASSES.includes(values.cabinClass)) {
+  if (!isSupportedCabinClass(values.cabinClass)) {
     errors.push({ field: "cabinClass", message: "Please select a valid cabin class" });
   }
 
@@ -216,7 +217,7 @@ export function parseAndValidateFlightSearchParams(
   }
 
   // Cabin class — only prefill if valid; do NOT silently default
-  if (rawCabin && SUPPORTED_CABIN_CLASSES.includes(rawCabin)) {
+  if (isSupportedCabinClass(rawCabin)) {
     prefill.cabinClass = rawCabin;
   }
 

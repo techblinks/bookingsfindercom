@@ -83,11 +83,15 @@ const PriceCalendar = ({ origin, destination, selectedDate, currency = "$", onDa
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Price Calendar</h3>
+          {/* BF-0R-7.1 Phase C/E: get-price-calendar's request contract is
+            * origin/destination/month/currency only — no passenger or cabin
+            * data — so these are recent route-level fare observations, not
+            * a live or traveller-specific quote. */}
+          <h3 className="text-sm font-semibold text-foreground">Recent Fare Calendar</h3>
           {cheapestPrice && (
             <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
               <TrendingDown className="h-3 w-3" />
-              From {currency}{cheapestPrice}
+              Recent from {currency}{cheapestPrice}
             </span>
           )}
         </div>

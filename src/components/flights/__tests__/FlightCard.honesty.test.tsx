@@ -14,7 +14,7 @@
  * These are rendering tests, not source-text greps: every assertion runs against
  * the DOM produced by real props.
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import FlightCard from "@/components/flights/FlightCard";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
@@ -44,6 +44,13 @@ const FORBIDDEN_PATTERNS: { label: string; pattern: RegExp }[] = [
   { label: "selling fast / almost gone", pattern: /selling\s+fast|almost\s+gone|in\s+high\s+demand/i },
   { label: "departure countdown", pattern: /departs?\s+in\s+\d+\s*d/i },
   { label: "confidence wording", pattern: /(high|low|average)\s+confidence/i },
+  // BF-0R-7 Phase E: this price is Travelpayouts cached search-history
+  // data, not a live/guaranteed/traveller-specific quote, and "Book Now"
+  // must not imply the displayed number is currently bookable.
+  { label: "book this fare", pattern: /book\s+this\s+fare/i },
+  { label: "price guaranteed", pattern: /(price|fare)\s+guaranteed|guaranteed\s+(price|fare)/i },
+  { label: "available now", pattern: /available\s+now/i },
+  { label: "current fare", pattern: /current\s+fare/i },
 ];
 
 function expectNoForbiddenWording(text: string) {
@@ -205,11 +212,18 @@ describe("FlightCard — genuine signals still render", () => {
     expect(screen.getByText(/1 stop/)).toBeTruthy();
   });
 
-  it("keeps price, per-person basis and the booking action", () => {
+  it("keeps price and the booking action", () => {
     renderCard(makeFlight({ price: 320 }));
     expect(screen.getByText("320")).toBeTruthy();
-    expect(screen.getByText(/per person/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /view deal/i })).toBeTruthy();
+    // BF-0R-7 Phase 1.1 item 2: "per person" is gone entirely — the Data
+    // API does not price against passenger count, so this is no longer
+    // claimed at all, not just reworded.
+    expect(screen.queryByText(/per person/i)).toBeNull();
+    expect(screen.getByText(/indicative ticket price/i)).toBeTruthy();
+    // BF-0R-7 Phase E: the CTA no longer says "View Deal" — it invites the
+    // traveller to verify the live price on the partner site rather than
+    // implying the displayed cached figure is itself bookable.
+    expect(screen.getByRole("button", { name: /check live price/i })).toBeTruthy();
   });
 
   it("keeps the honest baggage statement", () => {
@@ -217,6 +231,109 @@ describe("FlightCard — genuine signals still render", () => {
     expandDetails();
     expect(screen.getByText(/baggage/i)).toBeTruthy();
     expect(screen.getByText(/details at booking/i)).toBeTruthy();
+  });
+});
+
+// ── BF-0R-7 PHASE E: PRICE IS LABELLED RECENT/INDICATIVE, NOT LIVE ──
+
+describe("FlightCard — price truth wording (BF-0R-7 Phase E)", () => {
+  it("labels the price as a recent find, not a guaranteed current fare", () => {
+    renderCard(makeFlight({ price: 320 }));
+    expect(screen.getByText(/recent fare found/i)).toBeTruthy();
+  });
+
+  it("tells the traveller to confirm on the partner", () => {
+    renderCard(makeFlight({ price: 320 }));
+    expect(screen.getByText(/confirm on partner/i)).toBeTruthy();
+  });
+
+  it("the CTA says Check live price, not View Deal or Book Now", () => {
+    renderCard(makeFlight({ price: 320 }));
+    expect(screen.queryByRole("button", { name: /^view deal$/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /check live price/i })).toBeTruthy();
+  });
+
+  it("makes no live/current/guaranteed/available-now claim about the displayed price", () => {
+    const { container } = renderCard(makeFlight({ price: 320 }));
+    expectNoForbiddenWording(container.textContent ?? "");
+  });
+});
+
+// ── BF-0R-7 ROUND 1.1 ITEM 1: NO FABRICATED ARRIVAL CLOCK, TIMEZONE-SAFE DEPARTURE ──
+
+describe("FlightCard — departure/arrival honesty (BF-0R-7 Round 1.1 item 1)", () => {
+  const originalTZ = process.env.TZ;
+  beforeAll(() => { process.env.TZ = "Pacific/Kiritimati"; }); // UTC+14, far from the fixtures' +03:00
+  afterAll(() => { process.env.TZ = originalTZ; });
+
+  it("shows the provider's stated departure time verbatim, not shifted by the host timezone", () => {
+    // Host TZ far from the timestamp's own +03:00 offset — see
+    // beforeAll/afterAll below. A Date-based conversion would show a
+    // different hour.
+    renderCard(makeFlight({ segments: [{
+      from: "SYD", to: "MEL",
+      depart_time: "2026-09-03T21:25:00+03:00",
+      arrive_time: null,
+      airline: "QF", airline_code: "QF", flight_number: "400",
+    }] }));
+    expect(screen.getByText("21:25")).toBeTruthy();
+  });
+
+  it("never shows a computed arrival clock time — shows an honest 'confirmed on partner' state instead", () => {
+    renderCard(makeFlight({ segments: [{
+      from: "SYD", to: "MEL",
+      depart_time: "2026-09-03T21:25:00+03:00",
+      arrive_time: null,
+      airline: "QF", airline_code: "QF", flight_number: "400",
+    }], duration_minutes: 95 }));
+    // No "HH:MM" pattern anywhere claiming to be an arrival time; the
+    // departure time is the only clock reading on the card.
+    expect(screen.getByText("See partner")).toBeTruthy();
+  });
+
+  it("shows 'confirmed on partner' even when the (legacy/defensive) segment.arrive_time field is somehow populated", () => {
+    // Belt-and-suspenders: even if a future/legacy data source populated
+    // arrive_time, the card must not silently start trusting it without a
+    // trustworthy destination timezone source.
+    renderCard(makeFlight({ segments: [{
+      from: "SYD", to: "MEL",
+      depart_time: "2026-09-03T21:25:00+03:00",
+      arrive_time: "2026-09-03T23:00:00+03:00",
+      airline: "QF", airline_code: "QF", flight_number: "400",
+    }] }));
+    expect(screen.getByText("See partner")).toBeTruthy();
+  });
+
+  it("expanded segment details also show 'confirmed on partner' rather than a computed arrival clock", () => {
+    renderCard(makeFlight({ segments: [{
+      from: "SYD", to: "MEL",
+      depart_time: "2026-09-03T21:25:00+03:00",
+      arrive_time: null,
+      airline: "QF", airline_code: "QF", flight_number: "400",
+    }] }));
+    expandDetails();
+    expect(screen.getAllByText(/confirmed on partner/i).length).toBeGreaterThan(0);
+  });
+});
+
+// ── BF-0R-7 ROUND 1.1 ITEM 2: NO FABRICATED CABIN LABEL ──
+
+describe("FlightCard — cabin/passenger truth (BF-0R-7 Round 1.1 item 2)", () => {
+  it("does not default an absent cabin_class to Economy", () => {
+    renderCard(makeFlight({ cabin_class: undefined }));
+    expect(screen.queryByText(/^Economy$/)).toBeNull();
+    expect(screen.getByText(/cabin confirmed on partner/i)).toBeTruthy();
+  });
+
+  it("still shows a genuine cabin_class value when one is actually present", () => {
+    renderCard(makeFlight({ cabin_class: "Business" }));
+    expect(screen.getByText("Business")).toBeTruthy();
+    expect(screen.queryByText(/cabin confirmed on partner/i)).toBeNull();
+  });
+
+  it("never claims 'per person' for this cached Data API fare", () => {
+    const { container } = renderCard(makeFlight({ price: 400 }));
+    expect(container.textContent).not.toMatch(/per person/i);
   });
 });
 
@@ -230,10 +347,12 @@ describe("FlightQuickSelect — cheapest / fastest / best remain", () => {
   ];
 
   it("still offers the three genuine trade-off comparisons", () => {
+    // BF-0R-7.1 Phase C: labelled "Recent ..." — these are cached fare
+    // observations, not live prices.
     const { container } = render(<FlightQuickSelect flights={flights} currency="$" onSelect={vi.fn()} />);
-    expect(within(container).getByText("Cheapest")).toBeTruthy();
-    expect(within(container).getByText("Fastest")).toBeTruthy();
-    expect(within(container).getByText("Best")).toBeTruthy();
+    expect(within(container).getByText("Recent cheapest")).toBeTruthy();
+    expect(within(container).getByText("Recent fastest fare")).toBeTruthy();
+    expect(within(container).getByText("Recent best")).toBeTruthy();
   });
 
   it("makes no market or urgency claim while doing so", () => {

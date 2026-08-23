@@ -1,159 +1,127 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Plane, Calendar, MapPin, Search, TrendingUp, ArrowRight, Bell } from "lucide-react";
+import { Plane, Calendar, Search, TrendingUp } from "lucide-react";
+import { parseISO, addDays, format, isBefore } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PriceAlertDialog } from "@/components/flights/PriceAlertDialog";
-import { useGeoLocation } from "@/hooks/useGeoLocation";
-import { supabase } from "@/integrations/supabase/client";
 
 interface EnhancedEmptyFlightResultsProps {
   onClearFilters?: () => void;
+  /**
+   * BF-0R-7.2 Phase F: reopens the in-page edit/search form instead of
+   * navigating away. When omitted, "Modify Search" is not rendered rather
+   * than falling back to a home-page link — see FlightResults.tsx, which
+   * always supplies () => setIsEditingSearch(true).
+   */
+  onModifySearch?: () => void;
   origin?: string;
   destination?: string;
   departureDate?: string;
   returnDate?: string;
+  /**
+   * BF-0R-7.2 Phase D: the validated search's actual traveller/cabin
+   * composition, so alternative-date/-destination links don't silently
+   * reset a family search to a single economy adult. Defaults preserve the
+   * previous behaviour only when a caller genuinely has nothing else to
+   * supply.
+   */
+  adults?: number;
+  children?: number;
+  infants?: number;
+  cabinClass?: string;
   message?: string;
 }
 
-interface AlternativeRoute {
-  origin: string;
-  originName: string;
-  destination: string;
-  destinationName: string;
-  price: number | null;
-  isLoading: boolean;
-}
+/**
+ * BF-0R-7.2 Phase E: "alternative", never "popular" — there is no verified
+ * popularity dataset behind this list, just a fixed set of major hub
+ * destinations to explore from the traveller's origin. BF-0R-7.2 final
+ * correction item 1: this list is exploratory only — it deliberately does
+ * NOT fetch or display a price. A get-route-prices call keyed to today+14
+ * days (never the traveller's actual departure date) and assigned back to
+ * routes by array index was not a safe or meaningful number to show next to
+ * a link that preserves the traveller's real search date; see the removed
+ * "Recent from $X" behaviour in git history for what this replaced.
+ */
+const ALTERNATIVE_DESTINATIONS = [
+  { dest: "SIN", name: "Singapore" },
+  { dest: "DXB", name: "Dubai" },
+  { dest: "LHR", name: "London" },
+  { dest: "LAX", name: "Los Angeles" },
+  { dest: "NRT", name: "Tokyo" },
+  { dest: "BKK", name: "Bangkok" },
+];
 
 const EnhancedEmptyFlightResults = ({
   onClearFilters,
+  onModifySearch,
   origin = "",
   destination = "",
   departureDate = "",
   returnDate = "",
+  adults = 1,
+  children = 0,
+  infants = 0,
+  cabinClass = "economy",
   message = "No flights found matching your criteria",
 }: EnhancedEmptyFlightResultsProps) => {
-  const { regionConfig } = useGeoLocation();
-  const [alternativeRoutes, setAlternativeRoutes] = useState<AlternativeRoute[]>([]);
-  const [isLoadingAlternatives, setIsLoadingAlternatives] = useState(true);
-
-  // Generate alternative dates
+  /**
+   * BF-0R-7.2 final correction item 2: timezone-safe calendar-date
+   * arithmetic. departureDate/returnDate are YYYY-MM-DD calendar strings;
+   * date-fns' parseISO reads a date-only ISO string as LOCAL midnight
+   * (unlike `new Date("YYYY-MM-DD")`, which the spec treats as UTC
+   * midnight and can therefore display as the previous calendar day in
+   * positive-UTC-offset timezones). addDays/format then stay in that same
+   * local calendar throughout, so the rendered label and the URL's date
+   * param always name the same day.
+   */
   const getAlternativeDates = () => {
     if (!departureDate) return [];
-    
-    const dates = [];
-    const base = new Date(departureDate);
-    
-    // Add dates -3, -2, -1, +1, +2, +3 days from original
+
+    const base = parseISO(departureDate);
+    const returnDateObj = returnDate ? parseISO(returnDate) : null;
+
+    const dates: { date: string; label: string; diff: number }[] = [];
+
+    // -3, -2, -1, +1, +2, +3 days from the requested departure date.
     for (let i = -3; i <= 3; i++) {
-      if (i === 0) continue; // Skip original date
-      const date = new Date(base);
-      date.setDate(date.getDate() + i);
+      if (i === 0) continue; // Skip the original date
+      const candidate = addDays(base, i);
+
+      // A round trip's alternative departure must stay before the return
+      // date — never offer a "departure" on or after the return.
+      if (returnDateObj && !isBefore(candidate, returnDateObj)) continue;
+
       dates.push({
-        date: date.toISOString().split('T')[0],
-        label: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+        date: format(candidate, "yyyy-MM-dd"),
+        label: format(candidate, "EEE, MMM d"),
         diff: i,
       });
     }
-    
+
     return dates;
   };
 
-  // Get nearby airports based on origin
-  const getNearbyAirports = (airportCode: string) => {
-    const nearbyMap: Record<string, Array<{ code: string; name: string }>> = {
-      SYD: [{ code: "MEL", name: "Melbourne" }, { code: "BNE", name: "Brisbane" }],
-      MEL: [{ code: "SYD", name: "Sydney" }, { code: "ADL", name: "Adelaide" }],
-      LAX: [{ code: "SFO", name: "San Francisco" }, { code: "SNA", name: "Orange County" }],
-      JFK: [{ code: "EWR", name: "Newark" }, { code: "LGA", name: "LaGuardia" }],
-      LHR: [{ code: "LGW", name: "Gatwick" }, { code: "STN", name: "Stansted" }],
-      DEL: [{ code: "BOM", name: "Mumbai" }, { code: "JAI", name: "Jaipur" }],
-      BOM: [{ code: "DEL", name: "Delhi" }, { code: "PNQ", name: "Pune" }],
-    };
-    return nearbyMap[airportCode] || [];
-  };
-
-  // Fetch popular routes from same origin
-  useEffect(() => {
-    if (!origin) {
-      setIsLoadingAlternatives(false);
-      return;
-    }
-
-    const fetchAlternatives = async () => {
-      setIsLoadingAlternatives(true);
-      
-      // Get popular destinations from the user's origin
-      const popularDestinations = [
-        { dest: "SIN", name: "Singapore" },
-        { dest: "DXB", name: "Dubai" },
-        { dest: "LHR", name: "London" },
-        { dest: "LAX", name: "Los Angeles" },
-        { dest: "NRT", name: "Tokyo" },
-        { dest: "BKK", name: "Bangkok" },
-      ].filter(d => d.dest !== destination).slice(0, 4);
-
-      const routes: AlternativeRoute[] = popularDestinations.map(d => ({
-        origin,
-        originName: origin,
-        destination: d.dest,
-        destinationName: d.name,
-        price: null,
-        isLoading: true,
-      }));
-
-      setAlternativeRoutes(routes);
-
-      // Try to fetch prices
-      try {
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + 14);
-        const dateStr = futureDate.toISOString().split('T')[0];
-
-        const routeRequests = routes.map(r => ({
-          origin: r.origin,
-          destination: r.destination,
-          departureDate: dateStr,
-          currency: regionConfig?.currency || 'USD',
-        }));
-
-        const { data } = await supabase.functions.invoke('get-route-prices', {
-          body: { routes: routeRequests },
-        });
-
-        if (data?.prices) {
-          setAlternativeRoutes(prev => prev.map((route, index) => ({
-            ...route,
-            price: data.prices[index]?.price || null,
-            isLoading: false,
-          })));
-        } else {
-          setAlternativeRoutes(prev => prev.map(r => ({ ...r, isLoading: false })));
-        }
-      } catch {
-        setAlternativeRoutes(prev => prev.map(r => ({ ...r, isLoading: false })));
-      } finally {
-        setIsLoadingAlternatives(false);
-      }
-    };
-
-    fetchAlternatives();
-  }, [origin, destination, regionConfig?.currency]);
-
   const alternativeDates = getAlternativeDates();
-  const nearbyAirports = getNearbyAirports(origin);
-  const currency = regionConfig?.currencySymbol || '$';
+  const alternativeDestinations = ALTERNATIVE_DESTINATIONS
+    .filter(d => d.dest !== destination)
+    .slice(0, 4);
 
+  /**
+   * BF-0R-7.2 Phase D: preserves the full supported search contract
+   * (adults/children/infants/cabinClass/returnDate) on every suggestion
+   * link, rather than resetting to a single economy adult.
+   */
   const getFlightSearchUrl = (params: { origin?: string; destination?: string; date?: string }) => {
     const searchParams = new URLSearchParams({
       origin: params.origin || origin,
       destination: params.destination || destination,
       departureDate: params.date || departureDate,
       ...(returnDate && { returnDate }),
-      passengers: '1',
-      cabinClass: 'economy',
+      adults: String(adults),
+      children: String(children),
+      infants: String(infants),
+      cabinClass,
     });
     return `/flights?${searchParams.toString()}`;
   };
@@ -180,10 +148,6 @@ const EnhancedEmptyFlightResults = ({
                 <span>Choose different travel dates (flexible by a few days)</span>
               </li>
               <li className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>Try nearby airports (within 100 miles)</span>
-              </li>
-              <li className="flex items-start gap-2">
                 <Search className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <span>Adjust your filters to see more results</span>
               </li>
@@ -196,12 +160,16 @@ const EnhancedEmptyFlightResults = ({
                 Clear All Filters
               </Button>
             )}
-            <Link to="/">
-              <Button className="gap-2">
+            {/*
+              * BF-0R-7.2 Phase F: reopens the in-page edit form rather than
+              * navigating to "/" — see the onModifySearch doc comment above.
+              */}
+            {onModifySearch && (
+              <Button className="gap-2" onClick={onModifySearch}>
                 <Search className="h-4 w-4" />
                 Modify Search
               </Button>
-            </Link>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -233,102 +201,39 @@ const EnhancedEmptyFlightResults = ({
         </Card>
       )}
 
-      {/* Nearby Airports Section */}
-      {nearbyAirports.length > 0 && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <MapPin className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Try Nearby Airports</h3>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Flying from a different airport might have more options
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {nearbyAirports.map((airport) => (
-                <Link key={airport.code} to={getFlightSearchUrl({ origin: airport.code })}>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <span>{airport.name}</span>
-                    <Badge variant="secondary">{airport.code}</Badge>
-                    <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Popular Routes from Same Origin */}
-      {alternativeRoutes.length > 0 && (
+      {/* Explore Other Destinations — BF-0R-7.2 Phase E: never "Popular";
+        * BF-0R-7.2 final correction: no price is fetched or shown here —
+        * see the ALTERNATIVE_DESTINATIONS doc comment above. */}
+      {alternativeDestinations.length > 0 && (
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-foreground">Popular Flights from {origin}</h3>
+                <h3 className="font-semibold text-foreground">Explore other destinations from {origin}</h3>
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Consider these popular destinations instead
+              Try another destination from your departure airport.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {alternativeRoutes.map((route, index) => (
-                <Link 
-                  key={`${route.origin}-${route.destination}-${index}`}
-                  to={getFlightSearchUrl({ destination: route.destination })}
+              {alternativeDestinations.map((route) => (
+                <Link
+                  key={route.dest}
+                  to={getFlightSearchUrl({ destination: route.dest })}
                 >
                   <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors group">
                     <div className="flex items-center gap-3">
                       <Plane className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
                       <div>
-                        <p className="font-medium text-sm">{route.destinationName}</p>
-                        <p className="text-xs text-muted-foreground">{route.destination}</p>
+                        <p className="font-medium text-sm">{route.name}</p>
+                        <p className="text-xs text-muted-foreground">{route.dest}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      {route.isLoading ? (
-                        <Skeleton className="h-5 w-16" />
-                      ) : route.price ? (
-                        <span className="font-semibold text-primary">
-                          {currency}{route.price.toLocaleString()}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">View prices</span>
-                      )}
-                    </div>
+                    <span className="text-sm text-muted-foreground">View options</span>
                   </div>
                 </Link>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Price Alert CTA */}
-      {origin && destination && departureDate && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Bell className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground mb-1">
-                  Get Notified When Flights Become Available
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Set up a price alert and we'll email you when flights from {origin} to {destination} become available or when prices drop.
-                </p>
-                <PriceAlertDialog
-                  origin={origin}
-                  destination={destination}
-                  departureDate={departureDate}
-                  returnDate={returnDate}
-                  passengers={1}
-                  cabinClass="economy"
-                />
-              </div>
             </div>
           </CardContent>
         </Card>

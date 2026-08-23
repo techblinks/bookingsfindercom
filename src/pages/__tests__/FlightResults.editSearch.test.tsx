@@ -102,13 +102,23 @@ vi.mock("@/components/search/PassengerPickerSheet", () => ({
         <span data-testid="picker-passengers">{`${passengers.adults}/${passengers.children}/${passengers.infants}`}</span>
         <span data-testid="picker-cabin">{cabinClass}</span>
         <button onClick={() => onPassengersChange({ adults: 1, children: 0, infants: 0 })}>set-solo</button>
-        <button onClick={() => onCabinChange("first")}>set-cabin-first</button>
+        {/* BF-0R-7 Round 1.2: only economy/business are supported cabin classes. */}
+        <button onClick={() => onCabinChange("business")}>set-cabin-business</button>
       </div>
     );
   },
 }));
 
+// Economy so this fixture's cached fare cards render (BF-0R-7 Round 1.1 item
+// 2 hides numeric cached fares for non-economy cabins) — this suite is about
+// edit/prefill/navigation plumbing, not cabin-truth display, so a
+// non-economy default would make `resultCards()` assertions throughout this
+// file fail for reasons unrelated to what they're testing. The one test that
+// specifically needs a non-economy cabin (prefilling business) uses
+// BUSINESS_ROUND_TRIP below instead.
 const ROUND_TRIP =
+  "/flights?origin=SYD&destination=MEL&departureDate=2030-01-10&returnDate=2030-01-20&adults=2&children=1&infants=0&cabinClass=economy&passengers=3";
+const BUSINESS_ROUND_TRIP =
   "/flights?origin=SYD&destination=MEL&departureDate=2030-01-10&returnDate=2030-01-20&adults=2&children=1&infants=0&cabinClass=business&passengers=3";
 const ONE_WAY =
   "/flights?origin=SYD&destination=MEL&departureDate=2030-01-10&adults=1&children=0&infants=0&cabinClass=economy&passengers=1";
@@ -259,7 +269,11 @@ describe("results edit — the current search is prefilled", () => {
   });
 
   it("prefills the exact cabin class", async () => {
-    await renderWithResults();
+    // A business-cabin search shows the "check live prices" CTA instead of
+    // cached fare cards (item 2), so wait on that instead of resultCards().
+    stubFlights(FLIGHTS);
+    renderResults(BUSINESS_ROUND_TRIP);
+    await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
     await openEdit();
 
     expect(within(editPanel()).getByText(/Business/)).toBeTruthy();
@@ -292,7 +306,7 @@ describe("results edit — updating the search", () => {
 
     await waitFor(() => expect(hoisted.navigate).toHaveBeenCalledTimes(1));
     expect(lastUrl()).toBe(
-      "/flights?origin=BNE&destination=MEL&departureDate=2030-01-10&passengers=3&adults=2&children=1&infants=0&cabinClass=business&returnDate=2030-01-20",
+      "/flights?origin=BNE&destination=MEL&departureDate=2030-01-10&passengers=3&adults=2&children=1&infants=0&cabinClass=economy&returnDate=2030-01-20",
     );
   });
 
@@ -306,7 +320,7 @@ describe("results edit — updating the search", () => {
     await waitFor(() => expect(lastUrl()).toContain("destination=LHR"));
     expect(lastUrl()).toContain("origin=SYD");
     expect(lastUrl()).toContain("adults=2&children=1&infants=0");
-    expect(lastUrl()).toContain("cabinClass=business");
+    expect(lastUrl()).toContain("cabinClass=economy");
   });
 
   it("changing dates updates both endpoints", async () => {
@@ -325,12 +339,12 @@ describe("results edit — updating the search", () => {
     await openEdit();
     openTravellers();
     fireEvent.click(screen.getByRole("button", { name: "set-solo" }));
-    fireEvent.click(screen.getByRole("button", { name: "set-cabin-first" }));
+    fireEvent.click(screen.getByRole("button", { name: "set-cabin-business" }));
     fireEvent.click(updateSearch());
 
     await waitFor(() => expect(lastUrl()).toContain("adults=1&children=0&infants=0"));
     expect(lastUrl()).toContain("passengers=1");
-    expect(lastUrl()).toContain("cabinClass=first");
+    expect(lastUrl()).toContain("cabinClass=business");
   });
 
   it("switching a round trip to one way drops the return date", async () => {
@@ -418,7 +432,7 @@ describe("results edit — recent activity", () => {
     expect(entry.origin).toBe("BNE");
     expect(entry.destination).toBe("MEL");
     expect(entry.travellers).toEqual({ adults: 2, children: 1, infants: 0 });
-    expect(entry.cabinClass).toBe("business");
+    expect(entry.cabinClass).toBe("economy");
     expect(loadRecentActivity()).toHaveLength(1);
   });
 

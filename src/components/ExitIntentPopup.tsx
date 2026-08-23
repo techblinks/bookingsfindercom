@@ -74,20 +74,24 @@ const ExitIntentPopup = () => {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("subscribers").insert({
-        email: email.trim(),
-        subscription_source: "exit_popup",
+      // BF-0R-5 round 4: subscribers has no raw client INSERT/SELECT grant
+      // any more — subscribe_email() is the only client-reachable write
+      // path. It is NOT an upsert: it inserts a new subscriber only when no
+      // row exists for this email (ON CONFLICT (email) DO NOTHING) and
+      // leaves any existing row — active or previously unsubscribed —
+      // completely untouched. It returns void, so the response here can't
+      // and mustn't distinguish new/already-active/previously-unsubscribed.
+      const { error } = await supabase.rpc("subscribe_email", {
+        p_email: email.trim(),
+        p_source: "exit_popup",
       });
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.success("You're already subscribed! We'll keep you updated.");
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success("You're in! We'll alert you when prices drop.");
-      }
+      if (error) throw error;
+      // Deliberately generic: subscribe_email never reports whether this
+      // email was new, already subscribed, or previously unsubscribed (a
+      // previously-unsubscribed address is NOT reactivated by this call),
+      // so the UI must not claim "you're subscribed" as a fact.
+      toast.success("Thanks — we've received your request.");
       dismiss();
     } catch {
       toast.error("Something went wrong. Please try again.");

@@ -175,6 +175,20 @@ describe("MobileFlightSearch â€” validation", () => {
   });
 });
 
+// â”€â”€ CABIN CLASS â”€â”€
+
+describe("MobileFlightSearch â€” cabin class (BF-0R-7 Round 1.2 item 6)", () => {
+  it("offers only Economy and Business, not Premium Economy or First", () => {
+    renderSearch();
+    fireEvent.click(screen.getByText("Travellers & Cabin"));
+
+    expect(screen.getByText("Economy")).toBeTruthy();
+    expect(screen.getByText("Business")).toBeTruthy();
+    expect(screen.queryByText("Premium Economy")).toBeNull();
+    expect(screen.queryByText("First")).toBeNull();
+  });
+});
+
 // â”€â”€ ABSENT CONTROLS â”€â”€
 
 describe("MobileFlightSearch â€” absent controls", () => {

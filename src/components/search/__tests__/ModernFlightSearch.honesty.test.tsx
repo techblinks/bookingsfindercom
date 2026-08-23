@@ -123,6 +123,19 @@ describe("ModernFlightSearch — unsupported options are not offered", () => {
     const { container } = renderSearch();
     expect(container.querySelectorAll('[role="checkbox"]').length).toBe(0);
   });
+
+  // BF-0R-7 Round 1.2 item 1/2: Premium Economy and First are not offered on
+  // desktop either — whiteLabelUrl.ts only has a verified handoff for
+  // economy/business (src/lib/cabinClasses.ts).
+  it("offers only Economy and Business cabin classes", () => {
+    renderSearch();
+    fireEvent.click(screen.getByText("Travellers & Class").closest("button")!);
+
+    expect(screen.getByText("Economy")).toBeTruthy();
+    expect(screen.getByText("Business")).toBeTruthy();
+    expect(screen.queryByText("Premium")).toBeNull();
+    expect(screen.queryByText("First")).toBeNull();
+  });
 });
 
 /*

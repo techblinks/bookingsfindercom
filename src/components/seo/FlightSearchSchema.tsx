@@ -31,6 +31,15 @@ const FlightSearchSchema = ({
     }
 
     // Create the structured data
+    //
+    // BF-0R-7 Phase E: this page's price data comes from Travelpayouts'
+    // cached search-history endpoint (recently-found fares, not a live,
+    // per-traveller quote — see FlightCard.tsx / getFlightPrices()). An
+    // `Offer` node with `availability: InStock` asserts to search engines
+    // and any consumer of this structured data that `lowestPrice` is a
+    // currently bookable price — a claim this data source cannot support.
+    // No `offers`/price node is emitted here for that reason; the
+    // `Flight` item itself (route, dates) is still accurate and is kept.
     const schemaData = {
       "@context": "https://schema.org",
       "@type": "SearchResultsPage",
@@ -48,7 +57,7 @@ const FlightSearchSchema = ({
                 position: 1,
                 item: {
                   "@type": "Flight",
-                  name: `Cheapest flight from ${origin} to ${destination}`,
+                  name: `Recently found flight from ${origin} to ${destination}`,
                   departureAirport: {
                     "@type": "Airport",
                     iataCode: origin,
@@ -58,12 +67,6 @@ const FlightSearchSchema = ({
                     iataCode: destination,
                   },
                   departureTime: departureDate,
-                  offers: {
-                    "@type": "Offer",
-                    price: lowestPrice,
-                    priceCurrency: currency,
-                    availability: "https://schema.org/InStock",
-                  },
                 },
               },
             ]
@@ -122,8 +125,8 @@ const FlightSearchSchema = ({
           acceptedAnswer: {
             "@type": "Answer",
             text: lowestPrice
-              ? `The cheapest flight from ${origin} to ${destination} starts at ${currency} ${lowestPrice}. Prices vary based on dates and availability.`
-              : `Prices for flights from ${origin} to ${destination} vary based on dates and availability. Search now to find the best deals.`,
+              ? `A recent fare from ${origin} to ${destination} was found from ${currency} ${lowestPrice}. Current price and availability are confirmed on the partner search.`
+              : `Prices for flights from ${origin} to ${destination} vary based on dates and availability. Search now to find recent fares.`,
           },
         },
         {
