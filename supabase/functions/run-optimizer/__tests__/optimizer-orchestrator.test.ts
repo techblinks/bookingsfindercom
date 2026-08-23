@@ -98,6 +98,10 @@ interface FakeDbOptions {
   profileReadError?: boolean;
   requestInsertFails?: boolean;
   requestInsertThrows?: boolean;
+  /** PR #65 round 4: the FIRST claimFreeSlot call returns a genuine query error, not a CAS conflict. */
+  claimQueryErrorOnce?: boolean;
+  /** PR #65 round 4: every claimFreeSlot call returns a genuine query error. */
+  claimQueryErrorAlways?: boolean;
 }
 
 function createFakeDb(options: FakeDbOptions = {}) {
@@ -114,6 +118,8 @@ function createFakeDb(options: FakeDbOptions = {}) {
   const insertedResults: { requestId: string; outcome: unknown }[] = [];
   const refundCalls: { userId: string; token: QuotaClaimToken }[] = [];
   let requestCounter = 0;
+  let claimErrorFired = false;
+  let claimAttempts = 0;
 
   const db: OptimizerDbPort = {
     async getUser(token: string) {
@@ -133,14 +139,22 @@ function createFakeDb(options: FakeDbOptions = {}) {
     },
 
     async claimFreeSlot(input: ClaimSlotInput): Promise<ClaimSlotResult> {
+      claimAttempts += 1;
+      if (options.claimQueryErrorAlways) {
+        return { claimed: false, reason: "error" };
+      }
+      if (options.claimQueryErrorOnce && !claimErrorFired) {
+        claimErrorFired = true;
+        return { claimed: false, reason: "error" };
+      }
       const row = store.get(input.userId);
-      if (!row) return { claimed: false };
+      if (!row) return { claimed: false, reason: "conflict" };
       // Compare-and-set: must match the exact row this caller read.
       if (
         row.monthlyOptimizerUses !== input.expectedMonthlyUses ||
         row.lastOptimizerReset !== input.expectedLastReset
       ) {
-        return { claimed: false };
+        return { claimed: false, reason: "conflict" };
       }
       const newValue = input.needsReset ? 1 : input.expectedMonthlyUses + 1;
       const newReset = input.needsReset ? input.nowIso : row.lastOptimizerReset;
@@ -175,7 +189,7 @@ function createFakeDb(options: FakeDbOptions = {}) {
     },
   };
 
-  return { db, store, insertedRequests, insertedResults, refundCalls };
+  return { db, store, insertedRequests, insertedResults, refundCalls, getClaimAttempts: () => claimAttempts };
 }
 
 describe("computeNeedsReset — deterministic UTC calendar-month semantics", () => {
@@ -242,6 +256,63 @@ describe("5 & 6 (round 2). two concurrent Free requests cannot both claim the si
     expect(provider).toHaveBeenCalledTimes(1);
     expect(successes).toHaveLength(1);
     expect(rejections).toHaveLength(1);
+    expect(store.get(VALID_USER)?.monthlyOptimizerUses).toBe(1);
+  });
+});
+
+describe("PR #65 round 4: claim error semantics — DB failure vs legitimate CAS conflict", () => {
+  it("a genuine query error on the FIRST claim attempt fails closed immediately — no retry, no provider call", async () => {
+    const { db, getClaimAttempts, insertedRequests } = createFakeDb({
+      initialProfile: { monthlyOptimizerUses: 0 },
+      claimQueryErrorOnce: true,
+    });
+    const provider = vi.fn();
+
+    const result = await handleOptimizerRequest(db, provider, AUGUST_NOW, `Bearer ${VALID_TOKEN}`, REQUEST);
+
+    expect(result.kind).toBe("service-error");
+    if (result.kind === "service-error") expect(result.status).toBe(503);
+    expect(provider).not.toHaveBeenCalled();
+    expect(insertedRequests).toHaveLength(0);
+    // Exactly ONE claim attempt — a DB error must NOT trigger the
+    // re-read-and-retry path that a legitimate CAS conflict does.
+    expect(getClaimAttempts()).toBe(1);
+  });
+
+  it("a genuine query error that persists (both attempts) still fails closed with a 503, never a paywall", async () => {
+    const { db, getClaimAttempts } = createFakeDb({
+      initialProfile: { monthlyOptimizerUses: 0 },
+      claimQueryErrorAlways: true,
+    });
+    const provider = vi.fn();
+
+    const result = await handleOptimizerRequest(db, provider, AUGUST_NOW, `Bearer ${VALID_TOKEN}`, REQUEST);
+
+    expect(result.kind).toBe("service-error");
+    if (result.kind === "service-error") expect(result.status).toBe(503);
+    expect(provider).not.toHaveBeenCalled();
+    // Fails closed on the FIRST error — never reaches a second attempt.
+    expect(getClaimAttempts()).toBe(1);
+  });
+
+  it("a legitimate CAS conflict (not an error) DOES retry once against fresh state and can still succeed", async () => {
+    // Two real concurrent requests exercise the genuine conflict path — the
+    // loser's first claimFreeSlot call returns {claimed:false, reason:
+    // "conflict"} (no query error), which the orchestrator correctly
+    // retries once, per the existing round-2 concurrency contract.
+    const { db, store } = createFakeDb({ initialProfile: { monthlyOptimizerUses: 0 } });
+    const provider = vi.fn().mockResolvedValue(SUCCESS_OUTCOME);
+
+    const [a, b] = await Promise.all([
+      handleOptimizerRequest(db, provider, AUGUST_NOW, `Bearer ${VALID_TOKEN}`, REQUEST),
+      handleOptimizerRequest(db, provider, AUGUST_NOW, `Bearer ${VALID_TOKEN}`, REQUEST),
+    ]);
+
+    const kinds = [a.kind, b.kind];
+    expect(kinds.filter((k) => k === "outcome")).toHaveLength(1);
+    // The loser is rejected via the normal paywall/service-error path, not
+    // silently allowed through — the claim conflict was still enforced.
+    expect(kinds.some((k) => k === "paywall" || k === "service-error")).toBe(true);
     expect(store.get(VALID_USER)?.monthlyOptimizerUses).toBe(1);
   });
 });

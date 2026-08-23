@@ -29,6 +29,21 @@ const TripOptimizer = () => {
   // moment a session appears, without the traveller re-entering anything.
   const pendingRequestRef = useRef<OptimizerRequest | null>(null);
 
+  /**
+   * PR #65 round 4: synchronous single-flight guard. `handleSubmit` used to
+   * `await supabase.auth.getSession()` as its FIRST operation, with no
+   * synchronous lock in place before that await — rapid duplicate clicks
+   * (or a duplicate synthetic submit) could all enter `handleSubmit` and
+   * reach `getSession()`/`executeOptimizer` concurrently before `isLoading`
+   * had propagated through a render. A ref is checked and set synchronously
+   * BEFORE the first `await`, so a second call arriving before the first
+   * has released the lock is rejected immediately — this covers BOTH the
+   * signed-in path (would otherwise double-invoke runOptimizer) and the
+   * signed-out path (would otherwise let a second click race the first for
+   * `pendingRequestRef`/`needsAuth`).
+   */
+  const submitInFlightRef = useRef(false);
+
   const executeOptimizer = async (data: OptimizerRequest) => {
     setRequest(data);
     const optimizerResult = await runOptimizer(data);
@@ -51,16 +66,29 @@ const TripOptimizer = () => {
   }, []);
 
   const handleSubmit = async (data: OptimizerRequest) => {
-    // run-optimizer now requires an authenticated user (BF-0R-4) — an
-    // anonymous submit would only fail closed at the Edge Function, wasting a
-    // round-trip. Check locally first and hold the request until sign-in.
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      pendingRequestRef.current = data;
-      setNeedsAuth(true);
-      return;
+    // Synchronous guard set BEFORE the first await — see submitInFlightRef
+    // doc comment. A rapid duplicate submit arriving while this one is
+    // still resolving is dropped here, not after a network round-trip.
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+
+    try {
+      // run-optimizer now requires an authenticated user (BF-0R-4) — an
+      // anonymous submit would only fail closed at the Edge Function, wasting a
+      // round-trip. Check locally first and hold the request until sign-in.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        pendingRequestRef.current = data;
+        setNeedsAuth(true);
+        return;
+      }
+      await executeOptimizer(data);
+    } finally {
+      // Released unconditionally — normal completion, the signed-out early
+      // return, and a thrown error all release the lock, so Reset/Cancel/
+      // auth transitions never find it stuck.
+      submitInFlightRef.current = false;
     }
-    await executeOptimizer(data);
   };
 
   const handleReset = () => {

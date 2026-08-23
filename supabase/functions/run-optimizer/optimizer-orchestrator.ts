@@ -123,7 +123,18 @@ export interface QuotaClaimToken {
 
 export type ClaimSlotResult =
   | { claimed: true; token: QuotaClaimToken }
-  | { claimed: false };
+  /**
+   * PR #65 round 4: distinguishes WHY the claim didn't happen.
+   *   - "conflict": the compare-and-set matched zero rows with no query
+   *     error — a legitimate optimistic-concurrency loss (another request
+   *     changed the row first, or is mid-flight). Safe and expected to
+   *     retry once against freshly-read state.
+   *   - "error": a genuine database/query failure attempting the claim.
+   *     Must fail closed immediately — retrying against a possibly-still-
+   *     broken database wastes a round-trip and risks mis-reporting a real
+   *     outage as "you've used your free optimization".
+   */
+  | { claimed: false; reason: "conflict" | "error" };
 
 /**
  * - "refunded": the exact claim token matched and was released.
@@ -230,7 +241,21 @@ async function claimWithSingleRetry(
   });
   if (first.claimed) return { ok: true, token: first.token };
 
-  // Lost the race — re-read and recompute against the NOW-current state.
+  // PR #65 round 4: a genuine database/query failure fails CLOSED
+  // immediately — it is NOT an optimistic-concurrency loss, so retrying the
+  // claim (and the getProfile re-read below) would just hit the same broken
+  // database again, and risks a transient outage being reported to the
+  // traveller as "you've used your free optimization" if the fresh read
+  // happens to see stale-but-at-limit data. Never proceeds to the provider.
+  if (first.reason === "error") {
+    return {
+      ok: false,
+      result: { kind: "service-error", status: 503, body: { error: PROFILE_UNAVAILABLE_MESSAGE } },
+    };
+  }
+
+  // reason === "conflict": a legitimate optimistic-concurrency loss —
+  // re-read and recompute against the NOW-current state.
   let fresh: ProfileRow | null;
   try {
     fresh = await db.getProfile(userId);
@@ -268,9 +293,21 @@ async function claimWithSingleRetry(
   });
   if (second.claimed) return { ok: true, token: second.token };
 
-  // Two consecutive lost races: reject rather than loop. With FREE_LIMIT=1
-  // this means a third concurrent request collided with two others — treat
-  // it the same as "please try again" rather than risking a livelock.
+  // PR #65 round 4: a genuine database failure on the second attempt is
+  // reported honestly (503) rather than folded into the generic retry
+  // message below — it is not "please try again in a moment", it is
+  // "something is actually broken".
+  if (second.reason === "error") {
+    return {
+      ok: false,
+      result: { kind: "service-error", status: 503, body: { error: PROFILE_UNAVAILABLE_MESSAGE } },
+    };
+  }
+
+  // Two consecutive lost races (both "conflict"): reject rather than loop.
+  // With FREE_LIMIT=1 this means a third concurrent request collided with
+  // two others — treat it the same as "please try again" rather than
+  // risking a livelock.
   return {
     ok: false,
     result: { kind: "service-error", status: 409, body: { error: "Please try again." } },

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { computeEffectiveQuotaView } from "./quota-view.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,21 +54,15 @@ serve(async (req) => {
       .eq("user_id", userId)
       .single();
 
-    // Check if we need to reset monthly uses
-    const now = new Date();
-    const lastReset = profile?.last_optimizer_reset ? new Date(profile.last_optimizer_reset) : null;
-    const needsReset = !lastReset || 
-      (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear());
-
-    let monthlyUses = profile?.monthly_optimizer_uses || 0;
-    if (needsReset) {
-      monthlyUses = 0;
-      // Reset in database
-      await supabase.from("user_profiles").update({
-        monthly_optimizer_uses: 0,
-        last_optimizer_reset: now.toISOString(),
-      }).eq("user_id", userId);
-    }
+    // PR #65 round 4: READ-ONLY view of quota — no write to
+    // monthly_optimizer_uses / last_optimizer_reset happens here; see
+    // quota-view.ts. run-optimizer remains the sole writer of these fields.
+    const { effectiveMonthlyUses } = computeEffectiveQuotaView(
+      profile?.monthly_optimizer_uses,
+      profile?.last_optimizer_reset,
+      new Date(),
+    );
+    const monthlyUses = effectiveMonthlyUses;
 
     const plan = profile?.plan || "free";
     const isProActive = plan === "pro" && subscription?.status === "active";

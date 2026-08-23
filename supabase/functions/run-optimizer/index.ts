@@ -153,7 +153,20 @@ function makeDb(supabase: any): OptimizerDbPort {
         .maybeSingle();
 
       const { data, error } = await query;
-      if (error || !data) return { claimed: false as const };
+      if (error) {
+        // PR #65 round 4: a genuine query/database failure — never conflate
+        // with a legitimate CAS miss (see the "conflict" branch below). The
+        // orchestrator fails closed immediately on "error" rather than
+        // retrying against a possibly-still-broken database.
+        console.error("Optimizer quota claim query failed:", error);
+        return { claimed: false as const, reason: "error" as const };
+      }
+      if (!data) {
+        // Zero rows matched, no query error: the WHERE clause's expected
+        // values no longer match the current row — a genuine, expected
+        // optimistic-concurrency loss (another request updated it first).
+        return { claimed: false as const, reason: "conflict" as const };
+      }
       return {
         claimed: true as const,
         token: {
