@@ -44,11 +44,48 @@ const TripOptimizer = () => {
    */
   const submitInFlightRef = useRef(false);
 
+  /**
+   * PR #65 round 4.1: a SECOND, independent synchronous guard around the
+   * actual optimizer execution/provider call — not just around
+   * `handleSubmit`'s entry.
+   *
+   * `submitInFlightRef` alone left a gap: the auth-resumed continuation
+   * (`onAuthStateChange` → `executeOptimizer(held)`) runs OUTSIDE
+   * `handleSubmit` entirely, so it never held `submitInFlightRef` in the
+   * first place — that ref was already released back to `false` the moment
+   * the original signed-out `handleSubmit` call set `needsAuth` and
+   * returned. A fresh `handleSubmit` call arriving while the auth-resumed
+   * request is still awaiting its provider response would therefore pass
+   * `submitInFlightRef`'s check cleanly and reach `runOptimizer` a second
+   * time, concurrently with the first — `useOptimizer`'s attempt-id logic
+   * prevents that second call's STATE from clobbering the first, but does
+   * NOT stop the duplicate provider call itself from happening.
+   *
+   * `runOptimizerSingleFlight` is the ONE place any code path may invoke
+   * `executeOptimizer` — both `handleSubmit`'s signed-in branch and the
+   * auth-listener's continuation call through it, never `executeOptimizer`
+   * directly. This ref is set synchronously before `executeOptimizer` (and
+   * therefore before `runOptimizer`'s own network call) starts, and is
+   * released in a `finally` regardless of success, a null/no-op result, or
+   * a thrown error — so it can never end up stuck.
+   */
+  const optimizerExecutionInFlightRef = useRef(false);
+
   const executeOptimizer = async (data: OptimizerRequest) => {
     setRequest(data);
     const optimizerResult = await runOptimizer(data);
     if (optimizerResult) {
       setResult(optimizerResult);
+    }
+  };
+
+  const runOptimizerSingleFlight = async (data: OptimizerRequest) => {
+    if (optimizerExecutionInFlightRef.current) return;
+    optimizerExecutionInFlightRef.current = true;
+    try {
+      await executeOptimizer(data);
+    } finally {
+      optimizerExecutionInFlightRef.current = false;
     }
   };
 
@@ -58,7 +95,16 @@ const TripOptimizer = () => {
         const held = pendingRequestRef.current;
         pendingRequestRef.current = null;
         setNeedsAuth(false);
-        void executeOptimizer(held);
+        // Fire-and-forget from an event listener, not a click handler React
+        // itself awaits — useOptimizer.runOptimizer already catches every
+        // real failure internally and resolves (never rejects), so this
+        // guards only the truly unexpected case of it throwing anyway;
+        // without it, that case would surface as an unhandled promise
+        // rejection rather than the honest error state runOptimizer already
+        // sets internally before this path would ever be reached.
+        runOptimizerSingleFlight(held).catch((err) => {
+          console.error("Unexpected error resuming optimizer after sign-in:", err);
+        });
       }
     });
     return () => subscription.unsubscribe();
@@ -82,7 +128,11 @@ const TripOptimizer = () => {
         setNeedsAuth(true);
         return;
       }
-      await executeOptimizer(data);
+      // Routed through the execution-level guard (see
+      // optimizerExecutionInFlightRef doc comment) — this is what actually
+      // stops a fresh submit from double-invoking the provider while an
+      // auth-resumed request is still in flight.
+      await runOptimizerSingleFlight(data);
     } finally {
       // Released unconditionally — normal completion, the signed-out early
       // return, and a thrown error all release the lock, so Reset/Cancel/

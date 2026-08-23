@@ -1,5 +1,6 @@
 /**
- * Trip Optimizer — synchronous single-flight submit guard (PR #65 round 4).
+ * Trip Optimizer — synchronous single-flight submit guard (PR #65 round 4),
+ * and the execution-level guard closing the auth-resume gap (round 4.1).
  *
  * handleSubmit used to `await supabase.auth.getSession()` as its FIRST
  * operation with no synchronous lock in place beforehand — rapid duplicate
@@ -9,6 +10,18 @@
  * tests fire the form's onSubmit twice back-to-back, synchronously, in the
  * SAME test body — before either call has had a chance to await anything —
  * which is exactly the race a real double-click produces.
+ *
+ * Round 4.1: `submitInFlightRef` alone only guards `handleSubmit`'s own
+ * entry. The auth-resumed continuation (`onAuthStateChange` →
+ * `executeOptimizer(held)`) runs OUTSIDE `handleSubmit` — by the time it
+ * fires, the ORIGINAL signed-out `handleSubmit` call has already released
+ * `submitInFlightRef` (it returned right after setting `needsAuth`). A
+ * fresh `handleSubmit` call arriving while the auth-resumed request is
+ * still awaiting its provider response would therefore pass
+ * `submitInFlightRef`'s check cleanly and reach `runOptimizer` a second
+ * time. `runOptimizerSingleFlight`'s `optimizerExecutionInFlightRef` is the
+ * guard that actually closes this — both `handleSubmit` and the
+ * auth-listener continuation now route through the same helper.
  *
  * Mirrors the mocking setup in TripOptimizer.authGate.test.tsx.
  */
@@ -105,6 +118,13 @@ function deferredSession() {
   return { promise, resolve };
 }
 
+/** A runOptimizer() call that doesn't resolve until the test releases it — models the real provider round-trip an auth-resumed request is awaiting. */
+function deferredOptimizerResult() {
+  let resolve!: (value: unknown) => void;
+  const promise = new Promise<unknown>((res) => { resolve = res; });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   capturedAuthListener = null;
@@ -180,6 +200,151 @@ describe("item 14: Reset/Cancel/auth transitions never leave the submit lock stu
 
     // A second, later, genuinely-new submit (e.g. after Reset) must still work.
     fireEvent.click(submitButton());
+    await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("round 4.1: execution-level guard closes the auth-resume gap (item 3-5)", () => {
+  it("item 3: the held request begins exactly once when auth resolves", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    renderPage();
+
+    fireEvent.click(submitButton());
+    await screen.findByText("Sign In to Optimize Your Trip");
+
+    act(() => { capturedAuthListener?.("SIGNED_IN", FAKE_SESSION); });
+
+    await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(1));
+  });
+
+  it("item 4/CRITICAL: a fresh submit arriving WHILE the auth-resumed call is still pending does not invoke runOptimizer again", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    renderPage();
+
+    fireEvent.click(submitButton());
+    await screen.findByText("Sign In to Optimize Your Trip");
+
+    // The auth-resumed request's provider call is held open — it does NOT
+    // resolve during this test until explicitly released below.
+    const first = deferredOptimizerResult();
+    mockRunOptimizer.mockReturnValueOnce(first.promise);
+
+    // Auth resolves — the held request begins via the auth LISTENER, not
+    // via handleSubmit, so submitInFlightRef alone would not protect it.
+    await act(async () => {
+      capturedAuthListener?.("SIGNED_IN", FAKE_SESSION);
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(1));
+
+    // The auth gate is gone and the form is back. This test's useOptimizer
+    // mock hardcodes isLoading: false, so the form button being clickable
+    // here is NOT "UI hid the button while loading" — it genuinely proves
+    // the ref-based execution guard is what stops the second call, not a
+    // disabled/hidden button.
+    await screen.findByText("submit-optimizer-form");
+
+    // A fresh, independent, already-authenticated submit arrives while the
+    // auth-resumed request is still awaiting its provider response.
+    mockGetSession.mockResolvedValueOnce({ data: { session: FAKE_SESSION } });
+    fireEvent.click(submitButton());
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Must NOT have invoked runOptimizer a second time.
+    expect(mockRunOptimizer).toHaveBeenCalledTimes(1);
+
+    // Release the first (auth-resumed) call so the test doesn't leak a
+    // pending promise into the next test.
+    await act(async () => {
+      first.resolve(null);
+      await Promise.resolve();
+    });
+  });
+
+  it("item 5: after the auth-resumed call settles, a later genuinely-new submit is allowed", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    renderPage();
+
+    fireEvent.click(submitButton());
+    await screen.findByText("Sign In to Optimize Your Trip");
+
+    const first = deferredOptimizerResult();
+    mockRunOptimizer.mockReturnValueOnce(first.promise);
+
+    await act(async () => {
+      capturedAuthListener?.("SIGNED_IN", FAKE_SESSION);
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(1));
+
+    // Let the auth-resumed call settle.
+    await act(async () => {
+      first.resolve(null);
+      await Promise.resolve();
+    });
+
+    // NOW a later, genuinely-new submit must succeed.
+    await screen.findByText("submit-optimizer-form");
+    mockGetSession.mockResolvedValueOnce({ data: { session: FAKE_SESSION } });
+    fireEvent.click(submitButton());
+
+    await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(2));
+  });
+
+  it("item 6: auth callback firing twice does not duplicate the held request", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    renderPage();
+
+    fireEvent.click(submitButton());
+    await screen.findByText("Sign In to Optimize Your Trip");
+
+    act(() => {
+      capturedAuthListener?.("SIGNED_IN", FAKE_SESSION);
+      capturedAuthListener?.("TOKEN_REFRESHED", FAKE_SESSION);
+    });
+
+    await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockRunOptimizer).toHaveBeenCalledTimes(1);
+  });
+
+  it("item 7: Cancel before auth resolves still prevents continuation", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    renderPage();
+
+    fireEvent.click(submitButton());
+    await screen.findByText("Sign In to Optimize Your Trip");
+
+    fireEvent.click(screen.getByText("Back to search"));
+
+    act(() => { capturedAuthListener?.("SIGNED_IN", FAKE_SESSION); });
+
+    expect(mockRunOptimizer).not.toHaveBeenCalled();
+  });
+
+  it("item 8: no stuck execution lock after a thrown error in the auth-resumed call", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    renderPage();
+
+    fireEvent.click(submitButton());
+    await screen.findByText("Sign In to Optimize Your Trip");
+
+    mockRunOptimizer.mockRejectedValueOnce(new Error("boom"));
+
+    await act(async () => {
+      capturedAuthListener?.("SIGNED_IN", FAKE_SESSION);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(1));
+
+    // The execution lock must have been released despite the throw — a
+    // later genuinely-new submit must still work.
+    await screen.findByText("submit-optimizer-form");
+    mockGetSession.mockResolvedValueOnce({ data: { session: FAKE_SESSION } });
+    mockRunOptimizer.mockResolvedValueOnce(null);
+    fireEvent.click(submitButton());
+
     await vi.waitFor(() => expect(mockRunOptimizer).toHaveBeenCalledTimes(2));
   });
 });
