@@ -37,22 +37,13 @@ vi.mock("@/hooks/useGeoLocation", () => ({
   useGeoLocation: () => ({ geoData: { currency: "USD", currencySymbol: "$" } }),
 }));
 vi.mock("@/hooks/useAds", () => ({ useAds: () => ({ ads: {}, trackImpression: vi.fn(), trackClick: vi.fn() }) }));
-// BF-FLIGHTS-LIVE-3 Round 2 Issue 1: this suite tests the Page White Label
-// redirect path specifically (buildWhiteLabelFlightUrl called, full
-// context preserved) — that path is only reached when the widget is
-// "error", not "loading" (loading now scrolls instead). Pinning to
-// "error" keeps these assertions exercising the real code path they're
-// meant to verify, independent of jsdom's real widget-loading behavior.
-vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
-  useTravelpayoutsWidget: () => ({ state: "error", needsReloadForRemount: false }),
-}));
 vi.mock("@/components/layout/Header", () => ({ default: () => <header /> }));
 vi.mock("@/components/layout/Footer", () => ({ default: () => <footer /> }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { auth: { getSession: () => Promise.resolve({ data: { session: null } }) } },
 }));
 vi.mock("@/lib/supabaseConfig", () => ({
-  getFunctionUrl: () => "https://mock.test/functions/v1/search-flights",
+  getFunctionUrl: (name: string) => `https://mock.test/functions/v1/${name}`,
 }));
 
 const mockBuildWhiteLabelFlightUrl = vi.fn();
@@ -105,11 +96,9 @@ beforeEach(() => {
   mockBuildWhiteLabelFlightUrl.mockReset();
   mockToastError.mockReset();
   mockGetRedirectUrl.mockReset();
-  // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
-  // (rather than redirecting) while useTravelpayoutsWidget is "loading"
-  // too, not only when "ready" — the real hook stays "loading" forever in
-  // jsdom (no network fetch of the widget script here), so any click on
-  // that CTA reaches scrollIntoView, which jsdom does not implement.
+  // BF-FLIGHTS-LIVE-4: "Search Live Flights"/"Check live prices" now always
+  // scroll to the native Live Flights section — jsdom does not implement
+  // scrollIntoView.
   Element.prototype.scrollIntoView = vi.fn();
 });
 
@@ -188,7 +177,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ origin: "SYD" })
@@ -201,7 +190,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ destination: "MEL" })
@@ -214,7 +203,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ outboundDate: "2030-01-10" })
@@ -227,7 +216,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ returnDate: "2030-01-20" })
@@ -240,7 +229,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ONE_WAY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ returnDate: undefined })
@@ -253,7 +242,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ adults: 2, children: 1, infants: 1 })
@@ -265,7 +254,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     stubSearchFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    const cta = await screen.findByRole("button", { name: /open full flight search/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
@@ -279,7 +268,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(
       expect.stringMatching(/live flight search is temporarily unavailable/i)
@@ -311,6 +300,8 @@ describe("FlightResults — Business cabin never calls the cached Data API (BF-0
     renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    expect(fetchMock).not.toHaveBeenCalled();
+    // BF-FLIGHTS-LIVE-4: Business now legitimately calls search-live-flights
+    // (Phase Q) — only the cached search-flights Data API must stay unhit.
+    expect(fetchMock.mock.calls.some(([url]: [string]) => String(url).includes("search-flights"))).toBe(false);
   });
 });

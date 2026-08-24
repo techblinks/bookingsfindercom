@@ -14,6 +14,7 @@ import HotelResults from "./pages/HotelResults";
 import DestinationPage from "./pages/DestinationPage";
 import CountryLandingPage from "./pages/CountryLandingPage";
 import BookingRedirect from "./pages/BookingRedirect";
+import LiveFlightBookingRedirect from "./pages/LiveFlightBookingRedirect";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsConditions from "./pages/TermsConditions";
 import AffiliateDisclosure from "./pages/AffiliateDisclosure";
@@ -117,6 +118,7 @@ const AnimatedRoutes = () => {
         <Route path="/d/:slug" element={<DestinationPage />} />
         <Route path="/:slug" element={<CountryLandingPage />} />
         <Route path="/redirect" element={<BookingRedirect />} />
+        <Route path="/live-flight-redirect" element={<LiveFlightBookingRedirect />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/careers" element={<Careers />} />
         <Route path="/press" element={<Press />} />
@@ -194,6 +196,7 @@ const AnimatedRoutes = () => {
           <Route path="/d/:slug" element={<DestinationPage />} />
           <Route path="/:slug" element={<CountryLandingPage />} />
           <Route path="/redirect" element={<BookingRedirect />} />
+        <Route path="/live-flight-redirect" element={<LiveFlightBookingRedirect />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/careers" element={<Careers />} />
           <Route path="/press" element={<Press />} />

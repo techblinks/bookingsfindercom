@@ -38,15 +38,6 @@ vi.mock("@/hooks/useGeoLocation", () => ({
 }));
 
 vi.mock("@/hooks/useAds", () => ({ useAds: () => ({ ads: {}, trackImpression: vi.fn(), trackClick: vi.fn() }) }));
-// BF-FLIGHTS-LIVE-3 Round 2 Issue 1: this suite tests the Page White Label
-// redirect path specifically (buildWhiteLabelFlightUrl called, full
-// context preserved) — that path is only reached when the widget is
-// "error", not "loading" (loading now scrolls instead). Pinning to
-// "error" keeps these assertions exercising the real code path they're
-// meant to verify, independent of jsdom's real widget-loading behavior.
-vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
-  useTravelpayoutsWidget: () => ({ state: "error", needsReloadForRemount: false }),
-}));
 vi.mock("@/components/layout/Header", () => ({ default: () => <header /> }));
 vi.mock("@/components/layout/Footer", () => ({ default: () => <footer /> }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -124,11 +115,9 @@ beforeEach(() => {
   mockToastError.mockReset();
   mockGetRedirectUrl.mockReset();
   localStorage.clear();
-  // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
-  // (rather than redirecting) while useTravelpayoutsWidget is "loading"
-  // too, not only when "ready" — the real hook stays "loading" forever in
-  // jsdom (no network fetch of the widget script here), so any click on
-  // that CTA reaches scrollIntoView, which jsdom does not implement.
+  // BF-FLIGHTS-LIVE-4: "Search Live Flights"/"Check live prices" now always
+  // scroll to the native Live Flights section — jsdom does not implement
+  // scrollIntoView.
   Element.prototype.scrollIntoView = vi.fn();
 });
 
@@ -176,7 +165,14 @@ describe("FlightResults — Recent Fare Calendar and Heatmap use the resolved cu
 });
 
 describe("FlightResults — White Label handoff receives the resolved currency (items 11, 12)", () => {
-  it("item 11: 'Search Live Flights' passes currency: AUD alongside the full supported contract", async () => {
+  // BF-FLIGHTS-LIVE-4: the White Label handoff is no longer reachable from
+  // "Search Live Flights" itself (that button only scrolls to the native
+  // Live Flights section). It's reached via that section's own "Open full
+  // flight search" fallback button, shown when the live search is
+  // unavailable — this file's fetch stub returns an unrecognized shape for
+  // search-live-flights, so the live search resolves to "unavailable"
+  // deterministically, surfacing that button.
+  it("item 11: the Live Flights fallback passes currency: AUD alongside the full supported contract", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({
       success: true,
       url: "https://flights.bookingsfinder.com/?flightSearch=SYD1001MEL2001&currency=AUD",
@@ -186,7 +182,7 @@ describe("FlightResults — White Label handoff receives the resolved currency (
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
     expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
@@ -213,7 +209,7 @@ describe("FlightResults — White Label handoff receives the resolved currency (
     stubFetch(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    const cta = await screen.findByRole("button", { name: /open full flight search/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());

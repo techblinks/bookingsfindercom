@@ -28,7 +28,6 @@ vi.mock("@/lib/analytics", () => ({
 const hoisted = vi.hoisted(() => ({
   isMobile: false,
   isBelowDesktop: false,
-  widgetState: "loading" as "loading" | "ready" | "error",
   ads: {} as Record<string, unknown>,
 }));
 
@@ -43,10 +42,6 @@ vi.mock("@/hooks/useGeoLocation", () => ({
     loading: false,
     regionConfig: {},
   }),
-}));
-
-vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
-  useTravelpayoutsWidget: () => ({ state: hoisted.widgetState }),
 }));
 
 vi.mock("@/hooks/useAds", () => ({
@@ -134,7 +129,6 @@ beforeEach(() => {
   mockLogAffiliateClick.mockClear();
   mockBuildWhiteLabelFlightUrl.mockClear();
   hoisted.isMobile = false;
-  hoisted.widgetState = "loading";
   hoisted.ads = {};
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -227,11 +221,14 @@ describe("FlightResults — ad placements around Live Flights are independent of
   });
 });
 
-// ── Item 14/15: Search Live Flights scroll-vs-redirect gate ──
+// ── BF-FLIGHTS-LIVE-4: Search Live Flights always scrolls; the Page White
+// Label redirect is now reached only via LiveFlightsSection's own
+// "Open full flight search" fallback (shown when the live search is
+// unavailable — this file's stubFetch returns an unrecognized shape for
+// search-live-flights, so that's deterministic here). ──
 
-describe("FlightResults — Search Live Flights targets the embedded section when healthy, falls back otherwise", () => {
-  it("item 2 (Round 2): when the widget is ready, clicking Search Live Flights scrolls to #live-flights-section instead of redirecting", async () => {
-    hoisted.widgetState = "ready";
+describe("FlightResults — Search Live Flights always targets the embedded section", () => {
+  it("clicking Search Live Flights scrolls to #live-flights-section and never redirects on its own", async () => {
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
 
@@ -243,38 +240,23 @@ describe("FlightResults — Search Live Flights targets the embedded section whe
     expect(mockBuildWhiteLabelFlightUrl).not.toHaveBeenCalled();
   });
 
-  it("item 1: Round 2 Issue 1 — when the widget is still (normally) loading, clicking Search Live Flights scrolls to the section instead of redirecting", async () => {
-    hoisted.widgetState = "loading";
+  it("the native section's own fallback redirects when the live search is unavailable", async () => {
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    expect(mockLogAffiliateClick).not.toHaveBeenCalled();
-    expect(mockBuildWhiteLabelFlightUrl).not.toHaveBeenCalled();
-  });
-
-  it("item 3 (Round 2): when the widget errored, clicking Search Live Flights falls back to the full Page White Label redirect", async () => {
-    hoisted.widgetState = "error";
-    stubFetch(FLIGHTS);
-    renderResults(ECONOMY_URL);
-
-    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
     await waitFor(() => expect(mockLogAffiliateClick).toHaveBeenCalled());
   });
 
-  it("preserves the full supported contract (route/date/passenger/cabin) on the fallback redirect — item 19", async () => {
-    hoisted.widgetState = "error";
+  it("preserves the full supported contract (route/date/passenger/cabin) on the fallback redirect", async () => {
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -285,9 +267,9 @@ describe("FlightResults — Search Live Flights targets the embedded section whe
   });
 });
 
-// ── Item 16: Business cabin — widget shown, cached fares still never called ──
+// ── Item 16: Business cabin — native section shown, cached fares still never called ──
 
-describe("FlightResults — Business cabin gets the embedded widget without reintroducing cached fares", () => {
+describe("FlightResults — Business cabin gets the native Live Flights section without reintroducing cached fares", () => {
   it("item 16: Business renders the Live Flights section but never calls search-flights", async () => {
     const calls = stubFetch(FLIGHTS);
     const { container } = renderResults(BUSINESS_URL);
@@ -297,8 +279,7 @@ describe("FlightResults — Business cabin gets the embedded widget without rein
     expect(calls.some((c) => c.url.includes("search-flights"))).toBe(false);
   });
 
-  it("Business's CTA also scrolls to the section when the widget is ready", async () => {
-    hoisted.widgetState = "ready";
+  it("Business's top CTA also scrolls to the section", async () => {
     stubFetch(FLIGHTS);
     renderResults(BUSINESS_URL);
 
@@ -309,12 +290,11 @@ describe("FlightResults — Business cabin gets the embedded widget without rein
     expect(mockLogAffiliateClick).not.toHaveBeenCalled();
   });
 
-  it("Business's CTA falls back to Page White Label when the widget is not ready", async () => {
-    hoisted.widgetState = "error";
+  it("Business's native-section fallback redirects to Page White Label with cabinClass business when the live search is unavailable", async () => {
     stubFetch(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    const cta = await screen.findByRole("button", { name: /open full flight search/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(

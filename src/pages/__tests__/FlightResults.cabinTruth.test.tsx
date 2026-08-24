@@ -44,22 +44,13 @@ vi.mock("@/hooks/useGeoLocation", () => ({
   useGeoLocation: () => ({ geoData: { currency: "USD", currencySymbol: "$" } }),
 }));
 vi.mock("@/hooks/useAds", () => ({ useAds: () => ({ ads: {}, trackImpression: vi.fn(), trackClick: vi.fn() }) }));
-// BF-FLIGHTS-LIVE-3 Round 2 Issue 1: this suite tests the Page White Label
-// redirect path specifically (buildWhiteLabelFlightUrl called, full
-// context preserved) — that path is only reached when the widget is
-// "error", not "loading" (loading now scrolls instead). Pinning to
-// "error" keeps these assertions exercising the real code path they're
-// meant to verify, independent of jsdom's real widget-loading behavior.
-vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
-  useTravelpayoutsWidget: () => ({ state: "error", needsReloadForRemount: false }),
-}));
 vi.mock("@/components/layout/Header", () => ({ default: () => <header /> }));
 vi.mock("@/components/layout/Footer", () => ({ default: () => <footer /> }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { auth: { getSession: () => Promise.resolve({ data: { session: null } }) } },
 }));
 vi.mock("@/lib/supabaseConfig", () => ({
-  getFunctionUrl: () => "https://mock.test/functions/v1/search-flights",
+  getFunctionUrl: (name: string) => `https://mock.test/functions/v1/${name}`,
 }));
 
 // Real whiteLabelUrl.ts logic (unmocked) would require VITE_TRAVEL_WHITE_LABEL_MODE
@@ -115,11 +106,10 @@ describe("FlightResults — economy search shows cached fares with one page-leve
     mockBuildWhiteLabelFlightUrl.mockReset();
     mockToastError.mockReset();
     mockGetRedirectUrl.mockReset();
-    // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
-    // (rather than redirecting) while useTravelpayoutsWidget is "loading"
-    // too, not only when "ready" — the real hook stays "loading" forever
-    // in jsdom (no network fetch of the widget script here), so any click
-    // on that CTA reaches scrollIntoView, which jsdom does not implement.
+    // BF-FLIGHTS-LIVE-4: "Check live prices"/"Search Live Flights" now
+    // always scroll to the native Live Flights section (see
+    // handleSearchLiveFlights in FlightResults.tsx) — jsdom does not
+    // implement scrollIntoView.
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -245,11 +235,10 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     mockBuildWhiteLabelFlightUrl.mockReset();
     mockToastError.mockReset();
     mockGetRedirectUrl.mockReset();
-    // BF-FLIGHTS-LIVE-3 Round 2 Issue 1: Search Live Flights now scrolls
-    // (rather than redirecting) while useTravelpayoutsWidget is "loading"
-    // too, not only when "ready" — the real hook stays "loading" forever
-    // in jsdom (no network fetch of the widget script here), so any click
-    // on that CTA reaches scrollIntoView, which jsdom does not implement.
+    // BF-FLIGHTS-LIVE-4: "Check live prices"/"Search Live Flights" now
+    // always scroll to the native Live Flights section (see
+    // handleSearchLiveFlights in FlightResults.tsx) — jsdom does not
+    // implement scrollIntoView.
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -330,7 +319,9 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    expect(fetchMock).not.toHaveBeenCalled();
+    // BF-FLIGHTS-LIVE-4: Business now legitimately calls search-live-flights
+    // (Phase Q) — only the cached search-flights Data API must stay unhit.
+    expect(fetchMock.mock.calls.some(([url]: [string]) => String(url).includes("search-flights"))).toBe(false);
   });
 
   it("does not render FlightQuickSelect or NearbyAirportSuggestion", async () => {
@@ -359,7 +350,15 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     expect(screen.queryByText(/recent indicative fares from our flight partner/i)).toBeNull();
   });
 
-  it("item 11: the cabin CTA's White Label handoff preserves adults, children, infants AND cabin class (nothing dropped by cabin gating)", async () => {
+  // BF-FLIGHTS-LIVE-4: the White Label handoff is no longer reachable from
+  // the "Check live prices" CTA itself (that CTA only scrolls to the
+  // native Live Flights section — see handleSearchLiveFlights). It is now
+  // reached via that section's own "Open full flight search" fallback
+  // button, shown when the live search is unavailable — this test file's
+  // getFunctionUrl mock returns the same (search-flights-shaped) URL for
+  // every function name, so the live search resolves to "unavailable"
+  // deterministically, surfacing that button.
+  it("item 11: the Live Flights fallback's White Label handoff preserves adults, children, infants AND cabin class (nothing dropped by cabin gating)", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({
       success: true,
       url: "https://flights.bookingsfinder.com/?flightSearch=SYD1001MEL121c211",
@@ -367,7 +366,7 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     stubFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    const cta = await screen.findByRole("button", { name: /open full flight search/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
@@ -384,15 +383,15 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
   });
 
   // BF-0R-7 Round 1.2 item 3/8: the fail-closed contract. If the verified
-  // White Label URL can't be built, the CTA must NOT fall back to a generic
-  // redirect (which would drop the selected cabin/passengers while implying
-  // they were preserved) — it must show an honest error instead.
+  // White Label URL can't be built, the fallback must NOT fall back further
+  // to a generic redirect (which would drop the selected cabin/passengers
+  // while implying they were preserved) — it must show an honest error.
   it("does NOT generic-fallback when the verified White Label URL generation fails — fails closed with an honest error", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({ success: false, url: null, reason: "White Label is not enabled" });
     stubFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
+    const cta = await screen.findByRole("button", { name: /open full flight search/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());

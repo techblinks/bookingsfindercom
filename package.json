@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "check:edge:tiqets-catalog": "deno check --no-lock supabase/functions/tiqets-catalog/index.ts supabase/functions/tiqets-catalog/catalogue-storage.ts",
     "check:edge:run-optimizer": "deno check --no-lock supabase/functions/run-optimizer/index.ts supabase/functions/run-optimizer/optimizer-core.ts",
+    "check:edge:search-live-flights": "deno check --no-lock supabase/functions/search-live-flights/index.ts",
+    "check:edge:get-live-flight-booking-options": "deno check --no-lock supabase/functions/get-live-flight-booking-options/index.ts",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

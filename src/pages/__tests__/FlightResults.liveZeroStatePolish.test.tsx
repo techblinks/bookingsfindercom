@@ -2,7 +2,13 @@
  * BF-FLIGHTS-LIVE-3 Round 3 — pre-merge UX polish based on real Cloudflare
  * preview screenshots: remove the redundant large zero-fare card, fix
  * Search Live Flights' icon to reflect its actual (same-page-scroll)
- * behavior, and confirm nothing hides Travelpayouts' own branding.
+ * behavior.
+ *
+ * BF-FLIGHTS-LIVE-4: the embedded Travelpayouts Widget itself (and its
+ * #tpwl-search/#tpwl-tickets containers, TravelpayoutsLiveFlights.tsx,
+ * useTravelpayoutsWidget.ts) is removed — this file now also proves none
+ * of that runtime remains, and exercises the native LiveFlightsSection's
+ * own fallback button in its place.
  *
  * Mirrors the render/mocking setup already established in
  * FlightResults.liveFlightsEmbed.test.tsx.
@@ -13,10 +19,6 @@ import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { TripProvider } from "@/context/TripContext";
 import FlightResults from "@/pages/FlightResults";
-import TravelpayoutsLiveFlights from "@/components/flights/TravelpayoutsLiveFlights";
-import { readFileSync } from "fs";
-import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
 
 const mockToastError = vi.fn();
 vi.mock("sonner", () => ({ toast: { error: (...a: unknown[]) => mockToastError(...a), success: vi.fn(), message: vi.fn() } }));
@@ -33,7 +35,6 @@ vi.mock("@/lib/analytics", () => ({
 
 const hoisted = vi.hoisted(() => ({
   isMobile: false,
-  widgetState: "loading" as "loading" | "ready" | "error",
   ads: {} as Record<string, unknown>,
 }));
 
@@ -48,10 +49,6 @@ vi.mock("@/hooks/useGeoLocation", () => ({
     loading: false,
     regionConfig: {},
   }),
-}));
-
-vi.mock("@/hooks/useTravelpayoutsWidget", () => ({
-  useTravelpayoutsWidget: () => ({ state: hoisted.widgetState, needsReloadForRemount: false }),
 }));
 
 vi.mock("@/hooks/useAds", () => ({
@@ -123,7 +120,6 @@ beforeEach(() => {
   mockLogAffiliateClick.mockClear();
   mockBuildWhiteLabelFlightUrl.mockClear();
   hoisted.isMobile = false;
-  hoisted.widgetState = "loading";
   hoisted.ads = {};
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -167,12 +163,12 @@ describe("FlightResults — Round 3: Live Flights section and containers remain 
     await waitFor(() => expect(container.querySelector("#live-flights-section")).toBeTruthy());
   });
 
-  it("item 4/5: #tpwl-search and #tpwl-tickets remain present", async () => {
-    hoisted.widgetState = "ready";
+  it("BF-FLIGHTS-LIVE-4: no tpwl-search/tpwl-tickets Travelpayouts Widget runtime remains", async () => {
     stubFetch([]);
     const { container } = renderResults(ECONOMY_ZERO_URL);
-    await waitFor(() => expect(container.querySelector("#tpwl-search")).toBeTruthy());
-    expect(container.querySelector("#tpwl-tickets")).toBeTruthy();
+    await waitFor(() => expect(container.querySelector("#live-flights-section")).toBeTruthy());
+    expect(container.querySelector("#tpwl-search")).toBeNull();
+    expect(container.querySelector("#tpwl-tickets")).toBeNull();
   });
 });
 
@@ -203,9 +199,10 @@ describe("FlightResults — Round 3 Fix 2: icon semantics match actual behavior"
     expect(btn.querySelector("svg.lucide-external-link")).toBeNull();
   });
 
-  it("item 9: 'Open full flight search' (genuinely leaves the site) keeps its ExternalLink icon", () => {
-    render(<TravelpayoutsLiveFlights onOpenFullSearch={vi.fn()} />);
-    const btn = screen.getAllByRole("button", { name: /open full flight search/i })[0];
+  it("item 9: 'Open full flight search' (genuinely leaves the site) keeps its ExternalLink icon", async () => {
+    stubFetch([]);
+    renderResults(ECONOMY_ZERO_URL);
+    const btn = await screen.findByRole("button", { name: /open full flight search/i });
     expect(btn.querySelector("svg.lucide-external-link")).toBeTruthy();
   });
 
@@ -217,16 +214,15 @@ describe("FlightResults — Round 3 Fix 2: icon semantics match actual behavior"
   });
 });
 
-// ── Item 10: widget error fallback still works ──
+// ── Item 10: unavailable-live-search fallback still works ──
 
-describe("FlightResults — Round 3: widget error fallback still works", () => {
-  it("item 10: when the widget errored, Search Live Flights still falls back to the full Page White Label redirect", async () => {
-    hoisted.widgetState = "error";
+describe("FlightResults — Round 3: unavailable-live-search fallback still works", () => {
+  it("item 10: when the live search is unavailable, the native section's fallback still redirects to the full Page White Label search", async () => {
     stubFetch([]);
     renderResults(ECONOMY_ZERO_URL);
 
     await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
     await waitFor(() => expect(mockLogAffiliateClick).toHaveBeenCalled());
@@ -255,41 +251,6 @@ describe("FlightResults — Round 3: Business cached-price isolation remains", (
   });
 });
 
-// ── Item 13: no Travelpayouts branding-hiding code was added ──
-
-describe("TravelpayoutsLiveFlights — Round 3 Fix 4: Travelpayouts' own branding was never touched", () => {
-  it("item 13: the component source contains no branding-hiding technique (opacity/visibility/clip/mask/shadowRoot manipulation, or any 'powered by' reference)", () => {
-    const componentPath = resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../components/flights/TravelpayoutsLiveFlights.tsx"
-    );
-    const source = readFileSync(componentPath, "utf-8");
-
-    // The only visibility toggle in this file is the documented containers'
-    // own Tailwind "hidden" class, which applies BEFORE the script has
-    // populated them (state !== "ready") and is removed entirely once
-    // ready — never applied conditionally to hide Travelpayouts-rendered
-    // content, and never targeting anything by class/attribute that would
-    // resemble a "powered by" element.
-    expect(source).not.toMatch(/powered.?by/i);
-    expect(source).not.toMatch(/shadowRoot/i);
-    expect(source).not.toMatch(/opacity-0|invisible\b/);
-    expect(source).not.toMatch(/clip-path|mask-image/i);
-    expect(source).not.toMatch(/querySelector|getElementById/); // no manual DOM reach-in at all
-    // dangerouslySetInnerHTML absence is already covered precisely by
-    // TravelpayoutsLiveFlights.test.tsx via the compiled function's
-    // .toString() (which strips comments) — a raw source-text check here
-    // would false-positive on this very file's own explanatory comment
-    // about NOT using it.
-  });
-
-  it("the hook source contains no branding-hiding technique either", () => {
-    const hookPath = resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../hooks/useTravelpayoutsWidget.ts"
-    );
-    const source = readFileSync(hookPath, "utf-8");
-    expect(source).not.toMatch(/powered.?by/i);
-    expect(source).not.toMatch(/shadowRoot/i);
-  });
-});
+// Item 13 (Travelpayouts branding-hiding check) is removed under
+// BF-FLIGHTS-LIVE-4 — there is no embedded third-party widget left to hide
+// branding from; Live Flights results are BookingsFinder's own native UI.
