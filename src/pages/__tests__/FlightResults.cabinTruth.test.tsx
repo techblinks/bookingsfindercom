@@ -165,7 +165,7 @@ describe("FlightResults — economy search shows cached fares with one page-leve
 
     const mainText = container.querySelector("main")!.textContent!;
     const disclosureIndex = mainText.indexOf("Recent indicative fares");
-    const quickSelectIndex = mainText.indexOf("Recent best");
+    const quickSelectIndex = mainText.indexOf("Recent cheapest");
     expect(disclosureIndex).toBeGreaterThanOrEqual(0);
     expect(quickSelectIndex).toBeGreaterThan(disclosureIndex);
   });
@@ -198,15 +198,17 @@ describe("FlightResults — economy search shows cached fares with one page-leve
     expect(screen.getByText(/recent from/i)).toBeTruthy();
   });
 
-  // Item 15: FlightQuickSelect's Best/Cheapest/Fastest cards are labelled.
+  // Item 15: FlightQuickSelect's Cheapest/Fastest/Fewest-stops cards are
+  // labelled. No "Recent best" — BF-FLIGHTS-CACHE-1 quick-select truth fix.
   it("Quick Select prices carry recent/indicative context (item 15)", async () => {
     stubFlights(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    expect(screen.getByText("Recent best")).toBeTruthy();
     expect(screen.getByText("Recent cheapest")).toBeTruthy();
     expect(screen.getByText("Recent fastest fare")).toBeTruthy();
+    expect(screen.getByText("Recent fewest stops")).toBeTruthy();
+    expect(screen.queryByText("Recent best")).toBeNull();
   });
 
   // Item 16: Price Calendar heading — its request contract has no
@@ -319,8 +321,6 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    // BF-FLIGHTS-LIVE-4: Business now legitimately calls search-live-flights
-    // (Phase Q) — only the cached search-flights Data API must stay unhit.
     expect(fetchMock.mock.calls.some(([url]: [string]) => String(url).includes("search-flights"))).toBe(false);
   });
 
@@ -350,15 +350,7 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     expect(screen.queryByText(/recent indicative fares from our flight partner/i)).toBeNull();
   });
 
-  // BF-FLIGHTS-LIVE-4: the White Label handoff is no longer reachable from
-  // the "Check live prices" CTA itself (that CTA only scrolls to the
-  // native Live Flights section — see handleSearchLiveFlights). It is now
-  // reached via that section's own "Open full flight search" fallback
-  // button, shown when the live search is unavailable — this test file's
-  // getFunctionUrl mock returns the same (search-flights-shaped) URL for
-  // every function name, so the live search resolves to "unavailable"
-  // deterministically, surfacing that button.
-  it("item 11: the Live Flights fallback's White Label handoff preserves adults, children, infants AND cabin class (nothing dropped by cabin gating)", async () => {
+  it("item 11: the Business CTA's White Label handoff preserves adults, children, infants AND cabin class (nothing dropped by cabin gating)", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({
       success: true,
       url: "https://flights.bookingsfinder.com/?flightSearch=SYD1001MEL121c211",
@@ -366,7 +358,7 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     stubFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /open full flight search/i });
+    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
@@ -391,7 +383,7 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     stubFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /open full flight search/i });
+    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());

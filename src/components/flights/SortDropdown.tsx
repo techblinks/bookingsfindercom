@@ -13,10 +13,17 @@ interface SortDropdownProps {
   onChange: (value: SortOption) => void;
 }
 
+/*
+ * BF-FLIGHTS-CACHE-1 Phase 3: no "Best" option — Travelpayouts' cached
+ * observations carry no provider-defined ranking, and presenting a
+ * BookingsFinder-invented weighted score as "Best" would misrepresent it
+ * as an objective recommendation. Only sorts directly justified by
+ * returned data (price, duration, stop count) are offered.
+ */
 const sortOptions: { value: SortOption; label: string; description: string }[] = [
-  { value: "best", label: "Best", description: "Recommended balance of price, speed & stops" },
   { value: "cheapest", label: "Cheapest", description: "Lowest price first" },
   { value: "fastest", label: "Fastest", description: "Shortest duration first" },
+  { value: "stops", label: "Fewest stops", description: "Direct flights first" },
 ];
 
 const SortDropdown = ({ value, onChange }: SortDropdownProps) => {

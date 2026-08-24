@@ -1,6 +1,8 @@
 /**
- * BF-FLIGHTS-LIVE-3 — embedded Travelpayouts Live Flights section, ad
- * repositioning, and the Search Live Flights scroll-vs-redirect gate.
+ * BF-FLIGHTS-CACHE-1 — Recent Flight Options section (renamed from the
+ * removed SerpApi-era "Live Flights" section — see BF-FLIGHTS-LIVE-4
+ * Round 3), ad placements around it, and the Search Live Flights /
+ * White Label handoff.
  *
  * Mirrors the render/mocking setup already established in
  * FlightResults.currencyMismatchDialog.test.tsx.
@@ -86,7 +88,7 @@ function stubFetch(flights: unknown[]) {
     if (String(url).includes("search-flights")) {
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ flights, meta: { total_found: flights.length, is_complete: true } }),
+        json: () => Promise.resolve({ flights, meta: { total_found: flights.length, is_complete: true, cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 120 } }),
       });
     }
     if (String(url).includes("get-price-calendar")) {
@@ -130,30 +132,26 @@ beforeEach(() => {
   mockBuildWhiteLabelFlightUrl.mockClear();
   hoisted.isMobile = false;
   hoisted.ads = {};
-  Element.prototype.scrollIntoView = vi.fn();
 });
 
-// ── Item 9: zero cached observations still exposes the live section ──
-
-describe("FlightResults — Live Flights section renders regardless of cached result count", () => {
-  it("item 9: renders #live-flights-section when there are zero cached observations", async () => {
+describe("FlightResults — Recent Flight Options section renders regardless of cached result count", () => {
+  it("renders the Recent Flight Options heading with zero cached observations", async () => {
     stubFetch([]);
-    const { container } = renderResults(ECONOMY_URL);
+    renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    expect(container.querySelector("#live-flights-section")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Live Flights" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recent Flight Options" })).toBeTruthy();
   });
 
-  it("also renders #live-flights-section when there are cached results", async () => {
+  it("also renders with cached results present", async () => {
     stubFetch(FLIGHTS);
-    const { container } = renderResults(ECONOMY_URL);
+    renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    expect(container.querySelector("#live-flights-section")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recent Flight Options" })).toBeTruthy();
   });
 
-  it("item 17: the zero-result statement never claims flights don't exist", async () => {
+  it("the zero-result statement never claims flights don't exist", async () => {
     stubFetch([]);
     const { container } = renderResults(ECONOMY_URL);
 
@@ -161,12 +159,19 @@ describe("FlightResults — Live Flights section renders regardless of cached re
     expect(container.textContent).not.toMatch(/no flights found/i);
     expect(container.textContent).not.toMatch(/0 flights found/i);
   });
+
+  it("never uses live/real-time/current-inventory language for the cached Data API results", async () => {
+    stubFetch(FLIGHTS);
+    const { container } = renderResults(ECONOMY_URL);
+
+    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
+    const section = screen.getByRole("heading", { name: "Recent Flight Options" }).closest("section")!;
+    expect(section.textContent).not.toMatch(/live fare|real-time|current inventory/i);
+  });
 });
 
-// ── Items 10-12: BookingsFinder-owned ad placements around the widget ──
-
-describe("FlightResults — ad placements around Live Flights are independent of cached result count", () => {
-  it("item 10/11: the before-live-results ad (after_result_3) renders with ZERO cached observations", async () => {
+describe("FlightResults — ad placements around Recent Flight Options are independent of cached result count", () => {
+  it("the before ad (after_result_3) renders with ZERO cached observations", async () => {
     hoisted.ads = { after_result_3: AD };
     stubFetch([]);
     renderResults(ECONOMY_URL);
@@ -177,7 +182,7 @@ describe("FlightResults — ad placements around Live Flights are independent of
     await waitFor(() => expect(screen.getByRole("heading", { name: "Sponsored Title" })).toBeTruthy());
   });
 
-  it("item 11: the before-live-results ad also renders with cached observations present", async () => {
+  it("the before ad also renders with cached observations present", async () => {
     hoisted.ads = { after_result_3: AD };
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
@@ -186,24 +191,24 @@ describe("FlightResults — ad placements around Live Flights are independent of
     expect(screen.getByRole("heading", { name: "Sponsored Title" })).toBeTruthy();
   });
 
-  it("item 12: the after-live-results ad (after_result_5) renders with ZERO cached observations", async () => {
-    hoisted.ads = { after_result_5: { ...AD, id: "ad-2", placement: "after_result_5" as const, title: "After Live Ad" } };
+  it("the after ad (after_result_5) renders with ZERO cached observations", async () => {
+    hoisted.ads = { after_result_5: { ...AD, id: "ad-2", placement: "after_result_5" as const, title: "After Ad" } };
     stubFetch([]);
     renderResults(ECONOMY_URL);
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "After Live Ad" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "After Ad" })).toBeTruthy());
   });
 
-  it("item 12: the after-live-results ad also renders with cached observations present", async () => {
-    hoisted.ads = { after_result_5: { ...AD, id: "ad-2", placement: "after_result_5" as const, title: "After Live Ad" } };
+  it("the after ad also renders with cached observations present", async () => {
+    hoisted.ads = { after_result_5: { ...AD, id: "ad-2", placement: "after_result_5" as const, title: "After Ad" } };
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    expect(screen.getByRole("heading", { name: "After Live Ad" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "After Ad" })).toBeTruthy();
   });
 
-  it("the bottom ad renders even with zero cached observations (previously required displayedFlights.length > 0)", async () => {
+  it("the bottom ad renders even with zero cached observations", async () => {
     hoisted.ads = { bottom: { ...AD, id: "ad-3", placement: "bottom" as const, title: "Bottom Ad" } };
     stubFetch([]);
     renderResults(ECONOMY_URL);
@@ -211,7 +216,7 @@ describe("FlightResults — ad placements around Live Flights are independent of
     await waitFor(() => expect(screen.getByRole("heading", { name: "Bottom Ad" })).toBeTruthy());
   });
 
-  it("the same ad is never rendered twice (no leftover per-card-index placement inside the results list)", async () => {
+  it("the same ad is never rendered twice", async () => {
     hoisted.ads = { after_result_3: AD };
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
@@ -221,42 +226,24 @@ describe("FlightResults — ad placements around Live Flights are independent of
   });
 });
 
-// ── BF-FLIGHTS-LIVE-4: Search Live Flights always scrolls; the Page White
-// Label redirect is now reached only via LiveFlightsSection's own
-// "Open full flight search" fallback (shown when the live search is
-// unavailable — this file's stubFetch returns an unrecognized shape for
-// search-live-flights, so that's deterministic here). ──
-
-describe("FlightResults — Search Live Flights always targets the embedded section", () => {
-  it("clicking Search Live Flights scrolls to #live-flights-section and never redirects on its own", async () => {
+describe("FlightResults — Search Live Flights redirects directly to the partner's live search", () => {
+  it("clicking Search Live Flights calls buildWhiteLabelFlightUrl and redirects — no on-page section to scroll to any more", async () => {
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
     fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
 
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    expect(mockLogAffiliateClick).not.toHaveBeenCalled();
-    expect(mockBuildWhiteLabelFlightUrl).not.toHaveBeenCalled();
-  });
-
-  it("the native section's own fallback redirects when the live search is unavailable", async () => {
-    stubFetch(FLIGHTS);
-    renderResults(ECONOMY_URL);
-
-    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
-
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
     await waitFor(() => expect(mockLogAffiliateClick).toHaveBeenCalled());
   });
 
-  it("preserves the full supported contract (route/date/passenger/cabin) on the fallback redirect", async () => {
+  it("preserves the full supported contract (route/date/passenger/cabin) on the redirect", async () => {
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -267,34 +254,20 @@ describe("FlightResults — Search Live Flights always targets the embedded sect
   });
 });
 
-// ── Item 16: Business cabin — native section shown, cached fares still never called ──
-
-describe("FlightResults — Business cabin gets the native Live Flights section without reintroducing cached fares", () => {
-  it("item 16: Business renders the Live Flights section but never calls search-flights", async () => {
+describe("FlightResults — Business cabin never reintroduces cached fares", () => {
+  it("Business never calls search-flights", async () => {
     const calls = stubFetch(FLIGHTS);
-    const { container } = renderResults(BUSINESS_URL);
+    renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    expect(container.querySelector("#live-flights-section")).toBeTruthy();
     expect(calls.some((c) => c.url.includes("search-flights"))).toBe(false);
   });
 
-  it("Business's top CTA also scrolls to the section", async () => {
+  it("Business's CTA redirects to the Page White Label with cabinClass business", async () => {
     stubFetch(FLIGHTS);
     renderResults(BUSINESS_URL);
 
     const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    fireEvent.click(cta);
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    expect(mockLogAffiliateClick).not.toHaveBeenCalled();
-  });
-
-  it("Business's native-section fallback redirects to Page White Label with cabinClass business when the live search is unavailable", async () => {
-    stubFetch(FLIGHTS);
-    renderResults(BUSINESS_URL);
-
-    const cta = await screen.findByRole("button", { name: /open full flight search/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
@@ -303,24 +276,8 @@ describe("FlightResults — Business cabin gets the native Live Flights section 
   });
 });
 
-// ── Item 18: no false claim of Widget currency preservation ──
-
-describe("FlightResults — Live Flights section makes no currency-preservation claim", () => {
-  it("item 18: nothing in the Live Flights section asserts the widget will show AUD (or any BookingsFinder-resolved currency)", async () => {
-    stubFetch(FLIGHTS);
-    const { container } = renderResults(ECONOMY_URL);
-
-    await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    const section = container.querySelector("#live-flights-section");
-    expect(section).toBeTruthy();
-    expect(section!.textContent).not.toMatch(/AUD/);
-  });
-});
-
-// ── Item 19: route/date/passenger/cabin state untouched by embedding ──
-
-describe("FlightResults — embedding the widget does not alter search state", () => {
-  it("item 19: the sticky header still shows the original route/dates/travellers/cabin after the Live Flights section renders", async () => {
+describe("FlightResults — results-mode rendering does not alter the search state shown in the header", () => {
+  it("the sticky header still shows the original route/dates/travellers/cabin", async () => {
     stubFetch(FLIGHTS);
     renderResults(ECONOMY_URL);
 

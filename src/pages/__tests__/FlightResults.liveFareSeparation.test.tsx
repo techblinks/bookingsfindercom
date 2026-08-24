@@ -96,10 +96,6 @@ beforeEach(() => {
   mockBuildWhiteLabelFlightUrl.mockReset();
   mockToastError.mockReset();
   mockGetRedirectUrl.mockReset();
-  // BF-FLIGHTS-LIVE-4: "Search Live Flights"/"Check live prices" now always
-  // scroll to the native Live Flights section — jsdom does not implement
-  // scrollIntoView.
-  Element.prototype.scrollIntoView = vi.fn();
 });
 
 // ── Items 1, 2, 12: zero cached results never claim flights don't exist ──
@@ -109,17 +105,11 @@ describe("FlightResults — zero cached results (BF-FLIGHTS-LIVE-1 Phase B/D)", 
     stubSearchFlights([]);
     const { container } = renderResults(ONE_WAY_URL);
 
-    // BF-FLIGHTS-LIVE-3 Round 3 Fix 1: the large "No Exact Recent Fare
-    // Data Found" card is suppressed when meta.total_found === 0 — the
-    // embedded Live Flights section's own compact sentence carries the
-    // same truthful zero-result semantics now, so that's the wait
-    // condition instead.
     await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
 
     expect(container.textContent).not.toMatch(/no flights found/i);
     expect(container.textContent).not.toMatch(/0 flights found/i);
     expect(container.textContent).not.toMatch(/no flights matching/i);
-    expect(container.textContent).not.toMatch(/no exact recent fare data found/i);
   });
 
   it("item 12: makes no fabricated-availability statement — states a recent-fare-data gap, not a flight-existence fact", async () => {
@@ -135,10 +125,6 @@ describe("FlightResults — zero cached results (BF-FLIGHTS-LIVE-1 Phase B/D)", 
     renderResults(ONE_WAY_URL);
 
     await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    // BF-FLIGHTS-LIVE-3 Round 3 Fix 1: the empty-state's own duplicate
-    // "Search Live Flights" button is suppressed at true zero — the
-    // page-level sticky-header CTA is the one that remains, and it's
-    // enough on its own (not a dead end).
     expect(screen.getAllByRole("button", { name: /search live flights/i }).length).toBeGreaterThan(0);
   });
 
@@ -154,16 +140,12 @@ describe("FlightResults — zero cached results (BF-FLIGHTS-LIVE-1 Phase B/D)", 
     expect(screen.getAllByText(/0 recent fare observations?/i).length).toBe(1);
   });
 
-  it("Round 3 Fix 1: a way to modify the search is still offered even though the empty-state's own 'Modify Search' button is suppressed — the sticky header's Edit button covers it", async () => {
+  it("a way to modify the search is offered both via the empty-state card and the sticky header's Edit button", async () => {
     stubSearchFlights([]);
     renderResults(ONE_WAY_URL);
 
     await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    // The empty-state's own duplicate Modify Search button is gone (its
-    // whole primary card is suppressed at true zero) — this is not a lost
-    // capability, since the sticky header's Edit button (always present,
-    // BF-0R-7 era) opens the exact same in-page edit form.
-    expect(screen.queryByRole("button", { name: /^modify search$/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /^modify search$/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^edit$/i })).toBeTruthy();
   });
 });
@@ -177,7 +159,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ origin: "SYD" })
@@ -190,7 +172,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ destination: "MEL" })
@@ -203,7 +185,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ outboundDate: "2030-01-10" })
@@ -216,7 +198,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ returnDate: "2030-01-20" })
@@ -229,7 +211,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ONE_WAY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ returnDate: undefined })
@@ -242,7 +224,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ adults: 2, children: 1, infants: 1 })
@@ -254,7 +236,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     stubSearchFlights(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /open full flight search/i });
+    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
@@ -268,7 +250,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(
       expect.stringMatching(/live flight search is temporarily unavailable/i)
@@ -300,8 +282,6 @@ describe("FlightResults — Business cabin never calls the cached Data API (BF-0
     renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    // BF-FLIGHTS-LIVE-4: Business now legitimately calls search-live-flights
-    // (Phase Q) — only the cached search-flights Data API must stay unhit.
     expect(fetchMock.mock.calls.some(([url]: [string]) => String(url).includes("search-flights"))).toBe(false);
   });
 });

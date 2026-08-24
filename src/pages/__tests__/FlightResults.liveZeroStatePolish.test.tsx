@@ -1,14 +1,12 @@
 /**
- * BF-FLIGHTS-LIVE-3 Round 3 — pre-merge UX polish based on real Cloudflare
- * preview screenshots: remove the redundant large zero-fare card, fix
- * Search Live Flights' icon to reflect its actual (same-page-scroll)
- * behavior.
+ * BF-FLIGHTS-CACHE-1 — zero-result state, icon truthfulness, and the
+ * "unavailable" cache-status banner (Section H) on the results page.
  *
- * BF-FLIGHTS-LIVE-4: the embedded Travelpayouts Widget itself (and its
- * #tpwl-search/#tpwl-tickets containers, TravelpayoutsLiveFlights.tsx,
- * useTravelpayoutsWidget.ts) is removed — this file now also proves none
- * of that runtime remains, and exercises the native LiveFlightsSection's
- * own fallback button in its place.
+ * BF-FLIGHTS-LIVE-4/CACHE-1: the embedded Travelpayouts Widget and the
+ * later SerpApi-backed native "Live Flights" section are both removed —
+ * this file proves no runtime of either remains, and that the primary
+ * zero-result card (suppressed during LIVE-3/LIVE-4 in favour of an
+ * on-page live section that no longer exists) is shown again.
  *
  * Mirrors the render/mocking setup already established in
  * FlightResults.liveFlightsEmbed.test.tsx.
@@ -74,12 +72,12 @@ vi.mock("@/lib/whiteLabelUrl", () => ({
   buildWhiteLabelFlightUrl: (...args: unknown[]) => (mockBuildWhiteLabelFlightUrl as any)(...args),
 }));
 
-function stubFetch(flights: unknown[]) {
+function stubFetch(meta: Record<string, unknown>) {
   const fetchMock = vi.fn().mockImplementation((url: string) => {
     if (String(url).includes("search-flights")) {
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ flights, meta: { total_found: flights.length, is_complete: true } }),
+        json: () => Promise.resolve({ flights: [], meta: { total_found: 0, is_complete: true, ...meta } }),
       });
     }
     if (String(url).includes("get-price-calendar")) {
@@ -108,12 +106,6 @@ const ECONOMY_ZERO_URL =
 const BUSINESS_URL =
   "/flights?origin=SYD&destination=MEL&departureDate=2030-01-10&adults=1&children=0&infants=0&cabinClass=business";
 
-const AD = {
-  id: "ad-1", name: "Test Ad", type: "sponsored_card" as const, placement: "after_result_3" as const,
-  page: "flights" as const, device: "all" as const, title: "Sponsored Title", description: "desc",
-  cta_text: "Learn More", destination_url: "https://example.com", priority: 1,
-};
-
 beforeEach(() => {
   mockToastError.mockReset();
   mockGetRedirectUrl.mockReset();
@@ -121,136 +113,101 @@ beforeEach(() => {
   mockBuildWhiteLabelFlightUrl.mockClear();
   hoisted.isMobile = false;
   hoisted.ads = {};
-  Element.prototype.scrollIntoView = vi.fn();
 });
 
-// ── Items 1, 2: the redundant large card is gone, compact sentence remains ──
-
-describe("FlightResults — Round 3 Fix 1: no redundant large zero-fare card", () => {
-  it("item 1: does not render 'No Exact Recent Fare Data Found' when zero cached observations and Live Flights is available", async () => {
-    stubFetch([]);
-    const { container } = renderResults(ECONOMY_ZERO_URL);
-
-    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    expect(container.textContent).not.toMatch(/no exact recent fare data found/i);
-  });
-
-  it("item 2: the compact truthful sentence remains", async () => {
-    stubFetch([]);
+describe("FlightResults — zero-result state", () => {
+  it("shows the primary 'No Exact Recent Fare Data Found' card again (no on-page live section to defer to any more)", async () => {
+    stubFetch({ cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 60 });
     renderResults(ECONOMY_ZERO_URL);
-    await waitFor(() => expect(
-      screen.getByText(/no exact recent fare observation is available for these dates\. live flights may still be available below\./i)
-    ).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No Exact Recent Fare Data Found")).toBeTruthy());
   });
 
-  it("does not render the empty-state card's own duplicate Search Live Flights / Modify Search / Clear All Filters row", async () => {
-    stubFetch([]);
-    renderResults(ECONOMY_ZERO_URL);
-    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    // Only the sticky-header instance remains.
-    expect(screen.getAllByRole("button", { name: /search live flights/i }).length).toBe(1);
-    expect(screen.queryByRole("button", { name: /^modify search$/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /clear all filters/i })).toBeNull();
-  });
-});
-
-// ── Items 3, 4, 5: Live Flights section and its documented containers remain ──
-
-describe("FlightResults — Round 3: Live Flights section and containers remain at zero", () => {
-  it("item 3: the Live Flights section remains", async () => {
-    stubFetch([]);
-    const { container } = renderResults(ECONOMY_ZERO_URL);
-    await waitFor(() => expect(container.querySelector("#live-flights-section")).toBeTruthy());
-  });
-
-  it("BF-FLIGHTS-LIVE-4: no tpwl-search/tpwl-tickets Travelpayouts Widget runtime remains", async () => {
-    stubFetch([]);
-    const { container } = renderResults(ECONOMY_ZERO_URL);
-    await waitFor(() => expect(container.querySelector("#live-flights-section")).toBeTruthy());
-    expect(container.querySelector("#tpwl-search")).toBeNull();
-    expect(container.querySelector("#tpwl-tickets")).toBeNull();
-  });
-});
-
-// ── Items 6, 7: supporting content still renders ──
-
-describe("FlightResults — Round 3: supporting content (Try Different Dates / Explore destinations) remains", () => {
-  it("item 6: Try Different Dates remains", async () => {
-    stubFetch([]);
+  it("Try Different Dates remains", async () => {
+    stubFetch({ cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 60 });
     renderResults(ECONOMY_ZERO_URL);
     await waitFor(() => expect(screen.getByText("Try Different Dates")).toBeTruthy());
   });
 
-  it("item 7: Explore other destinations remains", async () => {
-    stubFetch([]);
+  it("Explore other destinations remains", async () => {
+    stubFetch({ cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 60 });
     renderResults(ECONOMY_ZERO_URL);
     await waitFor(() => expect(screen.getByText(/explore other destinations from/i)).toBeTruthy());
   });
+
+  // BF-FLIGHTS-CACHE-1 Phase 2 item F: a genuinely CACHED zero-match
+  // response (cacheStatus: "hit", not just an uncached empty response)
+  // must not degrade the page — Recent Fare Calendar/Heatmap, the primary
+  // zero-state card, its Search Live Flights CTA (the White Label
+  // alternative), Try Different Dates and Explore Other Destinations must
+  // all still render together.
+  it("a genuinely cached zero-match result (cacheStatus: hit) preserves Calendar, Heatmap, the primary card, and the White Label alternative all together", async () => {
+    stubFetch({ cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 3600 });
+    renderResults(ECONOMY_ZERO_URL);
+
+    await waitFor(() => expect(screen.getByText("No Exact Recent Fare Data Found")).toBeTruthy());
+    expect(screen.getByText("Recent Fare Calendar")).toBeTruthy();
+    expect(screen.getByText("Recent Fare Heatmap")).toBeTruthy();
+    expect(screen.getByText("Try Different Dates")).toBeTruthy();
+    expect(screen.getByText(/explore other destinations from/i)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /^search live flights$/i }).length).toBeGreaterThan(0);
+  });
 });
 
-// ── Item 8/9: icon semantics reflect actual behavior ──
-
-describe("FlightResults — Round 3 Fix 2: icon semantics match actual behavior", () => {
-  it("item 8: the sticky-header Search Live Flights button (same-page scroll) has no ExternalLink icon", async () => {
-    stubFetch([]);
+describe("FlightResults — icon semantics: both handoff buttons genuinely leave the site", () => {
+  it("every Search Live Flights button (sticky header and the zero-state card) keeps its ExternalLink icon", async () => {
+    stubFetch({ cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 60 });
     renderResults(ECONOMY_ZERO_URL);
     await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    const btn = screen.getByRole("button", { name: /^search live flights$/i });
-    expect(btn.querySelector("svg.lucide-external-link")).toBeNull();
+    const buttons = screen.getAllByRole("button", { name: /^search live flights$/i });
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const btn of buttons) {
+      expect(btn.querySelector("svg.lucide-external-link")).toBeTruthy();
+    }
   });
 
-  it("item 9: 'Open full flight search' (genuinely leaves the site) keeps its ExternalLink icon", async () => {
-    stubFetch([]);
-    renderResults(ECONOMY_ZERO_URL);
-    const btn = await screen.findByRole("button", { name: /open full flight search/i });
-    expect(btn.querySelector("svg.lucide-external-link")).toBeTruthy();
-  });
-
-  it("the Business cabin CTA (same-page scroll) also has no ExternalLink icon", async () => {
-    stubFetch([]);
+  it("the Business cabin CTA also keeps its ExternalLink icon", async () => {
+    stubFetch({});
     renderResults(BUSINESS_URL);
     const btn = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    expect(btn.querySelector("svg.lucide-external-link")).toBeNull();
+    expect(btn.querySelector("svg.lucide-external-link")).toBeTruthy();
   });
 });
 
-// ── Item 10: unavailable-live-search fallback still works ──
-
-describe("FlightResults — Round 3: unavailable-live-search fallback still works", () => {
-  it("item 10: when the live search is unavailable, the native section's fallback still redirects to the full Page White Label search", async () => {
-    stubFetch([]);
+describe("FlightResults — 'unavailable' cache status shows an honest banner, distinct from a genuine zero-match", () => {
+  it("shows the unavailable banner with a Try again action, not the generic zero-match sentence", async () => {
+    stubFetch({ cacheStatus: "unavailable" });
     renderResults(ECONOMY_ZERO_URL);
 
+    expect(await screen.findByText(/temporarily unavailable/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /try again/i })).toBeTruthy();
+    expect(screen.queryByText(/no exact recent fare observation is available/i)).toBeNull();
+  });
+});
+
+describe("FlightResults — no Travelpayouts Widget or SerpApi live-search runtime remains", () => {
+  it("no tpwl-search/tpwl-tickets containers exist anywhere on the page", async () => {
+    stubFetch({ cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 60 });
+    const { container } = renderResults(ECONOMY_ZERO_URL);
     await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
-
-    await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
-    await waitFor(() => expect(mockLogAffiliateClick).toHaveBeenCalled());
+    expect(container.querySelector("#tpwl-search")).toBeNull();
+    expect(container.querySelector("#tpwl-tickets")).toBeNull();
+    expect(container.querySelector("#live-flights-section")).toBeNull();
   });
-});
 
-// ── Item 11: zero-result sponsored placements still work ──
-
-describe("FlightResults — Round 3: zero-result sponsored placements still work", () => {
-  it("item 11: after_result_3 (before Live Flights) still renders with zero cached observations", async () => {
-    hoisted.ads = { after_result_3: AD };
-    stubFetch([]);
+  it("does not call search-live-flights or get-live-flight-booking-options — those functions no longer exist", async () => {
+    const fetchMock = stubFetch({ cacheStatus: "hit", fetchedAt: new Date().toISOString(), ageSeconds: 60 });
     renderResults(ECONOMY_ZERO_URL);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Sponsored Title" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
+    expect(fetchMock.mock.calls.some(([url]: [string]) => url.includes("search-live-flights"))).toBe(false);
+    expect(fetchMock.mock.calls.some(([url]: [string]) => url.includes("get-live-flight-booking-options"))).toBe(false);
   });
 });
 
-// ── Item 12: Business cached-price isolation remains ──
-
-describe("FlightResults — Round 3: Business cached-price isolation remains", () => {
-  it("item 12: Business never calls search-flights, even with the polished zero-state UI", async () => {
-    const fetchMock = stubFetch([]);
+describe("FlightResults — Business cached-price isolation remains", () => {
+  it("Business never calls search-flights", async () => {
+    const fetchMock = stubFetch({});
     renderResults(BUSINESS_URL);
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
     expect(fetchMock.mock.calls.some(([url]: [string]) => url.includes("search-flights"))).toBe(false);
   });
 });
-
-// Item 13 (Travelpayouts branding-hiding check) is removed under
-// BF-FLIGHTS-LIVE-4 — there is no embedded third-party widget left to hide
-// branding from; Live Flights results are BookingsFinder's own native UI.

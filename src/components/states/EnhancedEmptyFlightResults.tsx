@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Plane, Calendar, Search, TrendingUp } from "lucide-react";
+import { Plane, Calendar, Search, TrendingUp, ExternalLink } from "lucide-react";
 import { parseISO, addDays, format, isBefore } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,24 +40,19 @@ interface EnhancedEmptyFlightResultsProps {
   cabinClass?: string;
   message?: string;
   /**
-   * BF-FLIGHTS-LIVE-3 Round 3 Fix 1: suppresses the primary "No Exact
-   * Recent Fare Data Found" card (icon, heading, message, suggestions box,
-   * and its Search Live Flights / Modify Search / Clear All Filters row)
+   * BF-FLIGHTS-LIVE-3 Round 3: suppresses the primary "No Exact Recent
+   * Fare Data Found" card (icon, heading, message, suggestions box, and
+   * its Search Live Flights / Modify Search / Clear All Filters row)
    * while still rendering the Try Different Dates and Explore Other
    * Destinations sections below it.
    *
-   * FlightResults.tsx passes true because the embedded Live Flights
-   * section (Travelpayouts widget) now always renders ABOVE this
-   * component along with its own compact truthful zero-result sentence —
-   * a second, larger "no data" card immediately below it read as if the
-   * search itself had failed, when a live search is right there. Search
-   * Live Flights is not lost: it's the page-level button in the sticky
-   * header (BF-FLIGHTS-LIVE-1 Phase C) and the header's "Edit" button
-   * already covers Modify Search — neither is exclusive to this card.
-   *
-   * Defaults to false so this component's original standalone behaviour
-   * is preserved for any future caller that isn't paired with an always-
-   * visible live-search section above it.
+   * BF-FLIGHTS-CACHE-1: FlightResults.tsx no longer passes true — there is
+   * no embedded on-page live section any more (that was LIVE-3/LIVE-4's
+   * now-removed Travelpayouts Widget / SerpApi architecture), so this
+   * primary card is once again the main zero-result surface, same as its
+   * original BF-FLIGHTS-LIVE-1 design. The prop itself is left in place
+   * (defaulting to false) rather than removed, in case a future caller
+   * genuinely needs to suppress it.
    */
   hidePrimaryCard?: boolean;
 }
@@ -160,26 +155,7 @@ const EnhancedEmptyFlightResults = ({
 
   return (
     <div className="space-y-8">
-      {/*
-        * BF-FLIGHTS-LIVE-3 Round 3 Fix 1: suppressed entirely (not merely
-        * shrunk, per BF-FLIGHTS-LIVE-3 Phase F below) when the caller
-        * knows an embedded Live Flights section already renders above
-        * this component with its own compact truthful zero-result
-        * sentence — a second, larger "no data" card immediately below it
-        * read as if the search itself had failed, when a live search is
-        * right there. See hidePrimaryCard's doc comment above.
-        */}
       {!hidePrimaryCard && (
-        /*
-         * BF-FLIGHTS-LIVE-3 Phase F: shrunk from the original large card —
-         * FlightResults.tsx now shows the embedded Live Flights section
-         * ABOVE this component (not "below" as in the pre-embed layout), so
-         * this must not read as the primary/dominant result of the search.
-         * Content and CTAs are otherwise unchanged (same heading, message,
-         * suggestions, and all three buttons) to avoid regressing the
-         * BF-0R-7.2/BF-FLIGHTS-LIVE-1 behaviour already covered by
-         * EnhancedEmptyFlightResults.test.tsx and the FlightResults suites.
-         */
         <Card className="border-border">
           <CardContent className="p-6 md:p-8 text-center">
             <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
@@ -212,18 +188,11 @@ const EnhancedEmptyFlightResults = ({
               * Clear Filters remains a tertiary option for a filtered-away
               * result set.
               */}
-            {/*
-              * BF-FLIGHTS-LIVE-3 Round 3 Fix 2: no ExternalLink icon —
-              * onSearchLiveFlights (handleSearchLiveFlights) normally
-              * scrolls to the embedded Live Flights section on this same
-              * page rather than leaving the site; see the matching fix on
-              * the sticky-header button in FlightResults.tsx. This block
-              * only renders when hidePrimaryCard is left false.
-              */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               {onSearchLiveFlights && (
-                <Button onClick={onSearchLiveFlights}>
+                <Button onClick={onSearchLiveFlights} className="gap-1.5">
                   Search Live Flights
+                  <ExternalLink className="h-4 w-4" />
                 </Button>
               )}
               {/*

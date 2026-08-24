@@ -1,16 +1,27 @@
 /**
- * BF-FLIGHTS-LIVE-4 Phase F — minimal in-memory cost/abuse guard for
- * search-live-flights and get-live-flight-booking-options (both call a
- * paid upstream API).
+ * BF-FLIGHTS-CACHE-1 — minimal in-memory cost/abuse guard for
+ * search-flights (calls the Travelpayouts Data API upstream).
  *
- * Audit finding: grepped every supabase/functions/**\/*.ts for
- * rate-limit/throttle/abuse — no inbound per-caller limiter exists
- * anywhere in this repo today. The only hits (check-price-alerts) are that
- * function's own OUTBOUND self-throttling sleep(500) between ITS calls to
- * Travelpayouts, a different concern. There is nothing existing to reuse.
+ * Originally built for the now-removed SerpApi live-search functions
+ * (BF-FLIGHTS-LIVE-4) and renamed/generalized here — the underlying
+ * per-client window / identical-request cooldown / concurrency-cap logic
+ * is provider-agnostic and applies equally to search-flights.
  *
- * Phase F says not to invent a DB migration unless required, so this is a
- * module-scope, in-memory guard — not a persisted one.
+ * Audit finding (unchanged from BF-FLIGHTS-LIVE-4): no inbound per-caller
+ * limiter exists anywhere else in this repo. check-price-alerts' own
+ * sleep(500) is an OUTBOUND self-throttle between ITS calls to
+ * Travelpayouts, a different concern. Nothing else to reuse.
+ *
+ * With the BF-FLIGHTS-CACHE-1 persistent cache in place, the cache itself
+ * is the PRIMARY defence against repeated frontend renders re-hitting
+ * Travelpayouts — a fresh cache row answers from the DB, never calling
+ * upstream at all. This rate limiter is now a SECONDARY guard: it bounds
+ * genuine abuse (many distinct searches, or a burst of identical requests
+ * arriving before the first one's cache write completes — a "cache
+ * stampede"). A more complete stampede guard (e.g. a short-lived DB
+ * advisory lock or in-flight-request de-duplication) is NOT built here —
+ * documented as a later hardening item if it proves necessary in
+ * practice; this module intentionally stays a simple, in-memory guard.
  *
  * Honest limitation (documented, not hidden): Supabase Edge Functions can
  * run as multiple concurrent isolates, and any isolate can cold-start with
@@ -18,7 +29,7 @@
  * real cost control for the common case (repeated requests hitting the
  * same warm instance) but not a cross-instance guarantee. A durable,
  * cross-instance limit would need shared state (a DB table or KV store),
- * deliberately not built here. See the STOP-BEFORE-COMMIT report.
+ * deliberately not built here.
  *
  * DEPLOYMENT BLOCKER / FOLLOW-UP — BF-FLIGHTS-LIVE-RATE-1: before this
  * function sees substantial public traffic, a durable, cross-instance
@@ -86,13 +97,13 @@ export function checkRateLimit(clientKey: string): void {
   }
 
   if (state.count >= MAX_REQUESTS_PER_KEY_PER_WINDOW) {
-    throw new RateLimitError("Too many live flight searches. Please wait a moment and try again.");
+    throw new RateLimitError("Too many flight searches. Please wait a moment and try again.");
   }
 
   state.count += 1;
 }
 
-/** Rejects the exact same client re-sending the exact same search/booking-token request within a short cooldown. */
+/** Rejects the exact same client re-sending the exact same search within a short cooldown. */
 export function checkIdenticalRequest(clientKey: string, fingerprint: string): void {
   const key = `${clientKey}:${fingerprint}`;
   const now = Date.now();
@@ -108,7 +119,7 @@ export function checkIdenticalRequest(clientKey: string, fingerprint: string): v
 /** Caps how many upstream calls can be in flight at once across this isolate. */
 export function acquireConcurrencySlot(): void {
   if (concurrentRequests >= MAX_CONCURRENT_REQUESTS) {
-    throw new RateLimitError("Live flight search is at capacity. Please try again shortly.");
+    throw new RateLimitError("Flight search is at capacity. Please try again shortly.");
   }
   concurrentRequests += 1;
 }
@@ -118,7 +129,7 @@ export function releaseConcurrencySlot(): void {
 }
 
 /** Test-only: resets all module-scope state between test cases. */
-export function __resetLiveFlightRateLimitForTests(): void {
+export function __resetFlightSearchRateLimitForTests(): void {
   requestWindows.clear();
   recentRequestKeys.clear();
   concurrentRequests = 0;

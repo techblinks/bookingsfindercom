@@ -62,30 +62,6 @@ verify_jwt = true
 [functions.search-flights]
 verify_jwt = false
 
-# BF-FLIGHTS-LIVE-4: intentionally browser-callable, public travel-search
-# endpoints — BookingsFinder Flights is an anonymous search experience, and
-# a visitor must be able to search live flights without signing in first,
-# exactly like search-flights above. verify_jwt=false does NOT expose
-# SERPAPI_API_KEY: the secret is read only inside the function from
-# server-side environment/secrets (see _shared/serpapiFlights.ts) and is
-# never returned to, or logged for, the caller. Application-level
-# protections stay active regardless of this setting — request schema
-# validation (_shared/liveFlightValidation.ts) and the per-client
-# rate/cost guards (_shared/liveFlightRateLimit.ts: per-client window,
-# identical-request cooldown, in-isolate concurrency cap). Do not flip
-# this to verify_jwt=true "to be safer" — that would silently turn public
-# Flights search into a signed-in-only feature, which is not what this
-# page is. Those in-isolate guards are NOT a durable, cross-instance
-# budget enforcement mechanism — see BF-FLIGHTS-LIVE-RATE-1 (documented in
-# liveFlightRateLimit.ts) for the follow-up required before this sees
-# substantial public traffic; they are sufficient for controlled
-# preview/live smoke testing against a low-budget SerpApi account.
-[functions.search-live-flights]
-verify_jwt = false
-
-[functions.get-live-flight-booking-options]
-verify_jwt = false
-
 [functions.get-redirect]
 verify_jwt = false
 

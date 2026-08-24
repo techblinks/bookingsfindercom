@@ -43,12 +43,36 @@ export interface Flight {
   };
 }
 
+/**
+ * BF-FLIGHTS-CACHE-1 — cacheStatus/fetchedAt/ageSeconds describe
+ * BookingsFinder's OWN persistent cache fetch, never a Travelpayouts
+ * provider-observation timestamp (the Data API does not expose a
+ * trustworthy exact found_at — see search-flights/index.ts). Never
+ * conflate the two when displaying freshness copy.
+ *
+ *   "hit"         — fresh cache row served, no upstream call this request.
+ *   "refreshed"   — cache was missing/stale; upstream was called and its
+ *                   result written to cache just now.
+ *   "stale"       — upstream refresh attempt failed; a 6-24h-old cache row
+ *                   was returned as an explicit fallback (never claimed
+ *                   current/live).
+ *   "unavailable" — no cache (or cache past the 24h ceiling) AND the
+ *                   upstream refresh attempt failed too; flights is empty
+ *                   and this is NOT the same fact as a genuine zero-match.
+ */
+export type FlightSearchCacheStatus = "hit" | "refreshed" | "stale" | "unavailable";
+
 export interface FlightSearchMeta {
   total_found: number;
   is_complete: boolean;
   search_id?: string;
   cheapest_price?: number;
   fastest_duration?: number;
+  cacheStatus?: FlightSearchCacheStatus;
+  /** ISO timestamp — when BookingsFinder's cache last fetched this data from Travelpayouts. Absent only for the "unavailable" status. */
+  fetchedAt?: string;
+  /** Seconds since fetchedAt, computed server-side at response time. */
+  ageSeconds?: number;
 }
 
 export interface FlightSearchResponse {
@@ -73,7 +97,16 @@ export interface FilterState {
   maxDuration: number;
 }
 
-export type SortOption = "best" | "cheapest" | "fastest";
+/**
+ * BF-FLIGHTS-CACHE-1 Phase 3: "best" is deliberately not offered here.
+ * Travelpayouts' prices_for_dates cached observations carry no
+ * provider-defined "best" ranking — the previous "Best" option used a
+ * BookingsFinder-invented weighted price/duration/stops score
+ * (calculateDealScore) and presented it as if it were an objective/
+ * provider ranking. Only sorts directly justified by returned data remain.
+ * Default is "cheapest".
+ */
+export type SortOption = "cheapest" | "fastest" | "stops";
 
 export const DEPARTURE_TIME_SLOTS = [
   { id: "early-morning", label: "Early Morning", time: "12am - 6am", startHour: 0, endHour: 6 },

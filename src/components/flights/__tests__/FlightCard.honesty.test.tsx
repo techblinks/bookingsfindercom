@@ -339,20 +339,21 @@ describe("FlightCard — cabin/passenger truth (BF-0R-7 Round 1.1 item 2)", () =
 
 // ── ORDERING LABELS ARE COMPARISONS, NOT VERDICTS ──
 
-describe("FlightQuickSelect — cheapest / fastest / best remain", () => {
+describe("FlightQuickSelect — cheapest / fastest / fewest stops remain (no proprietary 'best')", () => {
   const flights: Flight[] = [
     makeFlight({ id: "cheap", price: 180, duration_minutes: 240, stops: 1, deal_score: 40 }),
     makeFlight({ id: "fast", price: 520, duration_minutes: 95, stops: 0, deal_score: 60 }),
     makeFlight({ id: "best", price: 260, duration_minutes: 120, stops: 0, deal_score: 90 }),
   ];
 
-  it("still offers the three genuine trade-off comparisons", () => {
+  it("still offers the three genuine trade-off comparisons — no 'Recent best' (BF-FLIGHTS-CACHE-1 quick-select truth fix)", () => {
     // BF-0R-7.1 Phase C: labelled "Recent ..." — these are cached fare
     // observations, not live prices.
     const { container } = render(<FlightQuickSelect flights={flights} currency="$" onSelect={vi.fn()} />);
     expect(within(container).getByText("Recent cheapest")).toBeTruthy();
     expect(within(container).getByText("Recent fastest fare")).toBeTruthy();
-    expect(within(container).getByText("Recent best")).toBeTruthy();
+    expect(within(container).getByText("Recent fewest stops")).toBeTruthy();
+    expect(within(container).queryByText("Recent best")).toBeNull();
   });
 
   it("makes no market or urgency claim while doing so", () => {

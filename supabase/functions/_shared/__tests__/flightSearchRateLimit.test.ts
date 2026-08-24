@@ -1,5 +1,5 @@
 /**
- * BF-FLIGHTS-LIVE-4 Phase F/W — in-memory cost/abuse guard.
+ * BF-FLIGHTS-CACHE-1 — in-memory cost/abuse guard for search-flights.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import {
@@ -9,11 +9,11 @@ import {
   acquireConcurrencySlot,
   releaseConcurrencySlot,
   RateLimitError,
-  __resetLiveFlightRateLimitForTests,
-} from "../liveFlightRateLimit.ts";
+  __resetFlightSearchRateLimitForTests,
+} from "../flightSearchRateLimit.ts";
 
 beforeEach(() => {
-  __resetLiveFlightRateLimitForTests();
+  __resetFlightSearchRateLimitForTests();
 });
 
 describe("getClientKey", () => {

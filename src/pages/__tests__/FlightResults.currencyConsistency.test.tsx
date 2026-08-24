@@ -165,14 +165,7 @@ describe("FlightResults — Recent Fare Calendar and Heatmap use the resolved cu
 });
 
 describe("FlightResults — White Label handoff receives the resolved currency (items 11, 12)", () => {
-  // BF-FLIGHTS-LIVE-4: the White Label handoff is no longer reachable from
-  // "Search Live Flights" itself (that button only scrolls to the native
-  // Live Flights section). It's reached via that section's own "Open full
-  // flight search" fallback button, shown when the live search is
-  // unavailable — this file's fetch stub returns an unrecognized shape for
-  // search-live-flights, so the live search resolves to "unavailable"
-  // deterministically, surfacing that button.
-  it("item 11: the Live Flights fallback passes currency: AUD alongside the full supported contract", async () => {
+  it("item 11: 'Search Live Flights' passes currency: AUD alongside the full supported contract", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({
       success: true,
       url: "https://flights.bookingsfinder.com/?flightSearch=SYD1001MEL2001&currency=AUD",
@@ -182,7 +175,7 @@ describe("FlightResults — White Label handoff receives the resolved currency (
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(await screen.findByRole("button", { name: /open full flight search/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
     expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
@@ -209,7 +202,7 @@ describe("FlightResults — White Label handoff receives the resolved currency (
     stubFetch(FLIGHTS);
     renderResults(BUSINESS_URL);
 
-    const cta = await screen.findByRole("button", { name: /open full flight search/i });
+    const cta = await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
     fireEvent.click(cta);
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
