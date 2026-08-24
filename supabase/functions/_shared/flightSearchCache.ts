@@ -84,11 +84,18 @@ export type FlightSearchCacheLookup =
   | { type: "stale"; row: FlightSearchCacheRow }
   | { type: "miss" };
 
+/** Logs a sanitized cache-layer warning — message/code only, never payload/keys/tokens. */
+function logCacheWarning(operation: string, detail: string): void {
+  console.warn(`Flight search cache ${operation} warning: ${detail}`);
+}
+
 /**
  * Looks up a cache row, fresh first, then stale (only if fresh missed) —
  * matching tiqets-public's two-query pattern so a fresh hit costs exactly
- * one DB round trip. DB errors are treated as a miss (fail open to
- * upstream, never fail the whole request over a cache-layer problem).
+ * one DB round trip. supabase-js returns { data, error } rather than
+ * throwing on a DB-level failure, so both are checked explicitly. Any
+ * lookup error (returned OR thrown) is treated as a miss — fail open to
+ * upstream, never fail the whole request over a cache-layer problem.
  */
 export async function getFlightSearchCache(
   client: SupabaseClient,
@@ -98,12 +105,17 @@ export async function getFlightSearchCache(
     const now = Date.now();
     const freshThreshold = new Date(now - FRESH_TTL_SEC * 1000).toISOString();
 
-    const { data: fresh } = await client
+    const { data: fresh, error: freshError } = await client
       .from("flight_search_cache")
       .select("cache_key, payload, fetched_at, expires_at")
       .eq("cache_key", cacheKey)
       .gt("fetched_at", freshThreshold)
       .maybeSingle();
+
+    if (freshError) {
+      logCacheWarning("lookup", `${freshError.message} (treating as miss)`);
+      return { type: "miss" };
+    }
 
     if (fresh) {
       return { type: "fresh", row: fresh as unknown as FlightSearchCacheRow };
@@ -111,7 +123,7 @@ export async function getFlightSearchCache(
 
     const staleThreshold = new Date(now - STALE_MAX_SEC * 1000).toISOString();
 
-    const { data: stale } = await client
+    const { data: stale, error: staleError } = await client
       .from("flight_search_cache")
       .select("cache_key, payload, fetched_at, expires_at")
       .eq("cache_key", cacheKey)
@@ -119,12 +131,18 @@ export async function getFlightSearchCache(
       .gt("fetched_at", staleThreshold)
       .maybeSingle();
 
+    if (staleError) {
+      logCacheWarning("lookup", `${staleError.message} (treating as miss)`);
+      return { type: "miss" };
+    }
+
     if (stale) {
       return { type: "stale", row: stale as unknown as FlightSearchCacheRow };
     }
 
     return { type: "miss" };
-  } catch {
+  } catch (err) {
+    logCacheWarning("lookup", `${err instanceof Error ? err.message : "unknown error"} (treating as miss)`);
     return { type: "miss" };
   }
 }
@@ -139,7 +157,15 @@ export interface UpsertFlightSearchCacheParams {
   payload: FlightSearchCachePayload;
 }
 
-/** Best-effort — a cache write failure must never fail the traveller's search. */
+/**
+ * Best-effort — a cache write failure must never fail the traveller's
+ * search (the caller already has a valid Travelpayouts result regardless
+ * of whether this succeeds). Still awaited by the caller so the write
+ * request is allowed to actually complete before the response returns —
+ * Edge Function runtime may terminate work once the response is sent, so
+ * an un-awaited ("fire-and-forget") write is not reliable for a primary
+ * persistent cache.
+ */
 export async function upsertFlightSearchCache(
   client: SupabaseClient,
   params: UpsertFlightSearchCacheParams,
@@ -148,7 +174,7 @@ export async function upsertFlightSearchCache(
     const now = new Date();
     const expiresAt = new Date(now.getTime() + FRESH_TTL_SEC * 1000);
 
-    await client.from("flight_search_cache").upsert(
+    const { error } = await client.from("flight_search_cache").upsert(
       {
         cache_key: params.cacheKey,
         origin: params.origin.toUpperCase(),
@@ -165,23 +191,32 @@ export async function upsertFlightSearchCache(
       },
       { onConflict: "cache_key" },
     );
-  } catch {
-    // Cache write failure is non-fatal — the traveller still got a real result.
+
+    if (error) {
+      logCacheWarning("write", `${error.message} for key ${params.cacheKey} (search result still returned to traveller)`);
+    }
+  } catch (err) {
+    logCacheWarning("write", `${err instanceof Error ? err.message : "unknown error"} for key ${params.cacheKey} (search result still returned to traveller)`);
   }
 }
 
 /**
- * Best-effort, fire-and-forget demand signal (Phase S) — a no-op if the row
- * doesn't exist yet (a genuine first-ever search for this key), since the
- * subsequent upsertFlightSearchCache call sets its initial request_count=1.
- * Never awaited by the caller for correctness — only for the freshness
- * decision, which does not depend on this.
+ * Best-effort demand signal (Phase S) — a no-op if the row doesn't exist yet
+ * (a genuine first-ever search for this key), since the subsequent
+ * upsertFlightSearchCache call sets its initial request_count=1. The
+ * caller runs this concurrently with the cache lookup (Promise.all), not
+ * serially — it is still non-fatal and never gates the freshness decision
+ * or the response; concurrency is only so the request is allowed to
+ * complete rather than being left as an untracked fire-and-forget promise.
  */
 export async function recordFlightSearchDemand(client: SupabaseClient, cacheKey: string): Promise<void> {
   try {
-    await client.rpc("bump_flight_search_cache_demand", { p_cache_key: cacheKey });
-  } catch {
-    // best-effort
+    const { error } = await client.rpc("bump_flight_search_cache_demand", { p_cache_key: cacheKey });
+    if (error) {
+      logCacheWarning("demand tracking", `${error.message} for key ${cacheKey} (non-fatal)`);
+    }
+  } catch (err) {
+    logCacheWarning("demand tracking", `${err instanceof Error ? err.message : "unknown error"} for key ${cacheKey} (non-fatal)`);
   }
 }
 

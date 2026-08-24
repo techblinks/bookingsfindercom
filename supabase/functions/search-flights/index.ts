@@ -78,10 +78,15 @@ Deno.serve(async (req) => {
       currency: body.currency,
     });
 
-    // Best-effort demand signal — never blocks or gates the response.
-    void recordFlightSearchDemand(supabaseAdmin, cacheKey);
-
-    const cacheLookup = await getFlightSearchCache(supabaseAdmin, cacheKey);
+    // Demand tracking runs concurrently with the cache lookup rather than
+    // serially (both are short, independent DB operations) and rather than
+    // as an untracked fire-and-forget promise — see recordFlightSearchDemand.
+    // It stays best-effort/non-fatal and never gates the freshness decision;
+    // it is only awaited so the write is allowed to actually complete.
+    const [cacheLookup] = await Promise.all([
+      getFlightSearchCache(supabaseAdmin, cacheKey),
+      recordFlightSearchDemand(supabaseAdmin, cacheKey),
+    ]);
 
     // Fresh cache hit — answer directly, no upstream call, no rate limiter
     // involvement at all (the cache IS the primary defence against repeated
@@ -151,8 +156,14 @@ Deno.serve(async (req) => {
 
       console.log(`Search complete: found ${exactMatches.length} unique flights for the exact requested date(s)`);
 
-      // Best-effort — never blocks the response.
-      void upsertFlightSearchCache(supabaseAdmin, {
+      // Best-effort on failure (never turns a valid Travelpayouts result
+      // into a user-facing failure), but AWAITED so the write is allowed to
+      // complete before the response returns — Edge Function runtime may
+      // terminate background work once the response is sent, so this must
+      // not be left as an untracked fire-and-forget promise. Applies to
+      // zero-result exactMatches too: a successful zero-result search is
+      // still cached.
+      await upsertFlightSearchCache(supabaseAdmin, {
         cacheKey,
         origin: body.origin,
         destination: body.destination,

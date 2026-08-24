@@ -192,6 +192,65 @@ describe("recordFlightSearchDemand", () => {
   });
 });
 
+// BF-FLIGHTS-CACHE-1 correctness fix — supabase-js commonly RETURNS
+// { data, error } rather than throwing on a DB-level failure. The
+// throwOnQuery/upsertImpl-throws tests above only cover the thrown case;
+// these cover the equally-important returned-error case.
+describe("getFlightSearchCache — returned (non-thrown) Supabase error", () => {
+  it("treats a returned error on the fresh query as a miss (fails open to upstream)", async () => {
+    const client = makeMockClient({ queryResults: [{ data: null, error: { message: "connection reset" } } as any] });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("miss");
+  });
+
+  it("treats a returned error on the stale query (after a clean fresh miss) as a miss", async () => {
+    const client = makeMockClient({
+      queryResults: [{ data: null, error: null } as any, { data: null, error: { message: "timeout" } } as any],
+    });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("miss");
+  });
+
+  it("logs a sanitized warning (error message only) and never logs a payload or credential", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = makeMockClient({ queryResults: [{ data: null, error: { message: "permission denied" } } as any] });
+    await getFlightSearchCache(client, "K");
+    const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(logged).toContain("permission denied");
+    expect(logged).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(logged).not.toMatch(/flights"?\s*:/); // never the raw cached payload
+    warnSpy.mockRestore();
+  });
+});
+
+describe("upsertFlightSearchCache — returned (non-thrown) Supabase error", () => {
+  it("logs a sanitized warning and still resolves (non-fatal) when upsert returns an error object", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = makeMockClient({ upsertImpl: () => Promise.resolve({ error: { message: "duplicate key value" } }) });
+    await expect(
+      upsertFlightSearchCache(client, {
+        cacheKey: "K", origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
+        currency: "AUD", payload: { flights: [] },
+      }),
+    ).resolves.toBeUndefined();
+    const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(logged).toContain("duplicate key value");
+    expect(logged).not.toMatch(/flights"?\s*:/);
+    warnSpy.mockRestore();
+  });
+});
+
+describe("recordFlightSearchDemand — returned (non-thrown) Supabase error", () => {
+  it("logs a sanitized warning and still resolves (non-fatal) when the RPC returns an error object", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = makeMockClient({ rpcImpl: () => Promise.resolve({ error: { message: "function not found" } }) });
+    await expect(recordFlightSearchDemand(client, "K")).resolves.toBeUndefined();
+    const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(logged).toContain("function not found");
+    warnSpy.mockRestore();
+  });
+});
+
 describe("computeAgeSeconds", () => {
   it("computes BookingsFinder's own cache-fetch age, not a provider observation age", () => {
     const fetchedAt = new Date(Date.now() - 7200 * 1000).toISOString();
