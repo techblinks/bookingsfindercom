@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Plane, Calendar, Search, TrendingUp, ExternalLink } from "lucide-react";
+import { Plane, Calendar, Search, TrendingUp } from "lucide-react";
 import { parseISO, addDays, format, isBefore } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +39,27 @@ interface EnhancedEmptyFlightResultsProps {
   infants?: number;
   cabinClass?: string;
   message?: string;
+  /**
+   * BF-FLIGHTS-LIVE-3 Round 3 Fix 1: suppresses the primary "No Exact
+   * Recent Fare Data Found" card (icon, heading, message, suggestions box,
+   * and its Search Live Flights / Modify Search / Clear All Filters row)
+   * while still rendering the Try Different Dates and Explore Other
+   * Destinations sections below it.
+   *
+   * FlightResults.tsx passes true because the embedded Live Flights
+   * section (Travelpayouts widget) now always renders ABOVE this
+   * component along with its own compact truthful zero-result sentence —
+   * a second, larger "no data" card immediately below it read as if the
+   * search itself had failed, when a live search is right there. Search
+   * Live Flights is not lost: it's the page-level button in the sticky
+   * header (BF-FLIGHTS-LIVE-1 Phase C) and the header's "Edit" button
+   * already covers Modify Search — neither is exclusive to this card.
+   *
+   * Defaults to false so this component's original standalone behaviour
+   * is preserved for any future caller that isn't paired with an always-
+   * visible live-search section above it.
+   */
+  hidePrimaryCard?: boolean;
 }
 
 /**
@@ -74,6 +95,7 @@ const EnhancedEmptyFlightResults = ({
   infants = 0,
   cabinClass = "economy",
   message = "We don't have an exact recent fare observation for these dates. Live flights may still be available — search live prices below.",
+  hidePrimaryCard = false,
 }: EnhancedEmptyFlightResultsProps) => {
   /**
    * BF-0R-7.2 final correction item 2: timezone-safe calendar-date
@@ -139,72 +161,90 @@ const EnhancedEmptyFlightResults = ({
   return (
     <div className="space-y-8">
       {/*
-        * BF-FLIGHTS-LIVE-3 Phase F: shrunk from the original large card —
-        * FlightResults.tsx now shows the embedded Live Flights section
-        * ABOVE this component (not "below" as in the pre-embed layout), so
-        * this must not read as the primary/dominant result of the search.
-        * Content and CTAs are otherwise unchanged (same heading, message,
-        * suggestions, and all three buttons) to avoid regressing the
-        * BF-0R-7.2/BF-FLIGHTS-LIVE-1 behaviour already covered by
-        * EnhancedEmptyFlightResults.test.tsx and the FlightResults suites.
+        * BF-FLIGHTS-LIVE-3 Round 3 Fix 1: suppressed entirely (not merely
+        * shrunk, per BF-FLIGHTS-LIVE-3 Phase F below) when the caller
+        * knows an embedded Live Flights section already renders above
+        * this component with its own compact truthful zero-result
+        * sentence — a second, larger "no data" card immediately below it
+        * read as if the search itself had failed, when a live search is
+        * right there. See hidePrimaryCard's doc comment above.
         */}
-      <Card className="border-border">
-        <CardContent className="p-6 md:p-8 text-center">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-            <Plane className="h-7 w-7 text-muted-foreground" />
-          </div>
-          <h2 className="text-base font-semibold text-foreground mb-2">
-            No Exact Recent Fare Data Found
-          </h2>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">{message}</p>
+      {!hidePrimaryCard && (
+        /*
+         * BF-FLIGHTS-LIVE-3 Phase F: shrunk from the original large card —
+         * FlightResults.tsx now shows the embedded Live Flights section
+         * ABOVE this component (not "below" as in the pre-embed layout), so
+         * this must not read as the primary/dominant result of the search.
+         * Content and CTAs are otherwise unchanged (same heading, message,
+         * suggestions, and all three buttons) to avoid regressing the
+         * BF-0R-7.2/BF-FLIGHTS-LIVE-1 behaviour already covered by
+         * EnhancedEmptyFlightResults.test.tsx and the FlightResults suites.
+         */
+        <Card className="border-border">
+          <CardContent className="p-6 md:p-8 text-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+              <Plane className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <h2 className="text-base font-semibold text-foreground mb-2">
+              No Exact Recent Fare Data Found
+            </h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">{message}</p>
 
-          {/* Suggestions */}
-          <div className="bg-muted/50 rounded-lg p-4 mb-6 max-w-md mx-auto text-left">
-            <p className="text-sm font-medium text-foreground mb-3">Try these suggestions:</p>
-            <ul className="text-sm text-muted-foreground space-y-2">
-              <li className="flex items-start gap-2">
-                <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>Choose different travel dates (flexible by a few days)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Search className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>Adjust your filters to see more results</span>
-              </li>
-            </ul>
-          </div>
+            {/* Suggestions */}
+            <div className="bg-muted/50 rounded-lg p-4 mb-6 max-w-md mx-auto text-left">
+              <p className="text-sm font-medium text-foreground mb-3">Try these suggestions:</p>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li className="flex items-start gap-2">
+                  <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span>Choose different travel dates (flexible by a few days)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Search className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span>Adjust your filters to see more results</span>
+                </li>
+              </ul>
+            </div>
 
-          {/*
-            * BF-FLIGHTS-LIVE-1 Phase D: primary CTA is the live-search
-            * handoff, not a dead end — a missing recent fare observation is
-            * not proof that no flights exist. Modify Search is secondary;
-            * Clear Filters remains a tertiary option for a filtered-away
-            * result set.
-            */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {onSearchLiveFlights && (
-              <Button className="gap-1.5" onClick={onSearchLiveFlights}>
-                Search Live Flights
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-            )}
             {/*
-              * BF-0R-7.2 Phase F: reopens the in-page edit form rather than
-              * navigating to "/" — see the onModifySearch doc comment above.
+              * BF-FLIGHTS-LIVE-1 Phase D: primary CTA is the live-search
+              * handoff, not a dead end — a missing recent fare observation is
+              * not proof that no flights exist. Modify Search is secondary;
+              * Clear Filters remains a tertiary option for a filtered-away
+              * result set.
               */}
-            {onModifySearch && (
-              <Button variant="outline" className="gap-2" onClick={onModifySearch}>
-                <Search className="h-4 w-4" />
-                Modify Search
-              </Button>
-            )}
-            {onClearFilters && (
-              <Button variant="outline" onClick={onClearFilters}>
-                Clear All Filters
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            {/*
+              * BF-FLIGHTS-LIVE-3 Round 3 Fix 2: no ExternalLink icon —
+              * onSearchLiveFlights (handleSearchLiveFlights) normally
+              * scrolls to the embedded Live Flights section on this same
+              * page rather than leaving the site; see the matching fix on
+              * the sticky-header button in FlightResults.tsx. This block
+              * only renders when hidePrimaryCard is left false.
+              */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {onSearchLiveFlights && (
+                <Button onClick={onSearchLiveFlights}>
+                  Search Live Flights
+                </Button>
+              )}
+              {/*
+                * BF-0R-7.2 Phase F: reopens the in-page edit form rather than
+                * navigating to "/" — see the onModifySearch doc comment above.
+                */}
+              {onModifySearch && (
+                <Button variant="outline" className="gap-2" onClick={onModifySearch}>
+                  <Search className="h-4 w-4" />
+                  Modify Search
+                </Button>
+              )}
+              {onClearFilters && (
+                <Button variant="outline" onClick={onClearFilters}>
+                  Clear All Filters
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alternative Dates Section */}
       {alternativeDates.length > 0 && departureDate && (

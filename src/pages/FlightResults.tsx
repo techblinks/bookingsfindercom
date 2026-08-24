@@ -612,15 +612,24 @@ const FlightResults = () => {
                 * in EnhancedEmptyFlightResults below). Always visible in the
                 * sticky header so it survives scrolling past a long results
                 * list.
+                *
+                * BF-FLIGHTS-LIVE-3 Round 3 Fix 2: no ExternalLink icon —
+                * its normal (healthy-path) behavior is scrolling to the
+                * embedded #live-flights-section on THIS page (see
+                * handleSearchLiveFlights), not leaving the site. An
+                * external-link icon would misrepresent that. Only the
+                * error-state fallback actually navigates away, and it
+                * does so through handleOpenFullFlightSearch — a visually
+                * distinct action ("Open full flight search") that keeps
+                * its own ExternalLink icon.
                 */}
               {!isEditingSearch && (
                 <Button
                   size="sm"
-                  className="h-9 shrink-0 gap-1.5"
+                  className="h-9 shrink-0"
                   onClick={handleSearchLiveFlights}
                 >
                   Search Live Flights
-                  <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               )}
               {/*
@@ -689,9 +698,16 @@ const FlightResults = () => {
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin below.
               </p>
-              <Button onClick={handleSearchLiveFlights} className="gap-1.5">
+              {/*
+                * BF-FLIGHTS-LIVE-3 Round 3 Fix 2 (same principle applied
+                * consistently): this button shares handleSearchLiveFlights
+                * with the header's Search Live Flights button — its normal
+                * behavior is scrolling to the embedded #live-flights-section
+                * right below in this same panel, not leaving the site, so
+                * no ExternalLink icon here either.
+                */}
+              <Button onClick={handleSearchLiveFlights}>
                 Check live prices for your selected cabin
-                <ExternalLink className="h-3 w-3" />
               </Button>
             </div>
             {/*
@@ -812,20 +828,23 @@ const FlightResults = () => {
               <div>
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground animate-pulse">Searching for flights...</p>
-                ) : (
+                ) : totalResults > 0 ? (
                   /*
                    * BF-FLIGHTS-LIVE-1 Phase B/D: this count is how many
                    * cached fare observations exactly matched the requested
-                   * dates — not a statement that this many flights (or, at
-                   * zero, that no flights) exist. "0 recent fare
-                   * observations" stays true when it's zero; the old
-                   * "0 flights found" read as a live-inventory claim this
-                   * Data API cannot support.
+                   * dates — not a statement that this many flights exist.
+                   *
+                   * BF-FLIGHTS-LIVE-3 Round 3 Fix 1: only rendered when
+                   * totalResults > 0 — at zero, the compact truthful
+                   * sentence above the Live Flights section already says
+                   * "No exact recent fare observation is available for
+                   * these dates", so "0 recent fare observations" here
+                   * would just repeat it without adding information.
                    */
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> recent fare observation{totalResults !== 1 ? 's' : ''}
                   </p>
-                )}
+                ) : null}
               </div>
               {/*
                 * The filters trigger follows the sidebar, not the mobile search
@@ -889,6 +908,27 @@ const FlightResults = () => {
                   departureDate={departureDate} returnDate={returnDate}
                   adults={adults ?? undefined} children={children ?? undefined} infants={infants ?? undefined}
                   cabinClass={cabinClass}
+                  /*
+                   * BF-FLIGHTS-LIVE-3 Round 3 Fix 1: only when there are
+                   * genuinely ZERO cached observations for this search
+                   * (meta.total_found === 0) — the embedded Live Flights
+                   * section (with its own compact truthful zero-result
+                   * sentence) already covers that case above, so the
+                   * large "No Exact Recent Fare Data Found" card would be
+                   * a redundant second failure message there.
+                   *
+                   * Deliberately NOT hidden when meta.total_found > 0 but
+                   * displayedFlights.length === 0 anyway — that means the
+                   * traveller's own sidebar/sheet filters excluded every
+                   * cached result, cached data genuinely exists, and
+                   * "Clear All Filters" (inside the primary card) is the
+                   * correct fix for THAT problem — Live Flights being
+                   * shown above doesn't address it, so hiding the button
+                   * would remove real functionality (see
+                   * FlightResults.mobileFilters.test.tsx's "Clear filters
+                   * from the empty state restores the results").
+                   */
+                  hidePrimaryCard={meta.total_found === 0}
                 />
               ) : (
                 <>

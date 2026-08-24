@@ -91,7 +91,12 @@ describe("Flights V1 Mobile — no filters", () => {
     hoisted.isMobile = true;
     renderFlightResults(RESULTS_ROUTE);
     // Sidebar is hidden on mobile. Check that the main content renders.
-    expect(screen.getAllByText(/found/i).length).toBeGreaterThan(0);
+    // BF-FLIGHTS-LIVE-3 Round 3 Fix 1: this used to match "No Exact Recent
+    // Fare Data Fou[nd]" — that large card is now suppressed at true zero
+    // (meta.total_found === 0, as this file's useFlightSearch mock
+    // returns), so the presence check instead targets the compact
+    // truthful sentence that replaced it as the zero-result content.
+    expect(screen.getAllByText(/no exact recent fare observation is available/i).length).toBeGreaterThan(0);
   });
 });
 
