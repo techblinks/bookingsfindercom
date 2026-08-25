@@ -1636,6 +1636,60 @@ export type Database = {
         }
         Relationships: []
       }
+      suppliers: {
+        Row: {
+          capabilities: Json
+          commission: Json | null
+          config_refs: Json
+          created_at: string
+          display_name: string
+          health_last_error_at: string | null
+          health_last_ok_at: string | null
+          health_latency_ms: number | null
+          health_note: string | null
+          id: string
+          mode: string
+          planned_capabilities: Json
+          status: string
+          updated_at: string
+          vertical: string
+        }
+        Insert: {
+          capabilities?: Json
+          commission?: Json | null
+          config_refs?: Json
+          created_at?: string
+          display_name: string
+          health_last_error_at?: string | null
+          health_last_ok_at?: string | null
+          health_latency_ms?: number | null
+          health_note?: string | null
+          id: string
+          mode: string
+          planned_capabilities?: Json
+          status: string
+          updated_at?: string
+          vertical: string
+        }
+        Update: {
+          capabilities?: Json
+          commission?: Json | null
+          config_refs?: Json
+          created_at?: string
+          display_name?: string
+          health_last_error_at?: string | null
+          health_last_ok_at?: string | null
+          health_latency_ms?: number | null
+          health_note?: string | null
+          id?: string
+          mode?: string
+          planned_capabilities?: Json
+          status?: string
+          updated_at?: string
+          vertical?: string
+        }
+        Relationships: []
+      }
       things_activities: {
         Row: {
           canonical_title: string
