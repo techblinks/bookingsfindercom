@@ -1,7 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
-import { getConfig } from "../_shared/travelpayouts.ts";
-
-const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
+import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
+import { TravelpayoutsError } from "../_shared/travelpayouts.ts";
+import { toWireCalendarPrice } from "../_shared/flightWire.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -18,50 +18,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    const config = getConfig();
-
-    // Use the month-matrix endpoint for calendar prices
-    const params = new URLSearchParams({
-      origin: origin.toUpperCase(),
-      destination: destination.toUpperCase(),
+    // BF1-E: upstream call + fail-closed validation + raw->domain mapping now
+    // live behind the FlightProvider adapter; the HTTP contract is unchanged.
+    const provider = createTravelpayoutsProvider();
+    const calendar = await provider.getPriceCalendar({
+      origin,
+      destination,
       month,
       currency,
-      token: config.token,
-      show_to_affiliates: "true",
     });
 
-    const url = `${TRAVELPAYOUTS_API}/v2/prices/month-matrix?${params.toString()}`;
-    console.log(`Fetching price calendar: ${origin} -> ${destination} for ${month}`);
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("API error:", data);
-      return new Response(
-        JSON.stringify({ error: data.error || "Failed to fetch price calendar" }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // data.data is an array of { depart_date, return_date, origin, destination, value, ... }
-    const prices = (data.data || []).map((item: any) => ({
-      date: item.depart_date,
-      price: item.value,
-      returnDate: item.return_date || null,
-      airline: item.gate || null,
-      stops: item.number_of_changes ?? 0,
-      tripDuration: item.trip_duration ?? null,
-    }));
-
     return new Response(
-      JSON.stringify({ prices, success: true }),
+      JSON.stringify({ prices: calendar.entries.map(toWireCalendarPrice), success: true }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Price calendar error:", error);
+
+    if (error instanceof TravelpayoutsError) {
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to fetch price calendar" }),
+        { status: error.statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: error.message || "Internal error" }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Internal error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

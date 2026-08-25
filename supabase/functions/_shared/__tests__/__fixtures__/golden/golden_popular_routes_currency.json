@@ -1,0 +1,32 @@
+{
+  "routes": [
+    {
+      "origin": "BNE",
+      "originName": "Brisbane",
+      "destination": "DPS",
+      "destinationName": "Bali",
+      "price": 489,
+      "airline": "JQ",
+      "departureDate": "2026-10-14T00:10:00+10:00",
+      "returnDate": "2026-10-21T06:30:00+10:00",
+      "stops": 0,
+      "flightNumber": "JQ65",
+      "expiresAt": "2026-08-26T00:00:00"
+    },
+    {
+      "origin": "BNE",
+      "originName": "Brisbane",
+      "destination": "SIN",
+      "destinationName": "Singapore",
+      "price": 702.5,
+      "airline": "SQ",
+      "departureDate": "2026-11-02T09:05:00+10:00",
+      "returnDate": "2026-11-12T22:40:00+08:00",
+      "stops": 1,
+      "flightNumber": null,
+      "expiresAt": null
+    }
+  ],
+  "currency": "EUR",
+  "success": true
+}

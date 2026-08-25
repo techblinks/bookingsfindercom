@@ -1,0 +1,63 @@
+{
+  "success": true,
+  "data": [
+    {
+      "origin": "SYD",
+      "destination": "KTM",
+      "origin_airport": "SYD",
+      "destination_airport": "KTM",
+      "price": 634.0,
+      "airline": "QF",
+      "flight_number": "QF1635",
+      "departure_at": "2026-09-03T09:40:00+10:00",
+      "return_at": "2026-09-17T23:55:00+05:45",
+      "transfers": 2,
+      "duration": 1980,
+      "duration_to": 1140,
+      "duration_back": 840,
+      "link": "/search/SYD0309KTM1709"
+    },
+    {
+      "origin": "SYD",
+      "destination": "KTM",
+      "origin_airport": "SYD",
+      "destination_airport": "KTM",
+      "price": 587.2,
+      "airline": "AI",
+      "flight_number": "AI3015",
+      "departure_at": "2026-09-03T06:15:00+10:00",
+      "transfers": 1,
+      "duration": 1090,
+      "link": "/search/SYD0309KTM0302",
+      "found_at": "2026-08-24T11:02:00Z"
+    },
+    {
+      "origin": "SYD",
+      "destination": "KTM",
+      "price": 512.9,
+      "airline": "MU",
+      "flight_number": "MU562",
+      "departure_at": "2026-09-04T08:00:00+10:00",
+      "return_at": "2026-09-17T21:10:00+05:45",
+      "transfers": 1,
+      "duration": 1870,
+      "duration_to": 1030,
+      "duration_back": 840,
+      "link": "/search/SYD0409KTM1709"
+    },
+    {
+      "origin": "SYD",
+      "destination": "KTM",
+      "price": 555.0,
+      "airline": "SQ",
+      "flight_number": "SQ212",
+      "departure_at": "2026-09-03T15:25:00+10:00",
+      "return_at": "2026-09-18T23:30:00+05:45",
+      "transfers": 1,
+      "duration": 2010,
+      "duration_to": 1170,
+      "duration_back": 840,
+      "link": "/search/SYD0309KTM1809"
+    }
+  ]
+}

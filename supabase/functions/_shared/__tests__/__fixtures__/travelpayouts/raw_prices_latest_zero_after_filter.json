@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "data": [
+    { "destination": "X", "value": 0 },
+    { "destination": "Y", "price": -5 }
+  ]
+}

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from "../_shared/cors.ts";
-import { getLowestPrice, getConfig } from "../_shared/travelpayouts.ts";
+import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
 
 interface RouteRequest {
   origin: string;
@@ -32,7 +32,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const config = getConfig();
+    // BF1-E: Travelpayouts access now goes through the FlightProvider adapter.
+    const provider = createTravelpayoutsProvider();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout per route
 
         try {
-          const price = await getLowestPrice(
+          const price = await provider.getLowestPrice(
             {
               origin: route.origin,
               destination: route.destination,
@@ -93,7 +94,6 @@ Deno.serve(async (req) => {
               returnDate: route.returnDate || null,
               currency,
             },
-            config
           );
 
           clearTimeout(timeoutId);

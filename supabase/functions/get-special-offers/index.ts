@@ -1,28 +1,7 @@
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { getConfig } from "../_shared/travelpayouts.ts";
-
-const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
-
-function buildOffer(deal: any, origin: string, marker: string) {
-  const dest = deal.destination || "";
-  const dep = deal.depart_date || deal.departure_at || "";
-  return {
-    id: `${origin}-${dest}-${dep}`,
-    origin: origin.toUpperCase(),
-    destination: dest.toUpperCase(),
-    price: deal.value || deal.price || 0,
-    airline: deal.airline || deal.gate || "",
-    departure_date: dep || null,
-    return_date: deal.return_date || deal.return_at || null,
-    stops: deal.number_of_changes ?? deal.transfers ?? 0,
-    found_at: deal.found_at || new Date().toISOString(),
-    flight_number: deal.flight_number || null,
-    duration_minutes: deal.duration || 0,
-    link: dest && dep
-      ? `https://www.aviasales.com/search/${origin}${dep.replace(/-/g, "").slice(2, 6)}${dest}1?marker=${marker}`
-      : "",
-  };
-}
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
+import { TravelpayoutsError } from "../_shared/travelpayouts.ts";
+import { toWireSpecialOffer } from "../_shared/flightWire.ts";
 
 Deno.serve(async (req) => {
   const corsResp = handleCors(req);
@@ -30,49 +9,46 @@ Deno.serve(async (req) => {
 
   try {
     const { origin = "LHR", currency = "USD", limit = 8 } = await req.json();
-    const config = getConfig();
 
-    const searchParams = new URLSearchParams({
-      origin: origin.toUpperCase(),
+    // BF1-E: upstream call, fail-closed validation, affiliate deep-link
+    // building and raw->domain mapping now live behind the FlightProvider
+    // adapter.
+    //
+    // SANCTIONED BF1-E HONESTY FIX: offers whose provider row carried no
+    // found_at timestamp now serialize found_at: null. The previous code
+    // fabricated `new Date().toISOString()` here, falsely implying the offer
+    // had been observed "just now". Nothing generates timestamps from the
+    // current time anymore; the frontend already renders absent stamps
+    // honestly (no "Found X ago" line).
+    const provider = createTravelpayoutsProvider();
+    const result = await provider.getSpecialOffers({
+      origin,
       currency,
-      sorting: "price",
-      limit: String(Math.min(limit, 20)),
-      period_type: "year",
-      show_to_affiliates: "true",
-      token: config.token,
+      limit,
     });
 
-    const url = `${TRAVELPAYOUTS_API}/v2/prices/latest?${searchParams}`;
-    console.log(`Fetching special offers from: ${origin}`);
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`API error: ${response.status}`);
-      return errorResponse("Failed to fetch offers", response.status);
-    }
-
-    const data = await response.json();
-
-    if (!data.success || !data.data) {
-      return jsonResponse({ offers: [], source: "empty" });
-    }
-
-    // All items are deal objects with destination inside each entry
-    const rawDeals = Array.isArray(data.data) ? data.data : Object.values(data.data);
-    let offers = rawDeals.map((deal: any) => buildOffer(deal, origin.toUpperCase(), config.marker));
-
-    offers = offers.filter((o: any) => o.destination && o.destination.length >= 2 && o.price > 0);
-
-    // Sort by price ascending
-    offers.sort((a: any, b: any) => a.price - b.price);
-
+    // CONTRACT-PARITY CLOSEOUT (Fix 1): source selection restored verbatim
+    // from pre-BF1-E get-special-offers. The upstream envelope's empty state
+    // (not the resulting array length) decides between "empty" and
+    // "travelpayouts_latest"; a populated envelope that validates/filters
+    // down to zero offers still reports "travelpayouts_latest", exactly as
+    // before. Frontend behaviour is untouched (useSpecialOffers never read
+    // `source`).
     return jsonResponse({
-      offers: offers.slice(0, limit),
+      offers: result.offers.map(toWireSpecialOffer),
       currency,
-      source: "travelpayouts_latest",
+      source: result.upstreamEmpty ? "empty" : "travelpayouts_latest",
     });
   } catch (error) {
     console.error("Error in get-special-offers:", error);
-    return errorResponse(error.message || "Internal error", 500);
+
+    if (error instanceof TravelpayoutsError) {
+      return errorResponse(error.message || "Failed to fetch offers", error.statusCode);
+    }
+
+    return errorResponse(
+      error instanceof Error ? error.message : "Internal error",
+      500
+    );
   }
 });

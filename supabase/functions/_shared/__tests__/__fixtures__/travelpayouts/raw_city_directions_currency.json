@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "currency": "EUR",
+  "data": {
+    "DPS": {
+      "origin": "BNE",
+      "destination": "DPS",
+      "price": 489,
+      "airline": "JQ",
+      "departure_at": "2026-10-14T00:10:00+10:00",
+      "return_at": "2026-10-21T06:30:00+10:00",
+      "transfers": 0,
+      "flight_number": "JQ65",
+      "expires_at": "2026-08-26T00:00:00"
+    },
+    "SIN": {
+      "origin": "BNE",
+      "destination": "SIN",
+      "price": 702.5,
+      "airline": "SQ",
+      "departure_at": "2026-11-02T09:05:00+10:00",
+      "return_at": "2026-11-12T22:40:00+08:00",
+      "transfers": 1
+    }
+  }
+}

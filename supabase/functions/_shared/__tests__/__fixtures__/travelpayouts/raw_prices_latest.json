@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "data": [
+    {
+      "destination": "BCN",
+      "depart_date": "2026-09-10",
+      "value": 89,
+      "airline": "VY",
+      "found_at": "2026-08-24T09:15:00Z",
+      "number_of_changes": 0,
+      "duration": 795,
+      "flight_number": "VY8422"
+    },
+    {
+      "destination": "PRG",
+      "depart_date": "2026-09-21",
+      "value": 64,
+      "airline": "FR",
+      "number_of_changes": 0,
+      "duration": 735,
+      "flight_number": "FR3231"
+    },
+    {
+      "destination": "ATH",
+      "departure_at": "2026-10-02T05:20:00Z",
+      "price": 112,
+      "gate": "A3",
+      "transfers": 1,
+      "duration": 880
+    }
+  ]
+}

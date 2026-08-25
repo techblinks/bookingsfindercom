@@ -1,0 +1,29 @@
+{
+  "prices": [
+    {
+      "date": "2026-09-03",
+      "price": 412,
+      "returnDate": null,
+      "airline": "OneTravel",
+      "stops": 0,
+      "tripDuration": 7
+    },
+    {
+      "date": "2026-09-10",
+      "price": 388,
+      "returnDate": "2026-09-17",
+      "airline": "Kiwi.com",
+      "stops": 1,
+      "tripDuration": 14
+    },
+    {
+      "date": "2026-09-18",
+      "price": 501,
+      "returnDate": null,
+      "airline": null,
+      "stops": 2,
+      "tripDuration": null
+    }
+  ],
+  "success": true
+}
