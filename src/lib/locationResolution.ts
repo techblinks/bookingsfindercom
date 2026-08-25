@@ -1,6 +1,14 @@
 /**
  * Friendly location label resolution for flight-search prefill.
  *
+ * BF1-C STATUS: KEEP TEMPORARILY. The source of truth for airport/metro/city
+ * resolution is now src/lib/airportResolution.ts over the BF1-B reference
+ * tables. This map remains ONLY as a synchronous display-label fallback for
+ * prefill in ModernFlightSearch/MobileFlightSearch; it never fabricates codes
+ * (unknown codes render as themselves) and must not gain new consumers.
+ * Migrating its consumers to async resolver labels is deferred to avoid
+ * churning two large search components within BF1-C scope.
+ *
  * Explore-route cards and URL params carry IATA airport codes — and
  * occasionally Travelpayouts "city codes": metropolitan-area codes such as MOW
  * (Moscow) or TYO (Tokyo) that are not real airport codes. The airport
