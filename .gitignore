@@ -33,3 +33,6 @@ supabase/.temp/
 .wrangler/ 
 .dev.vars 
 .dev.vars.*
+
+# BF1-B reference data raw snapshots (fetched, not committed)
+scripts/reference-data/raw/

@@ -195,6 +195,113 @@ export type Database = {
         }
         Relationships: []
       }
+      airlines: {
+        Row: {
+          country_iso2: string | null
+          iata: string | null
+          icao: string | null
+          id: number
+          imported_at: string
+          is_active: boolean | null
+          name: string
+          source: string
+          source_record_id: string | null
+        }
+        Insert: {
+          country_iso2?: string | null
+          iata?: string | null
+          icao?: string | null
+          id: number
+          imported_at?: string
+          is_active?: boolean | null
+          name: string
+          source: string
+          source_record_id?: string | null
+        }
+        Update: {
+          country_iso2?: string | null
+          iata?: string | null
+          icao?: string | null
+          id?: number
+          imported_at?: string
+          is_active?: boolean | null
+          name?: string
+          source?: string
+          source_record_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "airlines_country_iso2_fkey"
+            columns: ["country_iso2"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["iso2"]
+          },
+        ]
+      }
+      airports: {
+        Row: {
+          airport_type: string
+          city_id: number | null
+          country_iso2: string
+          iata: string
+          icao: string | null
+          imported_at: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          municipality: string | null
+          name: string
+          source: string
+          source_record_id: string | null
+        }
+        Insert: {
+          airport_type: string
+          city_id?: number | null
+          country_iso2: string
+          iata: string
+          icao?: string | null
+          imported_at?: string
+          is_active?: boolean
+          latitude: number
+          longitude: number
+          municipality?: string | null
+          name: string
+          source: string
+          source_record_id?: string | null
+        }
+        Update: {
+          airport_type?: string
+          city_id?: number | null
+          country_iso2?: string
+          iata?: string
+          icao?: string | null
+          imported_at?: string
+          is_active?: boolean
+          latitude?: number
+          longitude?: number
+          municipality?: string | null
+          name?: string
+          source?: string
+          source_record_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "airports_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "airports_country_iso2_fkey"
+            columns: ["country_iso2"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["iso2"]
+          },
+        ]
+      }
       authorized_admins: {
         Row: {
           created_at: string
@@ -261,6 +368,59 @@ export type Database = {
         }
         Relationships: []
       }
+      cities: {
+        Row: {
+          country_iso2: string
+          iata_code: string | null
+          id: number
+          imported_at: string
+          is_metro: boolean
+          latitude: number
+          longitude: number
+          name: string
+          population: number | null
+          source: string
+          source_record_id: string | null
+          timezone: string | null
+        }
+        Insert: {
+          country_iso2: string
+          iata_code?: string | null
+          id: number
+          imported_at?: string
+          is_metro?: boolean
+          latitude: number
+          longitude: number
+          name: string
+          population?: number | null
+          source: string
+          source_record_id?: string | null
+          timezone?: string | null
+        }
+        Update: {
+          country_iso2?: string
+          iata_code?: string | null
+          id?: number
+          imported_at?: string
+          is_metro?: boolean
+          latitude?: number
+          longitude?: number
+          name?: string
+          population?: number | null
+          source?: string
+          source_record_id?: string | null
+          timezone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cities_country_iso2_fkey"
+            columns: ["country_iso2"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["iso2"]
+          },
+        ]
+      }
       click_events: {
         Row: {
           airline: string | null
@@ -322,6 +482,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      countries: {
+        Row: {
+          currency_code: string | null
+          imported_at: string
+          iso2: string
+          iso3: string
+          name: string
+          source: string
+          source_record_id: string | null
+        }
+        Insert: {
+          currency_code?: string | null
+          imported_at?: string
+          iso2: string
+          iso3: string
+          name: string
+          source: string
+          source_record_id?: string | null
+        }
+        Update: {
+          currency_code?: string | null
+          imported_at?: string
+          iso2?: string
+          iso3?: string
+          name?: string
+          source?: string
+          source_record_id?: string | null
+        }
+        Relationships: []
       }
       country_landing_pages: {
         Row: {
@@ -712,6 +902,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      metro_airports: {
+        Row: {
+          airport_iata: string
+          imported_at: string
+          metro_code: string
+          rank: number
+          source: string
+          source_record_id: string | null
+        }
+        Insert: {
+          airport_iata: string
+          imported_at?: string
+          metro_code: string
+          rank: number
+          source?: string
+          source_record_id?: string | null
+        }
+        Update: {
+          airport_iata?: string
+          imported_at?: string
+          metro_code?: string
+          rank?: number
+          source?: string
+          source_record_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metro_airports_airport_iata_fkey"
+            columns: ["airport_iata"]
+            isOneToOne: false
+            referencedRelation: "airports"
+            referencedColumns: ["iata"]
+          },
+        ]
       }
       optimizer_requests: {
         Row: {
