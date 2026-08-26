@@ -207,7 +207,7 @@ const FlightCard = ({ flight, currency = "$", onBookNow }: FlightCardProps) => {
                * recent find, not presented as a guaranteed current fare.
                */}
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Recent fare found
+                Recent fare observation
               </p>
               <p className="text-2xl font-bold text-foreground tabular-nums">
                 <span className="text-sm font-normal text-muted-foreground mr-0.5">{currency}</span>

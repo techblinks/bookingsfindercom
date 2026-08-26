@@ -114,7 +114,7 @@ const MobileFiltersSheet = ({
         <SheetHeader className="shrink-0 space-y-1 border-b border-border px-4 pb-3 pt-4 text-left">
           <SheetTitle>Filters</SheetTitle>
           <SheetDescription id="mobile-filters-description">
-            {totalResults} flight{totalResults !== 1 ? "s" : ""} match your current filters
+            {totalResults} recent fare observation{totalResults !== 1 ? "s" : ""} match your current filters
           </SheetDescription>
         </SheetHeader>
 

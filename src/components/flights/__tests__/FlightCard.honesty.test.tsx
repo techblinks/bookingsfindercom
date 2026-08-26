@@ -239,7 +239,7 @@ describe("FlightCard — genuine signals still render", () => {
 describe("FlightCard — price truth wording (BF-0R-7 Phase E)", () => {
   it("labels the price as a recent find, not a guaranteed current fare", () => {
     renderCard(makeFlight({ price: 320 }));
-    expect(screen.getByText(/recent fare found/i)).toBeTruthy();
+    expect(screen.getByText(/recent fare observation/i)).toBeTruthy();
   });
 
   it("tells the traveller to confirm on the partner", () => {

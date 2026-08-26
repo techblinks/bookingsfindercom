@@ -29,7 +29,9 @@ import { getWhiteLabelHost } from "@/lib/travelConfig";
 import { DEPARTURE_TIME_SLOTS, type FilterState } from "@/types/flight";
 import { toast } from "sonner";
 import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
-import { useGeoLocation } from "@/hooks/useGeoLocation";
+import CurrencySelector from "@/components/flights/CurrencySelector";
+import UnsupportedCurrencyDialog from "@/components/flights/UnsupportedCurrencyDialog";
+import { useCurrencyPreference } from "@/hooks/useCurrencyPreference";
 import MobileFlightSearch from "@/components/search/MobileFlightSearch";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { FlightLandingPage } from "@/pages/flight/FlightLandingPage";
@@ -43,6 +45,19 @@ const FlightResults = () => {
   const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY_COUNT);
   const [priceToolsOpen, setPriceToolsOpen] = useState(false);
   const [isEditingSearch, setIsEditingSearch] = useState(false);
+  /*
+   * BF-FLIGHTS-LIVE-2 Round 2 Phase C: a White Label redirect whose
+   * currency could not be preserved (buildWhiteLabelFlightUrl reported
+   * requestedCurrency set but currencyApplied === false) is held here
+   * instead of navigating immediately, so UnsupportedCurrencyDialog can
+   * get explicit confirmation first. Null means no warning is pending —
+   * the redirect proceeds immediately.
+   */
+  const [pendingCurrencyHandoff, setPendingCurrencyHandoff] = useState<{
+    url: string;
+    trackingPayload: Record<string, unknown>;
+    requestedCurrency: string;
+  } | null>(null);
   const quickSelectRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   /* Phones and tablets share the mobile search UI; only lg+ gets the wide desktop form. */
@@ -87,9 +102,15 @@ const FlightResults = () => {
   const isNonEconomyCabin = !!cabinClass && cabinClass !== "economy";
   const cabinClassLabel = cabinClass ? cabinClass.charAt(0).toUpperCase() + cabinClass.slice(1) : "";
 
-  const { geoData } = useGeoLocation();
-  const currencyCode = geoData?.currency || "USD";
-  const currencySymbol = geoData?.currencySymbol || "$";
+  /*
+   * BF-FLIGHTS-LIVE-2 Phase B: currencyCode/currencySymbol are resolved
+   * through the single currency preference contract (explicit user
+   * selection > geo-detected > USD fallback) — not read directly from geo
+   * data, so this page, the cached fare cards, Recent Fare Calendar/
+   * Heatmap and the White Label handoff can never disagree with each
+   * other or with a deliberate override.
+   */
+  const { currency: currencyCode, currencySymbol, setCurrency } = useCurrencyPreference();
 
   const {
     flights,
@@ -231,12 +252,45 @@ const FlightResults = () => {
     return () => observer.disconnect();
   }, [hasMore, isLoading, loadMore]);
 
+  /*
+   * BF-FLIGHTS-LIVE-2 Round 2 Phase C: commits a handoff that either never
+   * needed a currency warning, or already got explicit confirmation from
+   * UnsupportedCurrencyDialog. The only place logAffiliateClick + the
+   * actual navigation happen — see attemptHandoff below.
+   */
+  const commitRedirect = (url: string, trackingPayload: Record<string, unknown>) => {
+    void logAffiliateClick(trackingPayload as Parameters<typeof logAffiliateClick>[0]).catch(() => {});
+    window.location.href = `/redirect?url=${encodeURIComponent(url)}`;
+  };
+
+  /*
+   * BF-FLIGHTS-LIVE-2 Round 2 Phase C/G: the single gate every White Label
+   * handoff goes through — page-level Search Live Flights, the Business
+   * cabin panel (handleSearchLiveFlights covers both), and per-card
+   * Check live price / book-now (handleBookNow) all call this so none of
+   * them can silently redirect through a currency mismatch while another
+   * warns. requestedCurrency/currencyApplied come straight from
+   * buildWhiteLabelFlightUrl's result — never re-derived or guessed here.
+   */
+  const attemptHandoff = (
+    url: string,
+    trackingPayload: Record<string, unknown>,
+    currencyMismatch: { requestedCurrency: string } | null
+  ) => {
+    if (currencyMismatch) {
+      setPendingCurrencyHandoff({ url, trackingPayload, requestedCurrency: currencyMismatch.requestedCurrency });
+      return;
+    }
+    commitRedirect(url, trackingPayload);
+  };
+
   const handleBookNow = async (flightId: string) => {
     const flight = flights.find(f => f.id === flightId);
     if (!flight) return;
 
     let finalUrl: string | null = null;
     let outboundHost: string | undefined;
+    let currencyMismatch: { requestedCurrency: string } | null = null;
 
     /*
      * BF-0R-7 Phase F: the displayed price (FlightCard) and this handoff
@@ -269,11 +323,14 @@ const FlightResults = () => {
         origin, destination, outboundDate: departureDate,
         returnDate: returnDate || undefined,
         adults: adults!, children: children!, infants: infants!,
-        cabinClass,
+        cabinClass, currency: currencyCode,
       });
       if (wlResult.success && wlResult.url) {
         finalUrl = wlResult.url;
         outboundHost = new URL(wlResult.url).hostname;
+        if (wlResult.requestedCurrency && !wlResult.currencyApplied) {
+          currencyMismatch = { requestedCurrency: wlResult.requestedCurrency };
+        }
       }
     }
 
@@ -300,7 +357,7 @@ const FlightResults = () => {
       return;
     }
 
-    void logAffiliateClick({
+    attemptHandoff(finalUrl, {
       partner: outboundHost || 'aviasales',
       partnerType: 'flight',
       route: origin + '-' + destination,
@@ -311,47 +368,53 @@ const FlightResults = () => {
       fallbackUsed: !(outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost()),
       outboundHost: outboundHost || null,
       landingPage: '/flights',
-    }).catch(() => {});
-
-    window.location.href = `/redirect?url=${encodeURIComponent(finalUrl)}`;
+    }, currencyMismatch);
   };
 
   /*
-   * BF-0R-7 Round 1.2 item 3: the CTA shown instead of cached fare cards for
-   * a non-economy (business) cabin search MUST FAIL CLOSED.
+   * BF-FLIGHTS-LIVE-1 Phase C: the single "go to the partner's live search"
+   * handoff, shared by the non-economy (business) cabin panel's dedicated
+   * CTA (BF-0R-7 Round 1.2 item 3) and the page-level "Search Live Flights"
+   * action available on every valid search (economy included). Both call
+   * sites need the exact same behaviour, so there is one implementation:
    *
-   * Unlike handleBookNow, this has no generic get-redirect fallback: that
-   * fallback does not carry adults/children/infants/cabinClass, so silently
-   * falling back to it would drop the exact thing this CTA promises to
-   * preserve while still appearing to have "checked live prices for your
-   * selected cabin". Only cabin classes with a verified White Label
-   * encoding ever reach this panel (see isNonEconomyCabin/cabinClasses.ts),
-   * so a WL failure here means something is genuinely wrong (rollout mode
-   * disabled, host misconfigured, etc.) — not a normal case to paper over.
+   * MUST FAIL CLOSED. Unlike handleBookNow, this has no generic
+   * get-redirect fallback: that fallback does not carry
+   * adults/children/infants/cabinClass, so silently falling back to it
+   * would drop the exact thing this CTA promises to preserve while still
+   * appearing to have "checked live prices". A WL failure here means
+   * something is genuinely wrong (rollout mode disabled, host
+   * misconfigured, etc.) — not a normal case to paper over.
    */
-  const handleCheckCabinLivePrices = async () => {
+  const handleSearchLiveFlights = async () => {
     let finalUrl: string | null = null;
     let outboundHost: string | undefined;
+    let currencyMismatch: { requestedCurrency: string } | null = null;
 
     if (hasExplicitPassengers) {
       const wlResult = buildWhiteLabelFlightUrl({
         origin, destination, outboundDate: departureDate,
         returnDate: returnDate || undefined,
         adults: adults!, children: children!, infants: infants!,
-        cabinClass,
+        cabinClass, currency: currencyCode,
       });
       if (wlResult.success && wlResult.url) {
         finalUrl = wlResult.url;
         outboundHost = new URL(wlResult.url).hostname;
+        if (wlResult.requestedCurrency && !wlResult.currencyApplied) {
+          currencyMismatch = { requestedCurrency: wlResult.requestedCurrency };
+        }
       }
     }
 
     if (!finalUrl) {
-      toast.error(`Live ${cabinClassLabel} search is temporarily unavailable. Please try again.`);
+      toast.error(isNonEconomyCabin
+        ? `Live ${cabinClassLabel} search is temporarily unavailable. Please try again.`
+        : "Live flight search is temporarily unavailable. Please try again.");
       return;
     }
 
-    void logAffiliateClick({
+    attemptHandoff(finalUrl, {
       partner: outboundHost || 'aviasales',
       partnerType: 'flight',
       route: origin + '-' + destination,
@@ -360,9 +423,7 @@ const FlightResults = () => {
       fallbackUsed: !(outboundHost && getWhiteLabelHost() && outboundHost === getWhiteLabelHost()),
       outboundHost: outboundHost || null,
       landingPage: '/flights',
-    }).catch(() => {});
-
-    window.location.href = `/redirect?url=${encodeURIComponent(finalUrl)}`;
+    }, currencyMismatch);
   };
 
   const handleDateSelect = (date: string) => {
@@ -465,6 +526,16 @@ const FlightResults = () => {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {/*
+                * BF-FLIGHTS-LIVE-2 Phase F: lightweight override, initially
+                * showing the geo-detected currency. Selecting one only
+                * calls setCurrency (persists locally, re-resolves
+                * currencyCode) — it never touches route/date/passenger/
+                * cabin state, so it does not reset the search.
+                */}
+              {!isEditingSearch && (
+                <CurrencySelector value={currencyCode} onChange={setCurrency} />
+              )}
+              {/*
                 * BF-0R-7 Round 1.1 item 2 / BF-0R-7.1 Phase B/C: this chip
                 * is Economy-only — a non-economy (Business) search never
                 * fetches cached results at all (see the `enabled` flag on
@@ -481,6 +552,24 @@ const FlightResults = () => {
                   <span className="w-px h-4 bg-border" />
                   <span>Fastest <span className="font-semibold text-foreground">{formatDuration(fastestDuration)}</span></span>
                 </div>
+              )}
+              {/*
+                * BF-FLIGHTS-LIVE-1 Phase C: a prominent live-search handoff
+                * is available on every valid search, not just the Business
+                * cabin panel or the zero-result state (see the matching CTA
+                * in EnhancedEmptyFlightResults below). Always visible in the
+                * sticky header so it survives scrolling past a long results
+                * list.
+                */}
+              {!isEditingSearch && (
+                <Button
+                  size="sm"
+                  className="h-9 shrink-0 gap-1.5"
+                  onClick={handleSearchLiveFlights}
+                >
+                  Search Live Flights
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
               )}
               {/*
                 * Edit is a local UI mode, not a URL mode: it opens the same
@@ -548,7 +637,7 @@ const FlightResults = () => {
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin on the partner site instead.
               </p>
-              <Button onClick={handleCheckCabinLivePrices} className="gap-1.5">
+              <Button onClick={handleSearchLiveFlights} className="gap-1.5">
                 Check live prices for your selected cabin
                 <ExternalLink className="h-3 w-3" />
               </Button>
@@ -586,7 +675,7 @@ const FlightResults = () => {
 
             {!isLoading && filteredFlights.length > 0 && (
               <div className="mb-4" ref={quickSelectRef}>
-                <FlightQuickSelect flights={filteredFlights} currency="$"
+                <FlightQuickSelect flights={filteredFlights} currency={currencySymbol}
                   onSelect={(id) => { document.getElementById(`flight-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}
                 />
               </div>
@@ -599,14 +688,14 @@ const FlightResults = () => {
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${priceToolsOpen ? 'rotate-180' : ''}`} />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-4 mt-3">
-                  <PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onDateSelect={handleDateSelect} />
-                  <WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onWeekSelect={handleDateSelect} />
+                  <PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} currencyCode={currencyCode} onDateSelect={handleDateSelect} />
+                  <WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} currencyCode={currencyCode} onWeekSelect={handleDateSelect} />
                 </CollapsibleContent>
               </Collapsible>
             ) : (
               <>
-                <div className="mb-4"><PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onDateSelect={handleDateSelect} /></div>
-                <div className="mb-4"><WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} onWeekSelect={handleDateSelect} /></div>
+                <div className="mb-4"><PriceCalendar origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} currencyCode={currencyCode} onDateSelect={handleDateSelect} /></div>
+                <div className="mb-4"><WeeklyPriceHeatmap origin={origin} destination={destination} selectedDate={departureDate} currency={currencySymbol} currencyCode={currencyCode} onWeekSelect={handleDateSelect} /></div>
               </>
             )}
 
@@ -622,8 +711,17 @@ const FlightResults = () => {
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground animate-pulse">Searching for flights...</p>
                 ) : (
+                  /*
+                   * BF-FLIGHTS-LIVE-1 Phase B/D: this count is how many
+                   * cached fare observations exactly matched the requested
+                   * dates — not a statement that this many flights (or, at
+                   * zero, that no flights) exist. "0 recent fare
+                   * observations" stays true when it's zero; the old
+                   * "0 flights found" read as a live-inventory claim this
+                   * Data API cannot support.
+                   */
                   <p className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> flight{totalResults !== 1 ? 's' : ''} found
+                    <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> recent fare observation{totalResults !== 1 ? 's' : ''}
                   </p>
                 )}
               </div>
@@ -679,11 +777,12 @@ const FlightResults = () => {
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => <FlightCardSkeleton key={i} />)
               ) : error ? (
-                <EmptyFlightState variant="error" errorMessage={error} onRetry={retry} />
+                <EmptyFlightState errorMessage={error} onRetry={retry} />
               ) : displayedFlights.length === 0 ? (
                 <EnhancedEmptyFlightResults
                   onClearFilters={resetFilters}
                   onModifySearch={() => setIsEditingSearch(true)}
+                  onSearchLiveFlights={handleSearchLiveFlights}
                   origin={origin} destination={destination}
                   departureDate={departureDate} returnDate={returnDate}
                   adults={adults ?? undefined} children={children ?? undefined} infants={infants ?? undefined}
@@ -722,13 +821,32 @@ const FlightResults = () => {
 
             {!isLoading && displayedFlights.length > 0 && !hasMore && (
               <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">Showing all {totalResults} flight{totalResults !== 1 ? 's' : ''}</p>
+                <p className="text-sm text-muted-foreground">Showing all {totalResults} recent fare observation{totalResults !== 1 ? 's' : ''}</p>
               </div>
             )}
           </div>
         </div>
         )}
       </main>
+
+      {/*
+        * BF-FLIGHTS-LIVE-2 Round 2 Phase C/G: rendered unconditionally
+        * (not nested inside the editing/Business/results branches above)
+        * so it can appear regardless of which panel triggered the handoff
+        * — the Business live-only CTA and the per-card Check live price
+        * button both route through attemptHandoff just like the page-level
+        * Search Live Flights button.
+        */}
+      <UnsupportedCurrencyDialog
+        open={!!pendingCurrencyHandoff}
+        currency={pendingCurrencyHandoff?.requestedCurrency ?? null}
+        onOpenChange={(open) => { if (!open) setPendingCurrencyHandoff(null); }}
+        onContinue={() => {
+          if (!pendingCurrencyHandoff) return;
+          commitRedirect(pendingCurrencyHandoff.url, pendingCurrencyHandoff.trackingPayload);
+          setPendingCurrencyHandoff(null);
+        }}
+      />
 
       <Footer />
     </div>

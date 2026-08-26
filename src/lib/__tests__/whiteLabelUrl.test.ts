@@ -216,6 +216,108 @@ describe("buildWhiteLabelFlightUrl", () => {
     });
   });
 
+  describe("currency (BF-FLIGHTS-LIVE-2 Phase D — live-verified only)", () => {
+    beforeEach(() => {
+      vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_MODE", "test");
+      vi.stubEnv("VITE_TRAVEL_WHITE_LABEL_HOST", "flights.bookingsfinder.com");
+      resetWhiteLabelCache();
+    });
+
+    it("item 11: adds a live-verified currency to the URL and reports it applied", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        returnDate: "2026-08-13", adults: 1, children: 0, infants: 0,
+        cabinClass: "economy", currency: "AUD",
+      });
+      expect(r.success).toBe(true);
+      expect(r.currencyApplied).toBe(true);
+      expect(r.requestedCurrency).toBe("AUD");
+      expect(r.url).toContain("currency=AUD");
+    });
+
+    it("Round 2 Phase B: requestedCurrency and currencyApplied form an explicit, checkable contract — a caller never has to re-derive support from the URL string", () => {
+      const supported = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy", currency: "AUD",
+      });
+      expect(supported).toMatchObject({ requestedCurrency: "AUD", currencyApplied: true });
+
+      const unsupported = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy", currency: "INR",
+      });
+      expect(unsupported).toMatchObject({ requestedCurrency: "INR", currencyApplied: false });
+    });
+
+    it("requestedCurrency is undefined (not a falsy string) when no currency was passed at all", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy",
+      });
+      expect(r.requestedCurrency).toBeUndefined();
+      expect(r.currencyApplied).toBe(false);
+    });
+
+    it("adds every other live-verified currency (USD, GBP, EUR, CAD, NZD)", () => {
+      for (const currency of ["USD", "GBP", "EUR", "CAD", "NZD"]) {
+        const r = buildWhiteLabelFlightUrl({
+          origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+          adults: 1, children: 0, infants: 0, cabinClass: "economy", currency,
+        });
+        expect(r.success).toBe(true);
+        expect(r.currencyApplied).toBe(true);
+        expect(r.url).toContain(`currency=${currency}`);
+      }
+    });
+
+    it("item 13: a currency confirmed NOT White-Label-supported (INR) is silently omitted, never fabricated onto the URL — the handoff still succeeds", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy", currency: "INR",
+      });
+      expect(r.success).toBe(true);
+      expect(r.currencyApplied).toBe(false);
+      // requestedCurrency is still surfaced — a caller (the currency-
+      // mismatch dialog) needs to know WHAT was requested even though it
+      // wasn't applied, to word the warning honestly.
+      expect(r.requestedCurrency).toBe("INR");
+      expect(r.url).not.toContain("currency=");
+    });
+
+    it("item 13: JPY and SGD are also omitted rather than assumed supported", () => {
+      for (const currency of ["JPY", "SGD"]) {
+        const r = buildWhiteLabelFlightUrl({
+          origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+          adults: 1, children: 0, infants: 0, cabinClass: "economy", currency,
+        });
+        expect(r.success).toBe(true);
+        expect(r.currencyApplied).toBe(false);
+        expect(r.url).not.toContain("currency=");
+      }
+    });
+
+    it("builds successfully with no currency at all — currency is additive, never required", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        adults: 1, children: 0, infants: 0, cabinClass: "economy",
+      });
+      expect(r.success).toBe(true);
+      expect(r.currencyApplied).toBe(false);
+      expect(r.url).not.toContain("currency=");
+    });
+
+    it("item 12: a supported currency does not crowd out route, dates, passengers or cabin", () => {
+      const r = buildWhiteLabelFlightUrl({
+        origin: "BNE", destination: "SYD", outboundDate: "2026-08-10",
+        returnDate: "2026-08-22", adults: 2, children: 1, infants: 0,
+        cabinClass: "business", currency: "AUD",
+      });
+      expect(r.success).toBe(true);
+      expect(r.url).toContain("flightSearch=BNE1008SYD2208c21");
+      expect(r.url).toContain("currency=AUD");
+    });
+  });
+
   describe("no secrets", () => {
     it("does not reference token, marker, or api_key in source", () => {
       const src = buildWhiteLabelFlightUrl.toString();
