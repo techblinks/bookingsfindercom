@@ -26,6 +26,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getFlightPrices, getConfig } from "../_shared/travelpayouts.ts";
+// BF1-F money contract: observation currency validated, never defaulted.
+import { normalizeCurrencyCode } from "../_shared/money.ts";
 import { buildOptimizerOutcome, insufficientLiveData, type InsufficientReason } from "./optimizer-core.ts";
 import {
   handleOptimizerRequest,
@@ -65,6 +67,7 @@ async function fetchLivePrices(
 
   try {
     const { flights } = await getFlightPrices(
+      normalizeCurrencyCode(currency), // BF1-F: fail closed on malformed currency
       { origin, destination, departureDate, returnDate, currency },
       config,
     );

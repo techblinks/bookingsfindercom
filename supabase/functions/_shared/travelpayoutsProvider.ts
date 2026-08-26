@@ -52,6 +52,11 @@ import {
   type SpecialOffersQuery,
   type SpecialOffersResult,
 } from "./flightProvider.ts";
+import {
+  makeProviderMoney,
+  normalizeCurrencyCode,
+  type CurrencyCode,
+} from "./money.ts";
 
 const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
 
@@ -139,6 +144,24 @@ const LatestDealSchema = z
   })
   .passthrough();
 
+/** Fail-closed resolution of REQUESTED currencies (client input). */
+function requireCurrency(raw: unknown): CurrencyCode {
+  try {
+    return normalizeCurrencyCode(raw);
+  } catch (error) {
+    throw new TravelpayoutsError((error as Error).message, 400);
+  }
+}
+
+/** Fail-closed resolution of UPSTREAM-DECLARED currencies. */
+function requireUpstreamCurrency(raw: unknown): CurrencyCode {
+  try {
+    return normalizeCurrencyCode(raw);
+  } catch {
+    throw new TravelpayoutsError("Malformed popular directions payload", 502);
+  }
+}
+
 function warnDropped(context: string, index: number, reason: string): void {
   console.warn(
     `[travelpayoutsProvider] Dropped malformed ${context} entry #${index}: ${reason}`
@@ -175,7 +198,7 @@ function getCityName(iata: string): string {
 /* Raw -> domain mappers                                               */
 /* ------------------------------------------------------------------ */
 
-function mapFlightRowToOffer(row: FlightResult, query: FlightSearchQuery): FlightOffer {
+function mapFlightRowToOffer(row: FlightResult, query: FlightSearchQuery, currency: CurrencyCode): FlightOffer {
   const segment = row.segments[0];
   return {
     id: row.id,
@@ -184,8 +207,7 @@ function mapFlightRowToOffer(row: FlightResult, query: FlightSearchQuery): Fligh
     destination: segment?.to || query.destination.toUpperCase(),
     departureAt: row.provider_departure_at,
     returnAt: row.provider_return_at,
-    priceMajor: row.price,
-    currency: row.currency,
+    price: makeProviderMoney(row.price, currency),
     carrierCode: row.airline_code ?? null,
     stops: row.stops,
     durationMinutes: row.duration_minutes,
@@ -225,6 +247,8 @@ class TravelpayoutsProvider implements FlightProvider {
    */
   async search(query: FlightSearchQuery): Promise<FlightSearchResult> {
     let flights: FlightResult[];
+    // BF1-F: requested currency validated ONCE, fail-closed; carried into mapping.
+    const currency = requireCurrency(query.currency);
     let isComplete: boolean;
     try {
       const result = await getFlightPrices(
@@ -273,7 +297,7 @@ class TravelpayoutsProvider implements FlightProvider {
     );
 
     return {
-      offers: exactMatches.map((row) => mapFlightRowToOffer(row, query)),
+      offers: exactMatches.map((row) => mapFlightRowToOffer(row, query, currency)),
       totalFound: exactMatches.length,
       isComplete,
       excludedNearestDateCount: validRows.length - exactMatches.length,
@@ -282,6 +306,9 @@ class TravelpayoutsProvider implements FlightProvider {
 
   async getPriceCalendar(query: PriceCalendarQuery): Promise<PriceCalendar> {
     const config = this.config();
+
+    // BF1-F: requested currency validated ONCE, fail-closed.
+    const currency = requireCurrency(query.currency);
 
     // Request built VERBATIM from get-price-calendar/index.ts.
     const params = new URLSearchParams({
@@ -335,7 +362,7 @@ class TravelpayoutsProvider implements FlightProvider {
       // carrier code).
       entries.push({
         date: row.depart_date,
-        priceMajor: row.value,
+        price: makeProviderMoney(row.value, currency),
         returnDate: row.return_date || null,
         gateLabel: row.gate || null,
         stops: row.number_of_changes ?? 0,
@@ -354,6 +381,9 @@ class TravelpayoutsProvider implements FlightProvider {
 
   async getRouteSuggestions(query: RouteSuggestionsQuery): Promise<RouteSuggestionsResult> {
     const config = this.config();
+
+    // BF1-F: requested currency validated ONCE, fail-closed.
+    const requestCurrency = requireCurrency(query.currency);
 
     // Request built VERBATIM from get-popular-directions/index.ts.
     const params = new URLSearchParams({
@@ -383,7 +413,7 @@ class TravelpayoutsProvider implements FlightProvider {
     // currency takes precedence; any falsy upstream value falls back to the
     // requested currency. Captured here at the adapter/wire boundary so the
     // HTTP shell cannot accidentally echo the request currency instead.
-    const wireCurrency: string = data.currency || query.currency;
+    const wireCurrency = requireUpstreamCurrency(data.currency || requestCurrency); // legacy precedence, fail-closed
 
     // Slice BEFORE validating/mapping, exactly as the original function did.
     const routes: RouteSuggestion[] = [];
@@ -406,7 +436,7 @@ class TravelpayoutsProvider implements FlightProvider {
           originName: getCityName(info.origin || query.origin),
           destination: info.destination || destCode,
           destinationName: getCityName(info.destination || destCode),
-          priceMajor: info.price || null,
+          price: info.price == null ? null : makeProviderMoney(info.price, wireCurrency),
           airlineCode: info.airline || null,
           departureAt: info.departure_at || null,
           returnAt: info.return_at || null,
@@ -421,6 +451,9 @@ class TravelpayoutsProvider implements FlightProvider {
 
   async getSpecialOffers(query: SpecialOffersQuery): Promise<SpecialOffersResult> {
     const config = this.config();
+
+    // BF1-F: requested currency validated ONCE, fail-closed.
+    const currency = requireCurrency(query.currency);
 
     // Request built VERBATIM from get-special-offers/index.ts.
     const searchParams = new URLSearchParams({
@@ -478,7 +511,7 @@ class TravelpayoutsProvider implements FlightProvider {
         id: `${originUpper}-${dest}-${dep}`,
         origin: originUpper,
         destination: dest.toUpperCase(),
-        priceMajor: deal.value || deal.price || 0,
+        price: makeProviderMoney(deal.value || deal.price || 0, currency),
         carrierCode: (deal.airline || deal.gate) || null,
         departureDate: dep || null,
         returnDate: deal.return_date || deal.return_at || null,
@@ -495,10 +528,10 @@ class TravelpayoutsProvider implements FlightProvider {
 
     // Post-filters VERBATIM from get-special-offers/index.ts.
     const filtered = offers.filter(
-      (o) => o.destination && o.destination.length >= 2 && o.priceMajor > 0
+      (o) => o.destination && o.destination.length >= 2 && o.price.amountMajor > 0
     );
 
-    filtered.sort((a, b) => a.priceMajor - b.priceMajor);
+    filtered.sort((a, b) => a.price.amountMajor - b.price.amountMajor);
 
     return { offers: filtered.slice(0, query.limit), upstreamEmpty: false };
   }

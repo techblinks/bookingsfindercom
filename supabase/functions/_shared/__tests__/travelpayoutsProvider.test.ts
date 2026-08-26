@@ -198,7 +198,7 @@ describe("BF1-E adapter behaviour: getPriceCalendar()", () => {
 
     expect(calendar.entries.length).toBe(1);
     expect(calendar.entries[0].date).toBe("2026-09-05");
-    expect(calendar.entries[0].priceMajor).toBe(123.45);
+    expect(calendar.entries[0].price.amountMajor).toBe(123.45);
     expect(calendar.entries[0].gateLabel).toBe("Emirates");
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
@@ -246,7 +246,7 @@ describe("BF1-E adapter behaviour: getRouteSuggestions()", () => {
 
     expect(result.routes.length).toBe(1);
     expect(result.routes[0].destination).toBe("BBB");
-    expect(result.routes[0].priceMajor).toBe(99);
+    expect(result.routes[0].price?.amountMajor).toBe(99);
     expect(result.routes[0].origin).toBe("BNE");
   });
 });
@@ -331,5 +331,31 @@ describe("BF1-E adapter behaviour: getSpecialOffers()", () => {
     expect(result.offers[0].observedAt).toBe("2026-08-24T09:15:00Z"); // never fabricated
     expect(result.offers[0].deepLink).toContain("marker=TESTMARKER");
     expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("BF1-F money contract", () => {
+  it("fails closed on malformed REQUEST currency (400, no silent default)", async () => {
+    const provider = createTravelpayoutsProvider();
+    await expect(
+      provider.search({ ...SEARCH_QUERY, currency: "12$" })
+    ).rejects.toMatchObject({ name: "TravelpayoutsError", statusCode: 400 });
+  });
+
+  it("fails closed on malformed UPSTREAM-declared currency (502)", async () => {
+    stubFetch({ success: true, currency: "NOPE", data: { DPS: { price: 489 } } });
+    const provider = createTravelpayoutsProvider();
+    await expect(
+      provider.getRouteSuggestions({ origin: "BNE", currency: "USD", limit: 10 })
+    ).rejects.toMatchObject({ name: "TravelpayoutsError", statusCode: 502 });
+  });
+
+  it("performs NO FX conversion: upstream amounts pass through verbatim", async () => {
+    stubFetch({ success: true, currency: "EUR", data: { DPS: { price: 489.7 } } });
+    const provider = createTravelpayoutsProvider();
+    const result = await provider.getRouteSuggestions({ origin: "BNE", currency: "USD", limit: 10 });
+    expect(result.routes[0].price?.amountMajor).toBe(489.7);
+    expect(result.routes[0].price?.currency).toBe("EUR");
+    expect(result.currency).toBe("EUR");
   });
 });

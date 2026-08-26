@@ -28,6 +28,7 @@
  */
 
 import type { SupplierId } from "./suppliers.ts";
+import type { ProviderMoney } from "./money.ts";
 
 /**
  * Canonical id of the active flight provider. Compile-time-checked to be a
@@ -120,9 +121,12 @@ export interface FlightOffer {
    * (no rounding, no minor-unit conversion in BF1-E — see BF1-F transition
    * note in the module header).
    */
-  priceMajor: number;
-  /** ISO-4217 alpha-3 currency of priceMajor. */
-  currency: string;
+  /**
+   * Observed fare as PROVIDER money (BF1-F): major-unit amount verbatim from
+   * the provider, bound to its validated reported currency. No FX conversion
+   * anywhere; integer-minor normalization only at explicit money.ts boundaries.
+   */
+  price: ProviderMoney;
   /** Carrier code as stated by the provider, or null when unknown. */
   carrierCode: string | null;
   /** Number of intermediate stops stated by the provider (0 when unstated). */
@@ -179,8 +183,8 @@ export interface PriceCalendarQuery {
 export interface PriceCalendarEntry {
   /** Calendar date of the observed outbound fare, YYYY-MM-DD, or null. */
   date: string | null;
-  /** Observed fare in MAJOR units as the provider supplied it (no conversion). */
-  priceMajor: number | null;
+  /** Observed fare as provider money (BF1-F): verbatim amount, validated currency. */
+  price: ProviderMoney;
   /** Provider-stated return date for bundled round-trip observations, or null. */
   returnDate: string | null;
   /**
@@ -222,8 +226,8 @@ export interface RouteSuggestion {
   destination: string;
   /** Display name for the destination (static lookup; code echoed when unmapped). */
   destinationName: string;
-  /** Observed fare in MAJOR units, or null when the provider gave none. */
-  priceMajor: number | null;
+  /** Observed fare as provider money (BF1-F), or null when unstated upstream. */
+  price: ProviderMoney | null;
   /** Carrier/gate code stated by the provider, or null. */
   airlineCode: string | null;
   /** Provider-stated outbound departure timestamp, verbatim, or null. */
@@ -268,8 +272,8 @@ export interface SpecialOffer {
   id: string;
   origin: string;
   destination: string;
-  /** Observed fare in MAJOR units exactly as the provider supplied it. */
-  priceMajor: number;
+  /** Observed fare as provider money (BF1-F): verbatim amount + validated currency. */
+  price: ProviderMoney;
   /** Carrier/gate code stated by the provider, or null when unstated. */
   carrierCode: string | null;
   /** Provider-stated departure date/timestamp, verbatim, or null. */

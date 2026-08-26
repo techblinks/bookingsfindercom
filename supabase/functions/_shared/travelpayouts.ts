@@ -3,6 +3,8 @@
  * Centralizes all API calls to reduce duplication
  */
 
+import { makeProviderMoney, normalizeCurrencyCode, type ProviderMoney } from "./money.ts"; // BF1-F
+
 const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
 
 export interface TravelpayoutsConfig {
@@ -194,7 +196,7 @@ export async function getLowestPrice(
     currency?: string;
   },
   config: TravelpayoutsConfig
-): Promise<number | null> {
+): Promise<ProviderMoney | null> {
   try {
     const searchParams = new URLSearchParams({
       origin: params.origin.toUpperCase(),
@@ -223,7 +225,8 @@ export async function getLowestPrice(
     const data = await response.json();
 
     if (data.data && data.data.length > 0) {
-      return data.data[0].price;
+      // BF1-F: typed money result bound to the REQUESTED currency (no FX, no silent default).
+      return makeProviderMoney(data.data[0].price, normalizeCurrencyCode(params.currency));
     }
 
     return null;

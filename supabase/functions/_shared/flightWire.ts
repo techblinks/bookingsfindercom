@@ -57,8 +57,8 @@ export function toWireFlightResult(offer: FlightOffer): WireFlightResult {
     airline: offer.carrierCode ?? "Unknown",
     // undefined (key omitted) when the provider stated no carrier code.
     ...(offer.carrierCode !== null ? { airline_code: offer.carrierCode } : {}),
-    price: offer.priceMajor,
-    currency: offer.currency,
+    price: offer.price.amountMajor,
+    currency: offer.price.currency,
     duration_minutes: offer.durationMinutes,
     stops: offer.stops,
     segments: offer.segments.map((seg) => ({
@@ -100,7 +100,7 @@ export function toWireCalendarPrice(entry: PriceCalendarEntry): {
 } {
   return {
     date: entry.date,
-    price: entry.priceMajor,
+    price: entry.price.amountMajor,
     returnDate: entry.returnDate,
     airline: entry.gateLabel,
     stops: entry.stops,
@@ -126,7 +126,7 @@ export function toWireRouteSuggestion(suggestion: RouteSuggestion): {
     originName: suggestion.originName,
     destination: suggestion.destination,
     destinationName: suggestion.destinationName,
-    price: suggestion.priceMajor,
+    price: suggestion.price ? suggestion.price.amountMajor : null,
     airline: suggestion.airlineCode,
     departureDate: suggestion.departureAt,
     returnDate: suggestion.returnAt,
@@ -154,7 +154,7 @@ export function toWireSpecialOffer(offer: SpecialOffer): {
     id: offer.id,
     origin: offer.origin,
     destination: offer.destination,
-    price: offer.priceMajor,
+    price: offer.price.amountMajor,
     airline: offer.carrierCode ?? "",
     departure_date: offer.departureDate,
     return_date: offer.returnDate,

@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
                 departure_date: route.departureDate,
                 return_date: route.returnDate || null,
                 currency,
-                price,
+                price: price.amountMajor,
                 cached_at: new Date().toISOString(),
                 expires_at: expiresAt.toISOString(),
               }, {
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
           return {
             origin: route.origin,
             destination: route.destination,
-            price,
+            price: price.amountMajor,
             cached: false,
           };
         } catch (error) {
