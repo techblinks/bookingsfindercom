@@ -39,6 +39,22 @@ interface EnhancedEmptyFlightResultsProps {
   infants?: number;
   cabinClass?: string;
   message?: string;
+  /**
+   * BF-FLIGHTS-LIVE-3 Round 3: suppresses the primary "No Exact Recent
+   * Fare Data Found" card (icon, heading, message, suggestions box, and
+   * its Search Live Flights / Modify Search / Clear All Filters row)
+   * while still rendering the Try Different Dates and Explore Other
+   * Destinations sections below it.
+   *
+   * BF-FLIGHTS-CACHE-1: FlightResults.tsx no longer passes true — there is
+   * no embedded on-page live section any more (that was LIVE-3/LIVE-4's
+   * now-removed Travelpayouts Widget / SerpApi architecture), so this
+   * primary card is once again the main zero-result surface, same as its
+   * original BF-FLIGHTS-LIVE-1 design. The prop itself is left in place
+   * (defaulting to false) rather than removed, in case a future caller
+   * genuinely needs to suppress it.
+   */
+  hidePrimaryCard?: boolean;
 }
 
 /**
@@ -74,6 +90,7 @@ const EnhancedEmptyFlightResults = ({
   infants = 0,
   cabinClass = "economy",
   message = "We don't have an exact recent fare observation for these dates. Live flights may still be available — search live prices below.",
+  hidePrimaryCard = false,
 }: EnhancedEmptyFlightResultsProps) => {
   /**
    * BF-0R-7.2 final correction item 2: timezone-safe calendar-date
@@ -138,64 +155,65 @@ const EnhancedEmptyFlightResults = ({
 
   return (
     <div className="space-y-8">
-      {/* Main Empty State Card */}
-      <Card className="border-border">
-        <CardContent className="p-8 md:p-12 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-            <Plane className="h-10 w-10 text-muted-foreground" />
-          </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            No Exact Recent Fare Data Found
-          </h2>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">{message}</p>
+      {!hidePrimaryCard && (
+        <Card className="border-border">
+          <CardContent className="p-6 md:p-8 text-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+              <Plane className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <h2 className="text-base font-semibold text-foreground mb-2">
+              No Exact Recent Fare Data Found
+            </h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">{message}</p>
 
-          {/* Suggestions */}
-          <div className="bg-muted/50 rounded-lg p-4 mb-6 max-w-md mx-auto text-left">
-            <p className="text-sm font-medium text-foreground mb-3">Try these suggestions:</p>
-            <ul className="text-sm text-muted-foreground space-y-2">
-              <li className="flex items-start gap-2">
-                <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>Choose different travel dates (flexible by a few days)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Search className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>Adjust your filters to see more results</span>
-              </li>
-            </ul>
-          </div>
+            {/* Suggestions */}
+            <div className="bg-muted/50 rounded-lg p-4 mb-6 max-w-md mx-auto text-left">
+              <p className="text-sm font-medium text-foreground mb-3">Try these suggestions:</p>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li className="flex items-start gap-2">
+                  <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span>Choose different travel dates (flexible by a few days)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Search className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span>Adjust your filters to see more results</span>
+                </li>
+              </ul>
+            </div>
 
-          {/*
-            * BF-FLIGHTS-LIVE-1 Phase D: primary CTA is the live-search
-            * handoff, not a dead end — a missing recent fare observation is
-            * not proof that no flights exist. Modify Search is secondary;
-            * Clear Filters remains a tertiary option for a filtered-away
-            * result set.
-            */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {onSearchLiveFlights && (
-              <Button className="gap-1.5" onClick={onSearchLiveFlights}>
-                Search Live Flights
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-            )}
             {/*
-              * BF-0R-7.2 Phase F: reopens the in-page edit form rather than
-              * navigating to "/" — see the onModifySearch doc comment above.
+              * BF-FLIGHTS-LIVE-1 Phase D: primary CTA is the live-search
+              * handoff, not a dead end — a missing recent fare observation is
+              * not proof that no flights exist. Modify Search is secondary;
+              * Clear Filters remains a tertiary option for a filtered-away
+              * result set.
               */}
-            {onModifySearch && (
-              <Button variant="outline" className="gap-2" onClick={onModifySearch}>
-                <Search className="h-4 w-4" />
-                Modify Search
-              </Button>
-            )}
-            {onClearFilters && (
-              <Button variant="outline" onClick={onClearFilters}>
-                Clear All Filters
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {onSearchLiveFlights && (
+                <Button onClick={onSearchLiveFlights} className="gap-1.5">
+                  Search Live Flights
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              )}
+              {/*
+                * BF-0R-7.2 Phase F: reopens the in-page edit form rather than
+                * navigating to "/" — see the onModifySearch doc comment above.
+                */}
+              {onModifySearch && (
+                <Button variant="outline" className="gap-2" onClick={onModifySearch}>
+                  <Search className="h-4 w-4" />
+                  Modify Search
+                </Button>
+              )}
+              {onClearFilters && (
+                <Button variant="outline" onClick={onClearFilters}>
+                  Clear All Filters
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alternative Dates Section */}
       {alternativeDates.length > 0 && departureDate && (

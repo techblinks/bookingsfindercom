@@ -509,14 +509,14 @@ describe("results edit — a committed edit starts an unconstrained search", () 
     await waitFor(() => expect(resultCards().length).toBe(2));
   });
 
-  it("returns the sort to Best and refetches with the edited criteria", async () => {
+  it("returns the sort to Cheapest (the default) and refetches with the edited criteria", async () => {
     await renderWithResults();
     fireEvent.click(screen.getByRole("radio", { name: "Fastest" }));
     expect(screen.getByRole("radio", { name: "Fastest" }).getAttribute("aria-checked")).toBe("true");
 
     await commitNewRoute();
 
-    await waitFor(() => expect(screen.getByRole("radio", { name: "Best" }).getAttribute("aria-checked")).toBe("true"));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "Cheapest" }).getAttribute("aria-checked")).toBe("true"));
     await waitFor(() => {
       const body = JSON.parse(
         ((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as RequestInit).body as string,

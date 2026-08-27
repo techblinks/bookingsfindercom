@@ -43,7 +43,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { auth: { getSession: () => Promise.resolve({ data: { session: null } }) } },
 }));
 vi.mock("@/lib/supabaseConfig", () => ({
-  getFunctionUrl: () => "https://mock.test/functions/v1/search-flights",
+  getFunctionUrl: (name: string) => `https://mock.test/functions/v1/${name}`,
 }));
 
 const mockBuildWhiteLabelFlightUrl = vi.fn();
@@ -105,7 +105,7 @@ describe("FlightResults — zero cached results (BF-FLIGHTS-LIVE-1 Phase B/D)", 
     stubSearchFlights([]);
     const { container } = renderResults(ONE_WAY_URL);
 
-    await waitFor(() => expect(screen.getByText(/no exact recent fare data found/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
 
     expect(container.textContent).not.toMatch(/no flights found/i);
     expect(container.textContent).not.toMatch(/0 flights found/i);
@@ -116,34 +116,37 @@ describe("FlightResults — zero cached results (BF-FLIGHTS-LIVE-1 Phase B/D)", 
     stubSearchFlights([]);
     renderResults(ONE_WAY_URL);
 
-    await waitFor(() => expect(screen.getByText(/no exact recent fare data found/i)).toBeTruthy());
-    expect(screen.getByText(/live flights may still be available/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
+    expect(screen.getAllByText(/live flights may still be available/i).length).toBeGreaterThan(0);
   });
 
   it("item 2: exposes a 'Search Live Flights' action", async () => {
     stubSearchFlights([]);
     renderResults(ONE_WAY_URL);
 
-    await waitFor(() => expect(screen.getByText(/no exact recent fare data found/i)).toBeTruthy());
-    // The page-level header CTA and the empty-state's own primary CTA both
-    // render "Search Live Flights" — at least one must be present.
+    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
     expect(screen.getAllByRole("button", { name: /search live flights/i }).length).toBeGreaterThan(0);
   });
 
-  it("the result count above the (empty) list reads '0 recent fare observations', not '0 flights found'", async () => {
+  it("Round 3 Fix 1: the sort/count row's own '0 recent fare observations' text is suppressed as redundant once the compact truthful sentence already says so", async () => {
     stubSearchFlights([]);
     renderResults(ONE_WAY_URL);
 
-    await waitFor(() => expect(screen.getByText(/no exact recent fare data found/i)).toBeTruthy());
-    expect(screen.getByText(/0 recent fare observations/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
+    // FlightFiltersPanel's own sidebar count header (a separate, untouched
+    // BF-FLIGHTS-LIVE-1 surface) legitimately still says this once — this
+    // only proves the sort/count row's own duplicate copy is gone, not
+    // that the phrase is absent everywhere on the page.
+    expect(screen.getAllByText(/0 recent fare observations?/i).length).toBe(1);
   });
 
-  it("secondary CTA 'Modify Search' is still offered alongside Search Live Flights", async () => {
+  it("a way to modify the search is offered both via the empty-state card and the sticky header's Edit button", async () => {
     stubSearchFlights([]);
     renderResults(ONE_WAY_URL);
 
-    await waitFor(() => expect(screen.getByText(/no exact recent fare data found/i)).toBeTruthy());
-    expect(screen.getAllByRole("button", { name: /modify search/i }).length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getByText(/no exact recent fare observation is available/i)).toBeTruthy());
+    expect(screen.getByRole("button", { name: /^modify search$/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^edit$/i })).toBeTruthy();
   });
 });
 
@@ -156,7 +159,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ origin: "SYD" })
@@ -169,7 +172,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ destination: "MEL" })
@@ -182,7 +185,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ outboundDate: "2030-01-10" })
@@ -195,7 +198,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ returnDate: "2030-01-20" })
@@ -208,7 +211,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ONE_WAY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ returnDate: undefined })
@@ -221,7 +224,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(
       expect.objectContaining({ adults: 2, children: 1, infants: 1 })
@@ -247,7 +250,7 @@ describe("FlightResults — 'Search Live Flights' preserves the supported search
     renderResults(ROUND_TRIP_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(
       expect.stringMatching(/live flight search is temporarily unavailable/i)
@@ -279,6 +282,6 @@ describe("FlightResults — Business cabin never calls the cached Data API (BF-0
     renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]: [string]) => String(url).includes("search-flights"))).toBe(false);
   });
 });

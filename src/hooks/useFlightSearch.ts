@@ -61,6 +61,21 @@ function getHourFromISO(isoString: string): number {
   }
 }
 
+/**
+ * Ascending numeric compare for the Cheapest/Fastest sorts — a value of 0
+ * (this codebase's established "missing/unknown" sentinel for both price
+ * and duration_minutes, see cheapestPrice/fastestDuration below) always
+ * sorts after every valid positive value, never before or interleaved.
+ */
+function compareAscendingValidLast(a: number, b: number): number {
+  const aValid = a > 0;
+  const bValid = b > 0;
+  if (aValid && bValid) return a - b;
+  if (aValid) return -1;
+  if (bValid) return 1;
+  return 0;
+}
+
 // REMOVED: calculateDealScore - was batch-relative, not market-based
 function calculateDealScore(flight: Flight, allFlights: Flight[]): number {
   if (allFlights.length === 0) return 50;
@@ -242,7 +257,7 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>("best");
+  const [sortBy, setSortBy] = useState<SortOption>("cheapest");
   const [searchProgress, setSearchProgress] = useState(0);
   
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -339,15 +354,20 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
     .sort((a, b) => {
       switch (sortBy) {
         case "cheapest":
-          return a.price - b.price;
+          return compareAscendingValidLast(a.price, b.price);
         case "fastest":
-          return a.duration_minutes - b.duration_minutes;
-        case "best":
-        default:
-          // Best = use deal score if available, otherwise calculate weighted score
-          const scoreA = a.deal_score ?? (100 - calculateDealScore(a, flights));
-          const scoreB = b.deal_score ?? (100 - calculateDealScore(b, flights));
-          return scoreB - scoreA; // Higher score = better
+          return compareAscendingValidLast(a.duration_minutes, b.duration_minutes);
+        case "stops":
+        default: {
+          const stopsDiff = a.stops - b.stops;
+          if (stopsDiff !== 0) return stopsDiff;
+          // Tie-break: price ascending when both prices are valid (>0);
+          // otherwise preserve the provider's original relative order
+          // (returning 0 relies on Array.prototype.sort's guaranteed
+          // stability, same convention already used elsewhere in this file).
+          if (a.price > 0 && b.price > 0) return a.price - b.price;
+          return 0;
+        }
       }
     });
 
@@ -479,6 +499,12 @@ export function useFlightSearch(params: UseFlightSearchParams): UseFlightSearchR
         fastest_duration: uniqueFlights.length > 0
           ? Math.min(...uniqueFlights.map(f => f.duration_minutes).filter(d => d > 0))
           : undefined,
+        // BF-FLIGHTS-CACHE-1: passed through verbatim from search-flights'
+        // response — this hook does not interpret or relabel them, only
+        // forwards what the server-side cache actually reported.
+        cacheStatus: data.meta?.cacheStatus,
+        fetchedAt: data.meta?.fetchedAt,
+        ageSeconds: data.meta?.ageSeconds,
       });
       setSearchProgress(100);
 

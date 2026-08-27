@@ -115,6 +115,10 @@ beforeEach(() => {
   mockToastError.mockReset();
   mockGetRedirectUrl.mockReset();
   localStorage.clear();
+  // BF-FLIGHTS-LIVE-4: "Search Live Flights"/"Check live prices" now always
+  // scroll to the native Live Flights section — jsdom does not implement
+  // scrollIntoView.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 describe("FlightResults — cached Data API receives the resolved currency (item 8)", () => {
@@ -171,7 +175,7 @@ describe("FlightResults — White Label handoff receives the resolved currency (
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
     expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(

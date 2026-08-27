@@ -21,7 +21,7 @@ vi.mock("@/hooks/useFlightSearch", () => ({
   useFlightSearch: () => ({
     flights: [], meta: { total_found: 0, is_complete: true }, isLoading: false, isSearching: false, error: null, retry: vi.fn(),
     filters: { priceRange: [0,10000], maxPrice: 10000, minPrice: 0, selectedAirlines: [], selectedStops: [], selectedDepartureTimes: [], durationRange: [0,1440], maxDuration: 1440 },
-    sortBy: "best", setSortBy: vi.fn(), updateFilter: vi.fn(), resetFilters: vi.fn(),
+    sortBy: "cheapest", setSortBy: vi.fn(), updateFilter: vi.fn(), resetFilters: vi.fn(),
     filteredFlights: [], airlines: [], searchProgress: 100, cheapestPrice: 0, fastestDuration: 0,
   }),
   formatDuration: () => "1h 30m",

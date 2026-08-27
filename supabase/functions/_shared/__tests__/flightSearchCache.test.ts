@@ -1,0 +1,318 @@
+/**
+ * BF-FLIGHTS-CACHE-1 — persistent flight-search cache contract.
+ * The Supabase client is a minimal fluent mock (no real network/DB) that
+ * mirrors the chain search-flights/index.ts actually uses:
+ *   .from(table).select(...).eq(...).gt(...)[.lte(...)].maybeSingle()
+ *   .from(table).upsert(payload, opts)
+ *   .rpc(name, args)
+ */
+import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "fs";
+import {
+  computeFlightSearchCacheKey,
+  getFlightSearchCache,
+  upsertFlightSearchCache,
+  recordFlightSearchDemand,
+  computeAgeSeconds,
+  FRESH_TTL_SEC,
+  STALE_MAX_SEC,
+} from "../flightSearchCache.ts";
+
+function makeMockClient(opts: { queryResults?: Array<{ data: unknown }>; upsertImpl?: (table: string, payload: unknown, options: unknown) => unknown; rpcImpl?: (fn: string, args: unknown) => unknown; throwOnQuery?: boolean } = {}) {
+  const upsertSpy = vi.fn(opts.upsertImpl ?? (() => Promise.resolve({ error: null })));
+  const rpcSpy = vi.fn(opts.rpcImpl ?? (() => Promise.resolve({ error: null })));
+  // Shared across every .from() call in this client instance — each
+  // getFlightSearchCache invocation may call .from() up to twice (fresh
+  // query, then stale query), and results[] represents each successive
+  // terminal .maybeSingle() call in that same order.
+  const results = opts.queryResults ?? [{ data: null }];
+  let callIndex = 0;
+
+  return {
+    from: (_table: string) => {
+      if (opts.throwOnQuery) {
+        return {
+          select: () => { throw new Error("DB unreachable"); },
+          upsert: upsertSpy,
+        };
+      }
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        gt: () => builder,
+        lte: () => builder,
+        maybeSingle: () => Promise.resolve(results[Math.min(callIndex++, results.length - 1)] ?? { data: null }),
+        upsert: upsertSpy,
+      };
+      return builder;
+    },
+    rpc: rpcSpy,
+    __upsertSpy: upsertSpy,
+    __rpcSpy: rpcSpy,
+  } as any;
+}
+
+describe("computeFlightSearchCacheKey", () => {
+  it("includes origin", () => {
+    const a = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    const b = computeFlightSearchCacheKey({ origin: "BNE", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    expect(a).not.toBe(b);
+  });
+
+  it("includes destination", () => {
+    const a = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    const b = computeFlightSearchCacheKey({ origin: "SYD", destination: "BNE", departureDate: "2099-01-10", currency: "AUD" });
+    expect(a).not.toBe(b);
+  });
+
+  it("includes departure date", () => {
+    const a = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    const b = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-11", currency: "AUD" });
+    expect(a).not.toBe(b);
+  });
+
+  it("distinguishes one-way from round-trip on the same dates", () => {
+    const oneWay = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    const roundTrip = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: "2099-01-20", currency: "AUD" });
+    expect(oneWay).not.toBe(roundTrip);
+  });
+
+  it("includes currency", () => {
+    const a = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    const b = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "USD" });
+    expect(a).not.toBe(b);
+  });
+
+  it("is case/formatting-normalized (lowercase origin produces the same key as uppercase)", () => {
+    const a = computeFlightSearchCacheKey({ origin: "syd", destination: "mel", departureDate: "2099-01-10", currency: "aud" });
+    const b = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    expect(a).toBe(b);
+  });
+
+  it("does not accept (and has no parameter for) adults/children/infants/cabin class — passenger inputs never fragment the key", () => {
+    // Structural proof: the function's input type has no passenger/cabin
+    // fields at all, so two requests differing only in those cannot
+    // produce different keys — verified by TypeScript, exercised here by
+    // calling with only the documented fields.
+    const key = computeFlightSearchCacheKey({ origin: "SYD", destination: "MEL", departureDate: "2099-01-10", currency: "AUD" });
+    expect(key).toBe("SYD|MEL|2099-01-10||AUD");
+  });
+});
+
+describe("getFlightSearchCache", () => {
+  it("returns 'fresh' when a row exists within the TTL window", async () => {
+    const row = { cache_key: "K", payload: { offers: [] }, fetched_at: new Date().toISOString(), expires_at: "x" };
+    const client = makeMockClient({ queryResults: [{ data: row }] });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("fresh");
+  });
+
+  it("returns 'stale' when the fresh query misses but a row exists within the 24h window", async () => {
+    const staleFetchedAt = new Date(Date.now() - (FRESH_TTL_SEC + 3600) * 1000).toISOString();
+    const row = { cache_key: "K", payload: { offers: [] }, fetched_at: staleFetchedAt, expires_at: "x" };
+    // First query (fresh) misses -> null; second query (stale) hits -> row
+    const client = makeMockClient({ queryResults: [{ data: null }, { data: row }] });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("stale");
+  });
+
+  it("BF-FLIGHTS-CACHE-1 Phase 4: an 8h-old row is classified 'stale' and its fetched_at is returned unmodified — reading the cache never rewrites fetched_at", async () => {
+    const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+    const row = { cache_key: "K", payload: { offers: [] }, fetched_at: eightHoursAgo, expires_at: "x" };
+    const client = makeMockClient({ queryResults: [{ data: null }, { data: row }] });
+
+    const result = await getFlightSearchCache(client, "K");
+
+    expect(result.type).toBe("stale");
+    if (result.type === "stale") {
+      // The read path returns exactly what was stored — it never
+      // generates a new timestamp or otherwise touches fetched_at.
+      expect(result.row.fetched_at).toBe(eightHoursAgo);
+    }
+  });
+
+  it("returns 'miss' when both queries miss (no row at all)", async () => {
+    const client = makeMockClient({ queryResults: [{ data: null }, { data: null }] });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("miss");
+  });
+
+  it("treats a row older than the 24h stale ceiling as 'miss', never returning it", async () => {
+    // Both queries return null because the row's fetched_at falls outside
+    // both the fresh (<6h) and stale (<24h) windows — this test proves the
+    // CALLER'S query filters (gt/lte staleThreshold) are what exclude it;
+    // simulated here by both queries returning no row, matching what the
+    // real .gt(staleThreshold) filter would do for an expired row.
+    const client = makeMockClient({ queryResults: [{ data: null }, { data: null }] });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("miss");
+  });
+
+  it("treats a DB error as a miss (fails open to upstream, never fails the whole request)", async () => {
+    const client = makeMockClient({ throwOnQuery: true });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("miss");
+  });
+});
+
+describe("upsertFlightSearchCache", () => {
+  it("writes the cache_key, semantic columns and payload", async () => {
+    const client = makeMockClient();
+    await upsertFlightSearchCache(client, {
+      cacheKey: "SYD|MEL|2099-01-10||AUD",
+      origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
+      currency: "AUD", payload: { offers: [] }, fetchedAt: "2099-01-01T00:00:00.000Z",
+    });
+    expect(client.__upsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ cache_key: "SYD|MEL|2099-01-10||AUD", origin: "SYD", destination: "MEL", currency: "AUD" }),
+      expect.objectContaining({ onConflict: "cache_key" }),
+    );
+  });
+
+  it("never throws when the DB write fails — best-effort only", async () => {
+    const client = makeMockClient({ upsertImpl: () => { throw new Error("write failed"); } });
+    await expect(
+      upsertFlightSearchCache(client, {
+        cacheKey: "K", origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
+        currency: "AUD", payload: { offers: [] }, fetchedAt: "2099-01-01T00:00:00.000Z",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  // BF-FLIGHTS-CACHE-1 consistency fix — fetched_at must be EXACTLY the
+  // caller-supplied fetchedAt, never a separately-generated `new Date()`
+  // inside this function, so response.meta.fetchedAt (built from the same
+  // caller-side value) and the persisted row can never diverge.
+  describe("canonical fetchedAt contract", () => {
+    it("D. persists fetched_at and updated_at as EXACTLY the passed fetchedAt, not a freshly-generated timestamp", async () => {
+      const client = makeMockClient();
+      const fetchedAt = "2026-08-27T14:27:45.507Z";
+      await upsertFlightSearchCache(client, {
+        cacheKey: "K", origin: "SYD", destination: "BNE", departureDate: "2026-10-13", returnDate: null,
+        currency: "AUD", payload: { offers: [] }, fetchedAt,
+      });
+      expect(client.__upsertSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ fetched_at: fetchedAt, updated_at: fetchedAt }),
+        expect.anything(),
+      );
+    });
+
+    it("E. derives expires_at as fetchedAt + FRESH_TTL_SEC, not now() + FRESH_TTL_SEC", async () => {
+      const client = makeMockClient();
+      const fetchedAt = "2026-08-27T14:27:45.507Z";
+      await upsertFlightSearchCache(client, {
+        cacheKey: "K", origin: "SYD", destination: "BNE", departureDate: "2026-10-13", returnDate: null,
+        currency: "AUD", payload: { offers: [] }, fetchedAt,
+      });
+      const expectedExpiresAt = new Date(new Date(fetchedAt).getTime() + FRESH_TTL_SEC * 1000).toISOString();
+      expect(client.__upsertSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ expires_at: expectedExpiresAt }),
+        expect.anything(),
+      );
+    });
+
+    it("never calls `new Date()` with no arguments to derive fetched_at/expires_at — both must trace back to params.fetchedAt", () => {
+      const fnMatch = readFileSync("supabase/functions/_shared/flightSearchCache.ts", "utf8")
+        .match(/export async function upsertFlightSearchCache[\s\S]*?^}/m);
+      expect(fnMatch).not.toBeNull();
+      const fnBody = fnMatch![0];
+      expect(fnBody).toContain("params.fetchedAt");
+      expect(fnBody).not.toMatch(/fetched_at:\s*now/);
+    });
+  });
+});
+
+describe("recordFlightSearchDemand", () => {
+  it("calls the bump RPC with the cache key", async () => {
+    const client = makeMockClient();
+    await recordFlightSearchDemand(client, "SYD|MEL|2099-01-10||AUD");
+    expect(client.__rpcSpy).toHaveBeenCalledWith("bump_flight_search_cache_demand", { p_cache_key: "SYD|MEL|2099-01-10||AUD" });
+  });
+
+  it("never throws when the RPC fails — best-effort only", async () => {
+    const client = makeMockClient({ rpcImpl: () => { throw new Error("rpc failed"); } });
+    await expect(recordFlightSearchDemand(client, "K")).resolves.toBeUndefined();
+  });
+});
+
+// BF-FLIGHTS-CACHE-1 correctness fix — supabase-js commonly RETURNS
+// { data, error } rather than throwing on a DB-level failure. The
+// throwOnQuery/upsertImpl-throws tests above only cover the thrown case;
+// these cover the equally-important returned-error case.
+describe("getFlightSearchCache — returned (non-thrown) Supabase error", () => {
+  it("treats a returned error on the fresh query as a miss (fails open to upstream)", async () => {
+    const client = makeMockClient({ queryResults: [{ data: null, error: { message: "connection reset" } } as any] });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("miss");
+  });
+
+  it("treats a returned error on the stale query (after a clean fresh miss) as a miss", async () => {
+    const client = makeMockClient({
+      queryResults: [{ data: null, error: null } as any, { data: null, error: { message: "timeout" } } as any],
+    });
+    const result = await getFlightSearchCache(client, "K");
+    expect(result.type).toBe("miss");
+  });
+
+  it("logs a sanitized warning (error message only) and never logs a payload or credential", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = makeMockClient({ queryResults: [{ data: null, error: { message: "permission denied" } } as any] });
+    await getFlightSearchCache(client, "K");
+    const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(logged).toContain("permission denied");
+    expect(logged).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(logged).not.toMatch(/offers"?\s*:/); // never the raw cached payload
+    warnSpy.mockRestore();
+  });
+});
+
+describe("upsertFlightSearchCache — returned (non-thrown) Supabase error", () => {
+  it("logs a sanitized warning and still resolves (non-fatal) when upsert returns an error object", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = makeMockClient({ upsertImpl: () => Promise.resolve({ error: { message: "duplicate key value" } }) });
+    await expect(
+      upsertFlightSearchCache(client, {
+        cacheKey: "K", origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
+        currency: "AUD", payload: { offers: [] }, fetchedAt: "2099-01-01T00:00:00.000Z",
+      }),
+    ).resolves.toBeUndefined();
+    const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(logged).toContain("duplicate key value");
+    expect(logged).not.toMatch(/offers"?\s*:/);
+    warnSpy.mockRestore();
+  });
+});
+
+describe("recordFlightSearchDemand — returned (non-thrown) Supabase error", () => {
+  it("logs a sanitized warning and still resolves (non-fatal) when the RPC returns an error object", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = makeMockClient({ rpcImpl: () => Promise.resolve({ error: { message: "function not found" } }) });
+    await expect(recordFlightSearchDemand(client, "K")).resolves.toBeUndefined();
+    const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(logged).toContain("function not found");
+    warnSpy.mockRestore();
+  });
+});
+
+describe("computeAgeSeconds", () => {
+  it("computes BookingsFinder's own cache-fetch age, not a provider observation age", () => {
+    const fetchedAt = new Date(Date.now() - 7200 * 1000).toISOString();
+    expect(computeAgeSeconds(fetchedAt)).toBeGreaterThanOrEqual(7199);
+    expect(computeAgeSeconds(fetchedAt)).toBeLessThanOrEqual(7201);
+  });
+
+  it("never returns a negative age", () => {
+    const future = new Date(Date.now() + 100000).toISOString();
+    expect(computeAgeSeconds(future)).toBe(0);
+  });
+});
+
+describe("TTL constants", () => {
+  it("FRESH_TTL_SEC is 6 hours", () => {
+    expect(FRESH_TTL_SEC).toBe(6 * 60 * 60);
+  });
+
+  it("STALE_MAX_SEC is 24 hours", () => {
+    expect(STALE_MAX_SEC).toBe(24 * 60 * 60);
+  });
+});

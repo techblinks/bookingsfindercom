@@ -142,7 +142,7 @@ describe("FlightResults — supported currencies redirect with no warning", () =
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockLogAffiliateClick).toHaveBeenCalled());
     expect(screen.queryByText(/live partner currency differs/i)).toBeNull();
@@ -156,7 +156,7 @@ describe("FlightResults — supported currencies redirect with no warning", () =
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockLogAffiliateClick).toHaveBeenCalled());
     expect(screen.queryByText(/live partner currency differs/i)).toBeNull();
@@ -173,7 +173,7 @@ describe("FlightResults — INR triggers the currency-mismatch dialog", () => {
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     expect(await screen.findByText(/live partner currency differs/i)).toBeTruthy();
     expect(mockLogAffiliateClick).not.toHaveBeenCalled();
@@ -186,7 +186,7 @@ describe("FlightResults — INR triggers the currency-mismatch dialog", () => {
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
     await screen.findByText(/live partner currency differs/i);
 
     fireEvent.click(screen.getByRole("button", { name: /continue to live flights/i }));
@@ -201,7 +201,7 @@ describe("FlightResults — INR triggers the currency-mismatch dialog", () => {
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
     await screen.findByText(/live partner currency differs/i);
 
     fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
@@ -225,7 +225,7 @@ describe("FlightResults — JPY and SGD also trigger the warning", () => {
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
     expect(await screen.findByText(/live partner currency differs/i)).toBeTruthy();
   });
 
@@ -236,7 +236,7 @@ describe("FlightResults — JPY and SGD also trigger the warning", () => {
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
     expect(await screen.findByText(/live partner currency differs/i)).toBeTruthy();
   });
 });
@@ -253,7 +253,7 @@ describe("FlightResults — Round 3: unverified currencies (AED, THB) warn witho
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     expect(await screen.findByText(/live partner currency differs/i)).toBeTruthy();
     expect(screen.getByText(/cannot currently guarantee/i)).toBeTruthy();
@@ -268,7 +268,7 @@ describe("FlightResults — Round 3: unverified currencies (AED, THB) warn witho
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
     await screen.findByText(/live partner currency differs/i);
 
     fireEvent.click(screen.getByRole("button", { name: /continue to live flights/i }));
@@ -301,7 +301,7 @@ describe("FlightResults — supported currency still reaches buildWhiteLabelFlig
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
 
     await waitFor(() => expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalled());
     expect(mockBuildWhiteLabelFlightUrl).toHaveBeenCalledWith(expect.objectContaining({ currency: "AUD" }));
@@ -318,7 +318,7 @@ describe("FlightResults — route/date/passenger/cabin values remain unchanged t
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    fireEvent.click(screen.getAllByRole("button", { name: /search live flights/i })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /^search live flights$/i }));
     await screen.findByText(/live partner currency differs/i);
     fireEvent.click(screen.getByRole("button", { name: /continue to live flights/i }));
 

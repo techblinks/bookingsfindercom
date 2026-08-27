@@ -50,7 +50,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { auth: { getSession: () => Promise.resolve({ data: { session: null } }) } },
 }));
 vi.mock("@/lib/supabaseConfig", () => ({
-  getFunctionUrl: () => "https://mock.test/functions/v1/search-flights",
+  getFunctionUrl: (name: string) => `https://mock.test/functions/v1/${name}`,
 }));
 
 // Real whiteLabelUrl.ts logic (unmocked) would require VITE_TRAVEL_WHITE_LABEL_MODE
@@ -106,6 +106,11 @@ describe("FlightResults — economy search shows cached fares with one page-leve
     mockBuildWhiteLabelFlightUrl.mockReset();
     mockToastError.mockReset();
     mockGetRedirectUrl.mockReset();
+    // BF-FLIGHTS-LIVE-4: "Check live prices"/"Search Live Flights" now
+    // always scroll to the native Live Flights section (see
+    // handleSearchLiveFlights in FlightResults.tsx) — jsdom does not
+    // implement scrollIntoView.
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("renders the fare cards (item 12)", async () => {
@@ -160,7 +165,7 @@ describe("FlightResults — economy search shows cached fares with one page-leve
 
     const mainText = container.querySelector("main")!.textContent!;
     const disclosureIndex = mainText.indexOf("Recent indicative fares");
-    const quickSelectIndex = mainText.indexOf("Recent best");
+    const quickSelectIndex = mainText.indexOf("Recent cheapest");
     expect(disclosureIndex).toBeGreaterThanOrEqual(0);
     expect(quickSelectIndex).toBeGreaterThan(disclosureIndex);
   });
@@ -193,15 +198,17 @@ describe("FlightResults — economy search shows cached fares with one page-leve
     expect(screen.getByText(/recent from/i)).toBeTruthy();
   });
 
-  // Item 15: FlightQuickSelect's Best/Cheapest/Fastest cards are labelled.
+  // Item 15: FlightQuickSelect's Cheapest/Fastest/Fewest-stops cards are
+  // labelled. No "Recent best" — BF-FLIGHTS-CACHE-1 quick-select truth fix.
   it("Quick Select prices carry recent/indicative context (item 15)", async () => {
     stubFlights(FLIGHTS);
     renderResults(ECONOMY_URL);
 
     await waitFor(() => expect(resultCards().length).toBe(FLIGHTS.length));
-    expect(screen.getByText("Recent best")).toBeTruthy();
     expect(screen.getByText("Recent cheapest")).toBeTruthy();
     expect(screen.getByText("Recent fastest fare")).toBeTruthy();
+    expect(screen.getByText("Recent fewest stops")).toBeTruthy();
+    expect(screen.queryByText("Recent best")).toBeNull();
   });
 
   // Item 16: Price Calendar heading — its request contract has no
@@ -230,6 +237,11 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     mockBuildWhiteLabelFlightUrl.mockReset();
     mockToastError.mockReset();
     mockGetRedirectUrl.mockReset();
+    // BF-FLIGHTS-LIVE-4: "Check live prices"/"Search Live Flights" now
+    // always scroll to the native Live Flights section (see
+    // handleSearchLiveFlights in FlightResults.tsx) — jsdom does not
+    // implement scrollIntoView.
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("item 1: does not display any currency amount from cached results, even though the provider returned results", async () => {
@@ -309,7 +321,7 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     renderResults(BUSINESS_URL);
 
     await screen.findByRole("button", { name: /check live prices for your selected cabin/i });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]: [string]) => String(url).includes("search-flights"))).toBe(false);
   });
 
   it("does not render FlightQuickSelect or NearbyAirportSuggestion", async () => {
@@ -338,7 +350,7 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
     expect(screen.queryByText(/recent indicative fares from our flight partner/i)).toBeNull();
   });
 
-  it("item 11: the cabin CTA's White Label handoff preserves adults, children, infants AND cabin class (nothing dropped by cabin gating)", async () => {
+  it("item 11: the Business CTA's White Label handoff preserves adults, children, infants AND cabin class (nothing dropped by cabin gating)", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({
       success: true,
       url: "https://flights.bookingsfinder.com/?flightSearch=SYD1001MEL121c211",
@@ -363,9 +375,9 @@ describe("FlightResults — non-economy (Business) cabin search contains zero ca
   });
 
   // BF-0R-7 Round 1.2 item 3/8: the fail-closed contract. If the verified
-  // White Label URL can't be built, the CTA must NOT fall back to a generic
-  // redirect (which would drop the selected cabin/passengers while implying
-  // they were preserved) — it must show an honest error instead.
+  // White Label URL can't be built, the fallback must NOT fall back further
+  // to a generic redirect (which would drop the selected cabin/passengers
+  // while implying they were preserved) — it must show an honest error.
   it("does NOT generic-fallback when the verified White Label URL generation fails — fails closed with an honest error", async () => {
     mockBuildWhiteLabelFlightUrl.mockReturnValue({ success: false, url: null, reason: "White Label is not enabled" });
     stubFlights(FLIGHTS);

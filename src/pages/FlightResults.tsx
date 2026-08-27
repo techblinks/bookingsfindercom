@@ -32,6 +32,18 @@ import FlightQuickSelect from "@/components/flights/FlightQuickSelect";
 import CurrencySelector from "@/components/flights/CurrencySelector";
 import UnsupportedCurrencyDialog from "@/components/flights/UnsupportedCurrencyDialog";
 import { useCurrencyPreference } from "@/hooks/useCurrencyPreference";
+import { getFlightCacheFreshnessMessage } from "@/lib/flightCacheFreshness";
+/*
+ * BF-FLIGHTS-LIVE-3 Phase I / BF-FLIGHTS-CACHE-1: interim compatibility
+ * mapping — no new ad_placements DB values or migration. The `placement`
+ * column has a DB CHECK constraint limited to ('after_result_3', 'bottom',
+ * 'after_result_5') (see supabase/migrations/20260113131101_...sql), so
+ * introducing new semantic keys would require a migration. Reusing the
+ * existing two keys positionally needs none:
+ *   after_result_3 → before the Recent Flight Options section
+ *   after_result_5 → after the Recent Flight Options section
+ * AdminAds.tsx's placement labels disclose this mapping.
+ */
 import MobileFlightSearch from "@/components/search/MobileFlightSearch";
 import ModernFlightSearch from "@/components/search/ModernFlightSearch";
 import { FlightLandingPage } from "@/pages/flight/FlightLandingPage";
@@ -177,7 +189,7 @@ const FlightResults = () => {
     if (committedSearchRef.current === searchKey) return;
     committedSearchRef.current = searchKey;
     resetFilters();
-    setSortBy("best");
+    setSortBy("cheapest");
     setDisplayCount(INITIAL_DISPLAY_COUNT);
   }, [searchKey, resetFilters, setSortBy]);
 
@@ -386,7 +398,7 @@ const FlightResults = () => {
    * something is genuinely wrong (rollout mode disabled, host
    * misconfigured, etc.) — not a normal case to paper over.
    */
-  const handleSearchLiveFlights = async () => {
+  const handleOpenFullFlightSearch = async () => {
     let finalUrl: string | null = null;
     let outboundHost: string | undefined;
     let currencyMismatch: { requestedCurrency: string } | null = null;
@@ -443,6 +455,14 @@ const FlightResults = () => {
   const bestDealFlight = filteredFlights.length > 0
     ? filteredFlights.reduce((best, f) => (f.deal_score || 0) > (best.deal_score || 0) ? f : best, filteredFlights[0])
     : null;
+  /*
+   * BF-FLIGHTS-CACHE-1 Phase L: describes BookingsFinder's own cache fetch
+   * time, never a Travelpayouts provider observation time — see
+   * flightCacheFreshness.ts. null for the "unavailable" cacheStatus (that
+   * state gets its own distinct message, not a freshness line) and for a
+   * disabled/Business search that never called search-flights at all.
+   */
+  const freshnessMessage = getFlightCacheFreshnessMessage(meta);
 
   /* ═════════════════════════════════════════════════════════════════
      V1: Form mode — mobile gets new V1 search, desktop preserves existing
@@ -554,18 +574,22 @@ const FlightResults = () => {
                 </div>
               )}
               {/*
-                * BF-FLIGHTS-LIVE-1 Phase C: a prominent live-search handoff
-                * is available on every valid search, not just the Business
-                * cabin panel or the zero-result state (see the matching CTA
-                * in EnhancedEmptyFlightResults below). Always visible in the
+                * BF-FLIGHTS-LIVE-1 Phase C / BF-FLIGHTS-CACHE-1: a
+                * prominent live-search handoff is available on every valid
+                * search, not just the Business cabin panel or the
+                * zero-result state (see the matching CTA in
+                * EnhancedEmptyFlightResults below). Always visible in the
                 * sticky header so it survives scrolling past a long results
-                * list.
+                * list. This always leaves bookingsfinder.com for the
+                * partner's real live search (there is no embedded on-page
+                * live section any more — see handleOpenFullFlightSearch),
+                * so it keeps its ExternalLink icon.
                 */}
               {!isEditingSearch && (
                 <Button
                   size="sm"
                   className="h-9 shrink-0 gap-1.5"
-                  onClick={handleSearchLiveFlights}
+                  onClick={handleOpenFullFlightSearch}
                 >
                   Search Live Flights
                   <ExternalLink className="h-3.5 w-3.5" />
@@ -632,14 +656,23 @@ const FlightResults = () => {
            * in the sticky header above; this panel is only the honest
            * live-search handoff.
            */
-          <div className="max-w-xl mx-auto">
+          <div className="max-w-xl mx-auto space-y-6">
             <div className="rounded-xl border border-border bg-card p-6 md:p-8 text-center space-y-4">
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin on the partner site instead.
+                Our flight partner's recent fare snapshots aren't adjusted for cabin class, so we don't show them as matching a {cabinClassLabel} search. Check live prices for your selected cabin with our partner.
               </p>
-              <Button onClick={handleSearchLiveFlights} className="gap-1.5">
+              {/*
+                * BF-FLIGHTS-CACHE-1 Phase P: Business never gets a cached
+                * route-level price presented as a Business fare — the
+                * Travelpayouts Data API does not document cabin-class
+                * pricing at all (see `enabled: !isNonEconomyCabin` on
+                * useFlightSearch above, unchanged). This CTA is the only
+                * path for a Business search: the real live partner search,
+                * where Business pricing is genuinely quoted.
+                */}
+              <Button onClick={handleOpenFullFlightSearch} className="gap-1.5">
                 Check live prices for your selected cabin
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
@@ -705,25 +738,71 @@ const FlightResults = () => {
               </div>
             )}
 
+            {/*
+              * BF-FLIGHTS-CACHE-1 Phase H: distinguishes a genuine
+              * zero-match (meta.total_found === 0, upstream answered but
+              * found nothing for these exact dates) from an "unavailable"
+              * cacheStatus (no usable cache AND the upstream refresh
+              * attempt failed) — the two are different facts and get
+              * different copy. Neither claims live flights are shown
+              * "below" any more — there is no embedded live section; the
+              * Search Live Flights button above is the actual live path.
+              */}
+            {!isLoading && meta.cacheStatus === "unavailable" && (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
+                <p className="text-sm text-muted-foreground">
+                  Recent fare data is temporarily unavailable. Try again, or check live prices with our partner.
+                </p>
+                <Button variant="outline" size="sm" className="shrink-0" onClick={retry}>Try again</Button>
+              </div>
+            )}
+            {!isLoading && meta.total_found === 0 && meta.cacheStatus !== "unavailable" && (
+              <p className="text-sm text-muted-foreground mb-4">
+                No exact recent fare observation is available for these dates. Check live prices with our partner.
+              </p>
+            )}
+
+            {/*
+              * BF-FLIGHTS-LIVE-4 Phase R / BF-FLIGHTS-CACHE-1: BookingsFinder-owned
+              * placements around the Recent Flight Options section, eligible
+              * regardless of cached result count — see the interim
+              * after_result_3/5 mapping documented above (still no
+              * ad_placements migration).
+              */}
+            {ads.after_result_3 && (
+              <div className="mb-4"><AdSlot ad={ads.after_result_3} onImpression={trackImpression} onClick={trackClick} /></div>
+            )}
+
+            <section aria-label="Recent Flight Options" className="mb-4">
+              <h2 className="text-lg font-semibold text-foreground mb-1">Recent Flight Options</h2>
+              <p className="text-xs text-muted-foreground mb-3">
+                Fares recently observed by our flight partner. Availability and final price are confirmed when you continue.
+              </p>
+              {!isLoading && freshnessMessage && (
+                <p className="text-xs text-muted-foreground mb-3">{freshnessMessage}</p>
+              )}
+
             {/* Sort: mobile segmented control, desktop dropdown */}
             <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
               <div>
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground animate-pulse">Searching for flights...</p>
-                ) : (
+                ) : totalResults > 0 ? (
                   /*
                    * BF-FLIGHTS-LIVE-1 Phase B/D: this count is how many
                    * cached fare observations exactly matched the requested
-                   * dates — not a statement that this many flights (or, at
-                   * zero, that no flights) exist. "0 recent fare
-                   * observations" stays true when it's zero; the old
-                   * "0 flights found" read as a live-inventory claim this
-                   * Data API cannot support.
+                   * dates — not a statement that this many flights exist.
+                   *
+                   * Only rendered when totalResults > 0 — at zero, the
+                   * compact truthful sentence above this section already
+                   * says "No exact recent fare observation is available
+                   * for these dates", so "0 recent fare observations" here
+                   * would just repeat it without adding information.
                    */
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold text-foreground tabular-nums">{totalResults.toLocaleString()}</span> recent fare observation{totalResults !== 1 ? 's' : ''}
                   </p>
-                )}
+                ) : null}
               </div>
               {/*
                 * The filters trigger follows the sidebar, not the mobile search
@@ -734,7 +813,7 @@ const FlightResults = () => {
               <div className={isMobile ? "flex w-full items-center justify-between gap-2" : "flex items-center gap-2"}>
                 {isMobile ? (
                   <div role="radiogroup" aria-label="Sort flights" className="flex min-w-0 bg-muted rounded-full p-0.5">
-                    {(["best", "cheapest", "fastest"] as const).map((opt) => (
+                    {(["cheapest", "fastest", "stops"] as const).map((opt) => (
                       <button
                         key={opt}
                         onClick={() => setSortBy(opt)}
@@ -745,7 +824,7 @@ const FlightResults = () => {
                           : "text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
                         }
                       >
-                        {opt === "best" ? "Best" : opt === "cheapest" ? "Cheapest" : "Fastest"}
+                        {opt === "cheapest" ? "Cheapest" : opt === "fastest" ? "Fastest" : "Fewest stops"}
                       </button>
                     ))}
                   </div>
@@ -782,7 +861,7 @@ const FlightResults = () => {
                 <EnhancedEmptyFlightResults
                   onClearFilters={resetFilters}
                   onModifySearch={() => setIsEditingSearch(true)}
-                  onSearchLiveFlights={handleSearchLiveFlights}
+                  onSearchLiveFlights={handleOpenFullFlightSearch}
                   origin={origin} destination={destination}
                   departureDate={departureDate} returnDate={returnDate}
                   adults={adults ?? undefined} children={children ?? undefined} infants={infants ?? undefined}
@@ -795,17 +874,8 @@ const FlightResults = () => {
                       <div role="listitem" style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}>
                         <FlightCard flight={flight} currency={currencySymbol} onBookNow={handleBookNow} />
                       </div>
-                      {index === 2 && ads.after_result_3 && (
-                        <div className="my-3"><AdSlot ad={ads.after_result_3} onImpression={trackImpression} onClick={trackClick} /></div>
-                      )}
-                      {index === 4 && ads.after_result_5 && (
-                        <div className="my-3"><AdSlot ad={ads.after_result_5} onImpression={trackImpression} onClick={trackClick} /></div>
-                      )}
                     </div>
                   ))}
-                  {ads.bottom && displayedFlights.length > 0 && (
-                    <div className="mt-4"><AdSlot ad={ads.bottom} onImpression={trackImpression} onClick={trackClick} /></div>
-                  )}
                   {hasMore && (
                     <div id="load-more-sentinel" className="py-4">
                       <div className="flex justify-center">
@@ -823,6 +893,21 @@ const FlightResults = () => {
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">Showing all {totalResults} recent fare observation{totalResults !== 1 ? 's' : ''}</p>
               </div>
+            )}
+            </section>
+
+            {ads.after_result_5 && (
+              <div className="mb-4"><AdSlot ad={ads.after_result_5} onImpression={trackImpression} onClick={trackClick} /></div>
+            )}
+
+            {/*
+              * BF-FLIGHTS-LIVE-3 Phase J: unconditional on cached result
+              * count — a sponsored placement must not require cached
+              * FlightCard results to exist (see the same note on
+              * after_result_3/5 above).
+              */}
+            {ads.bottom && (
+              <div className="mt-4"><AdSlot ad={ads.bottom} onImpression={trackImpression} onClick={trackClick} /></div>
             )}
           </div>
         </div>
