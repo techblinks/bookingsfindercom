@@ -1,0 +1,116 @@
+metro_code,country_iso2,host_city_alias,airport_iata,rank
+TYO,JP,Tokyo,HND,1
+TYO,JP,Tokyo,NRT,2
+OSA,JP,Osaka,KIX,1
+OSA,JP,Osaka,ITM,2
+LON,GB,London,LHR,1
+LON,GB,London,LGW,2
+LON,GB,London,STN,3
+LON,GB,London,LTN,4
+LON,GB,London,LCY,5
+PAR,FR,Paris,CDG,1
+PAR,FR,Paris,ORY,2
+PAR,FR,Paris,BVA,3
+NYC,US,New York City,JFK,1
+NYC,US,New York City,EWR,2
+NYC,US,New York City,LGA,3
+CHI,US,Chicago,ORD,1
+CHI,US,Chicago,MDW,2
+LAX,US,Los Angeles,LAX,1
+SFO,US,San Francisco,SFO,1
+SFO,US,San Francisco,OAK,2
+SFO,US,San Francisco,SJC,3
+WAS,US,Washington DC,IAD,1
+WAS,US,Washington DC,DCA,2
+WAS,US,Washington DC,BWI,3
+MIA,US,Miami,MIA,1
+MIA,US,Miami,FLL,2
+ATL,US,Atlanta,ATL,1
+DAL,US,Dallas,DFW,1
+DAL,US,Dallas,DAL,2
+HOU,US,Houston,IAH,1
+HOU,US,Houston,HOU,2
+BOS,US,Boston,BOS,1
+SEA,US,Seattle,SEA,1
+DEN,US,Denver,DEN,1
+LAS,US,Las Vegas,LAS,1
+PHX,US,Phoenix,PHX,1
+MSP,US,Minneapolis,MSP,1
+DTW,US,Detroit,DTW,1
+PHL,US,Philadelphia,PHL,1
+MCO,US,Orlando,MCO,1
+HNL,US,Honolulu,HNL,1
+YTO,CA,Toronto,YYZ,1
+YTO,CA,Toronto,YHM,2
+YVR,CA,Vancouver,YVR,1
+MEX,MX,"Mexico City|Ciudad de Mexico",MEX,1
+SAO,BR,"Sao Paulo",GRU,1
+SAO,BR,Sao Paulo,CGH,2
+SAO,BR,Sao Paulo,VCP,3
+RIO,BR,Rio de Janeiro,GIG,1
+RIO,BR,Rio de Janeiro,SDU,2
+EZE,AR,Buenos Aires,EZE,1
+EZE,AR,Buenos Aires,AEP,2
+BOG,CO,Bogota,BOG,1
+LIM,PE,Lima,LIM,1
+MAD,ES,Madrid,MAD,1
+BCN,ES,Barcelona,BCN,1
+FCO,IT,"Rome|Roma",FCO,1
+MIL,IT,"Milan|Milano",MXP,1
+MIL,IT,"Milan|Milano",LIN,2
+MUC,DE,Munich,MUC,1
+BER,DE,Berlin,BER,1
+FRA,DE,Frankfurt,FRA,1
+AMS,NL,Amsterdam,AMS,1
+BRU,BE,Brussels,BRU,1
+VIE,AT,Vienna,VIE,1
+ZRH,CH,Zurich,ZRH,1
+GVA,CH,Geneva,GVA,1
+CPH,DK,Copenhagen,CPH,1
+ARN,SE,Stockholm,ARN,1
+OSL,NO,Oslo,OSL,1
+HEL,FI,Helsinki,HEL,1
+DUB,IE,Dublin,DUB,1
+LIS,PT,Lisbon,LIS,1
+WAW,PL,Warsaw,WAW,1
+PRG,CZ,Prague,PRG,1
+IST,TR,Istanbul,IST,1
+IST,TR,Istanbul,SAW,2
+ATH,GR,Athens,ATH,1
+MOS,RU,"Moscow|Moskva",SVO,1
+MOS,RU,"Moscow|Moskva",DME,2
+MOS,RU,"Moscow|Moskva",VKO,3
+LED,RU,Saint Petersburg,LED,1
+DXB,AE,Dubai,DXB,1
+DXB,AE,Dubai,DWC,2
+AUH,AE,Abu Dhabi,AUH,1
+DOH,QA,Doha,DOH,1
+CAI,EG,Cairo,CAI,1
+JNB,ZA,Johannesburg,JNB,1
+LOS,NG,Lagos,LOS,1
+NBO,KE,Nairobi,NBO,1
+DEL,IN,"New Delhi|Delhi",DEL,1
+BOM,IN,Mumbai,BOM,1
+BLR,IN,"Bengaluru|Bangalore",BLR,1
+SIN,SG,Singapore,SIN,1
+BKK,TH,Bangkok,BKK,1
+BKK,TH,Bangkok,DMK,2
+KUL,MY,Kuala Lumpur,KUL,1
+CGK,ID,Jakarta,CGK,1
+MNL,PH,Manila,MNL,1
+SGN,VN,Ho Chi Minh City,SGN,1
+HKG,HK,Hong Kong,HKG,1
+TPE,TW,Taipei,TPE,1
+ICN,KR,Seoul,ICN,1
+ICN,KR,Seoul,GMP,2
+BJS,CN,Beijing,PEK,1
+BJS,CN,Beijing,PKX,2
+SHA,CN,Shanghai,PVG,1
+SHA,CN,Shanghai,SHA,2
+CAN,CN,Guangzhou,CAN,1
+SZX,CN,Shenzhen,SZX,1
+SYD,AU,Sydney,SYD,1
+MEL,AU,Melbourne,MEL,1
+BNE,AU,Brisbane,BNE,1
+PER,AU,Perth,PER,1
+AKL,NZ,Auckland,AKL,1

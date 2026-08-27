@@ -42,7 +42,7 @@ describe("stale-if-error preserves the ORIGINAL fetched_at", () => {
   });
 
   it("only the successful-fetch try block calls upsertFlightSearchCache, and only there is fetched_at ever written", () => {
-    const tryBlockStart = indexSource.indexOf("const config = getConfig();");
+    const tryBlockStart = indexSource.indexOf("const provider = createTravelpayoutsProvider();");
     const catchBlockStart = indexSource.indexOf("} catch (upstreamError) {");
     expect(tryBlockStart).toBeGreaterThan(-1);
     expect(catchBlockStart).toBeGreaterThan(tryBlockStart);

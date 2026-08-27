@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -8,55 +8,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plane, ArrowRight, Search, Star, ExternalLink, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fallbackRouteTips, fallbackRouteFaqQuestion, fallbackRouteFaqAnswer } from "./routePageFallbackCopy";
+import { resolveLocation, type ResolvedLocation } from "@/lib/airportResolution";
 
-// Convert slug like "london-to-dubai" to route info
-const parseRouteSlug = (slug: string) => {
-  const parts = slug.split("-to-");
-  if (parts.length < 2) return null;
-
-  // Handle multi-word cities like "new-york-to-los-angeles" vs "london-to-new-york"
-  // The slug format is [origin-words]-to-[destination-words]
-  const toIndex = slug.indexOf("-to-");
-  const originSlug = slug.substring(0, toIndex);
-  const destinationSlug = slug.substring(toIndex + 4);
-
-  const capitalize = (s: string) => s.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-
-  return {
-    originCity: capitalize(originSlug),
-    destinationCity: capitalize(destinationSlug),
-    originSlug,
-    destinationSlug,
-  };
-};
-
-// Common IATA code mapping for popular cities
-const cityToIATA: Record<string, string> = {
-  london: "LON", "new york": "NYC", dubai: "DXB", paris: "CDG", tokyo: "TYO",
-  bangkok: "BKK", istanbul: "IST", singapore: "SIN", barcelona: "BCN", rome: "FCO",
-  "los angeles": "LAX", miami: "MIA", amsterdam: "AMS", frankfurt: "FRA", sydney: "SYD",
-  mumbai: "BOM", delhi: "DEL", toronto: "YYZ", "kuala lumpur": "KUL", doha: "DOH",
-  cairo: "CAI", lisbon: "LIS", madrid: "MAD", berlin: "BER", zurich: "ZRH",
-  "hong kong": "HKG", seoul: "ICN", manila: "MNL", jakarta: "CGK", nairobi: "NBO",
-  "sao paulo": "GRU", "mexico city": "MEX", bogota: "BOG", lima: "LIM", santiago: "SCL",
-  chicago: "ORD", boston: "BOS", seattle: "SEA", "san francisco": "SFO", dallas: "DFW",
-  atlanta: "ATL", denver: "DEN", manchester: "MAN", edinburgh: "EDI", dublin: "DUB",
-  oslo: "OSL", stockholm: "ARN", copenhagen: "CPH", vienna: "VIE", prague: "PRG",
-  athens: "ATH", budapest: "BUD", warsaw: "WAW", bucharest: "OTP", lagos: "LOS",
-  johannesburg: "JNB", "cape town": "CPT", casablanca: "CMN", marrakech: "RAK",
-  bali: "DPS", phuket: "HKT", maldives: "MLE", cancun: "CUN", "punta cana": "PUJ",
-};
-
-const getIATA = (cityName: string): string => {
-  return cityToIATA[cityName.toLowerCase()] || cityName.substring(0, 3).toUpperCase();
-};
+// BF1-C: slug parsing + the route-support decision moved to a pure,
+// unit-tested module. The previous inline cityToIATA map plus getIATA()'s
+// `cityName.substring(0,3).toUpperCase()` fallback FABRICATED IATA codes for
+// arbitrary slugs (e.g. wollongong -> "WOL") and shipped them into live
+// searches. That behaviour is removed: slugs must now resolve against real
+// BF1-B reference data (or an explicitly published seo_route_pages row), or
+// the page renders an honest "route not supported" state.
+import { parseRouteSlug, describeRouteSupport } from "@/lib/routePageResolution";
 
 const RoutePage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const route = slug ? parseRouteSlug(slug) : null;
+  const route = useMemo(() => (slug ? parseRouteSlug(slug) : null), [slug]);
   const [dbContent, setDbContent] = useState<any>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(true);
+  const [originRes, setOriginRes] = useState<ResolvedLocation | null>(null);
+  const [destRes, setDestRes] = useState<ResolvedLocation | null>(null);
 
   // Fetch published route content from DB
   useEffect(() => {
@@ -75,6 +45,29 @@ const RoutePage = () => {
     fetchContent();
   }, [slug]);
 
+  // BF1-C: resolve slug city names against real reference data. Published rows
+  // that already carry IATA codes skip this work entirely (see gating below).
+  useEffect(() => {
+    if (!route) return;
+    let cancelled = false;
+    setOriginRes(null);
+    setDestRes(null);
+    const run = async () => {
+      const [o, d] = await Promise.all([
+        resolveLocation(route.originCity),
+        resolveLocation(route.destinationCity),
+      ]);
+      if (!cancelled) {
+        setOriginRes(o);
+        setDestRes(d);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [route?.originSlug, route?.destinationSlug]);
+
   if (!route) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -89,8 +82,17 @@ const RoutePage = () => {
     );
   }
 
-  const originIATA = dbContent?.origin_iata || getIATA(route.originCity);
-  const destIATA = dbContent?.destination_iata || getIATA(route.destinationCity);
+  // Fail-closed support decision: search is only offered when BOTH endpoints
+  // carry a real reference-backed or published IATA code. Unknown slugs never
+  // receive an invented code.
+  const support = describeRouteSupport({
+    publishedOriginIata: dbContent?.origin_iata,
+    publishedDestinationIata: dbContent?.destination_iata,
+    originResolution: originRes,
+    destinationResolution: destRes,
+  });
+  const canSearch = support.status === "ready";
+
   const today = new Date();
   const searchDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
@@ -98,16 +100,18 @@ const RoutePage = () => {
   const isThinPage = !dbContent;
 
   const handleSearch = () => {
-    navigate(`/flights?origin=${originIATA}&destination=${destIATA}&departureDate=${searchDate}&passengers=1&cabinClass=economy`);
+    if (!canSearch) return;
+    navigate(`/flights?origin=${support.originCode}&destination=${support.destinationCode}&departureDate=${searchDate}&passengers=1&cabinClass=economy`);
   };
 
-  // Page metadata — never fabricate prices.
+  // Page metadata — never fabricate prices or airport codes.
   const pageTitle = dbContent?.title || `Compare Flights from ${route.originCity} to ${route.destinationCity}`;
-  const pageDescription = dbContent?.meta_description
-    || `Search live flight options from ${route.originCity} to ${route.destinationCity}. Compare schedules, stops and baggage from trusted travel partners on BookingsFinder.`;
+  const pageDescription = dbContent?.meta_description || `Search live flight options from ${route.originCity} to ${route.destinationCity}. Compare schedules, stops and baggage from trusted travel partners on BookingsFinder.`;
   const h1Title = dbContent?.h1_title || `Flights from ${route.originCity} to ${route.destinationCity}`;
   const introText = dbContent?.intro_paragraph
-    || `Search and compare flight options from ${route.originCity} (${originIATA}) to ${route.destinationCity} (${destIATA}). View live fares from our travel partners when you search.`;
+    || (canSearch
+      ? `Search and compare flight options from ${route.originCity} (${support.originCode}) to ${route.destinationCity} (${support.destinationCode}). View live fares from our travel partners when you search.`
+      : `Search and compare flight options from ${route.originCity} to ${route.destinationCity}. View live fares from our travel partners when you search.`);
   const mainContent = dbContent?.main_content || null;
   const dbTips = dbContent?.travel_tips as any[] | null;
   const dbFaqs = dbContent?.faqs as any[] | null;
@@ -122,7 +126,7 @@ const RoutePage = () => {
       }))
     : [
         {
-          "@type": "Question" as const,
+          "@type": "Question",
           name: `How can I find the best flights from ${route.originCity} to ${route.destinationCity}?`,
           acceptedAnswer: {
             "@type": "Answer" as const,
@@ -130,7 +134,7 @@ const RoutePage = () => {
           },
         },
         {
-          "@type": "Question" as const,
+          "@type": "Question",
           name: fallbackRouteFaqQuestion(route.originCity, route.destinationCity),
           acceptedAnswer: {
             "@type": "Answer" as const,
@@ -138,7 +142,7 @@ const RoutePage = () => {
           },
         },
         {
-          "@type": "Question" as const,
+          "@type": "Question",
           name: `Which airlines serve the ${route.originCity} to ${route.destinationCity} route?`,
           acceptedAnswer: {
             "@type": "Answer" as const,
@@ -160,6 +164,38 @@ const RoutePage = () => {
         <Header />
         <main className="flex-1 container py-16 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Honest unsupported state (BF1-C): the slug parsed as cities but neither
+  // reference data nor a published row can back both endpoints. No invented
+  // codes, no search CTA, and kept out of indexes.
+  if (isThinPage && !canSearch) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Helmet>
+          <title>Route Not Supported | BookingsFinder</title>
+          <meta name="robots" content="noindex,follow" />
+        </Helmet>
+        <Header />
+        <main className="flex-1 container py-16 text-center max-w-2xl">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
+            Route not supported
+          </h1>
+          <p className="text-muted-foreground mb-2">
+            We couldn't verify flight search coverage for {route.originCity} to{" "}
+            {route.destinationCity}.
+          </p>
+          <p className="text-sm text-muted-foreground mb-6">
+            This route isn't recognized in our airport reference data yet, so we
+            won't pretend to search it. Try searching your airports directly.
+          </p>
+          <Button asChild>
+            <Link to="/flights">Search Flights</Link>
+          </Button>
         </main>
         <Footer />
       </div>
@@ -199,13 +235,15 @@ const RoutePage = () => {
                 {introText}
               </p>
 
-              {/* Search CTA — no fabricated price */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <Button size="lg" onClick={handleSearch} className="gap-2">
-                  <Search className="h-4 w-4" />
-                  Search flights
-                </Button>
-              </div>
+              {/* Search CTA — only with verified endpoint codes; no fabricated price */}
+              {canSearch && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <Button size="lg" onClick={handleSearch} className="gap-2">
+                    <Search className="h-4 w-4" />
+                    Search flights
+                  </Button>
+                </div>
+              )}
             </div>
           </section>
 
@@ -259,26 +297,28 @@ const RoutePage = () => {
                 </div>
               </div>
 
-              {/* Quick search CTA */}
-              <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent mb-10">
-                <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-full bg-primary/10">
-                      <Plane className="h-6 w-6 text-primary" />
+              {/* Quick search CTA — only with verified endpoint codes */}
+              {canSearch && (
+                <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent mb-10">
+                  <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-full bg-primary/10">
+                        <Plane className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">Ready to compare options?</p>
+                        <p className="text-sm text-muted-foreground">
+                          Search live fares from {route.originCity} ({support.originCode}) to {route.destinationCity} ({support.destinationCode})
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground">Ready to compare options?</p>
-                      <p className="text-sm text-muted-foreground">
-                        Search live fares from {route.originCity} to {route.destinationCity}
-                      </p>
-                    </div>
-                  </div>
-                  <Button onClick={handleSearch} className="gap-2 shrink-0">
-                    Compare flight options
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
+                    <Button onClick={handleSearch} className="gap-2 shrink-0">
+                      Compare flight options
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* FAQ Section */}
               <div className="mb-10">

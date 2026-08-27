@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "types:gen": "npx -y supabase@2.115.0 gen types --lang=typescript --project-id pjehrnhmjrxrlrhuhqgf > src/integrations/supabase/types.ts",
     "check:edge:tiqets-catalog": "deno check --no-lock supabase/functions/tiqets-catalog/index.ts supabase/functions/tiqets-catalog/catalogue-storage.ts",
     "check:edge:run-optimizer": "deno check --no-lock supabase/functions/run-optimizer/index.ts supabase/functions/run-optimizer/optimizer-core.ts",
     "check:edge:search-flights": "deno check --no-lock supabase/functions/search-flights/index.ts",

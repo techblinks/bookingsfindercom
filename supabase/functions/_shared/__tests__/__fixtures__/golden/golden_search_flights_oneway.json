@@ -1,0 +1,56 @@
+{
+  "flights": [
+    {
+      "id": "SYD-DPS-2026-10-01T11:05:00+10:00-JQ-0",
+      "airline": "JQ",
+      "airline_code": "JQ",
+      "price": 389.4,
+      "currency": "USD",
+      "duration_minutes": 375,
+      "stops": 0,
+      "segments": [
+        {
+          "from": "SYD",
+          "to": "DPS",
+          "depart_time": "2026-10-01T11:05:00+10:00",
+          "arrive_time": null,
+          "airline": "JQ",
+          "flight_number": "JQ43"
+        }
+      ],
+      "link": "/search/SYD0110DPS1",
+      "flight_number": "JQ43",
+      "provider_departure_at": "2026-10-01T11:05:00+10:00",
+      "provider_return_at": null,
+      "found_at": "2026-08-20T02:41:00Z"
+    },
+    {
+      "id": "SYD-DPS-2026-10-01T16:40:00+10:00-VA-1",
+      "airline": "VA",
+      "airline_code": "VA",
+      "price": 402,
+      "currency": "USD",
+      "duration_minutes": 380,
+      "stops": 0,
+      "segments": [
+        {
+          "from": "SYD",
+          "to": "DPS",
+          "depart_time": "2026-10-01T16:40:00+10:00",
+          "arrive_time": null,
+          "airline": "VA",
+          "flight_number": "VA45"
+        }
+      ],
+      "link": "/search/SYD0110DPS2",
+      "flight_number": "VA45",
+      "provider_departure_at": "2026-10-01T16:40:00+10:00",
+      "provider_return_at": null,
+      "found_at": null
+    }
+  ],
+  "meta": {
+    "total_found": 2,
+    "is_complete": true
+  }
+}

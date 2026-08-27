@@ -39,8 +39,8 @@ describe("A/B. the successful-fetch path awaits the cache write before returning
     expect(indexSource).not.toMatch(/void\s+upsertFlightSearchCache\(/);
   });
 
-  it("the await happens before the refreshed-response return, and is not conditioned on exactMatches.length (so a zero-result search is cached identically to a non-empty one)", () => {
-    const tryBlockStart = indexSource.indexOf("const config = getConfig();");
+  it("the await happens before the refreshed-response return, and is not conditioned on result.offers.length (so a zero-result search is cached identically to a non-empty one)", () => {
+    const tryBlockStart = indexSource.indexOf("const provider = createTravelpayoutsProvider();");
     const catchBlockStart = indexSource.indexOf("} catch (upstreamError) {");
     const trySuccessSource = indexSource.slice(tryBlockStart, catchBlockStart);
 
@@ -50,11 +50,11 @@ describe("A/B. the successful-fetch path awaits the cache write before returning
     expect(refreshedReturnIndex).toBeGreaterThan(-1);
     expect(awaitUpsertIndex).toBeLessThan(refreshedReturnIndex);
 
-    // No conditional gate on result count sits between computing
-    // exactMatches and awaiting the cache write — the write always runs.
-    const exactMatchesComputed = trySuccessSource.indexOf("const exactMatches =");
-    const between = trySuccessSource.slice(exactMatchesComputed, awaitUpsertIndex);
-    expect(between).not.toMatch(/if\s*\(\s*exactMatches\.length/);
+    // No conditional gate on result count sits between the provider.search()
+    // call and awaiting the cache write — the write always runs.
+    const resultComputed = trySuccessSource.indexOf("const result = await provider.search(");
+    const between = trySuccessSource.slice(resultComputed, awaitUpsertIndex);
+    expect(between).not.toMatch(/if\s*\(\s*result\.(offers|totalFound)\.length/);
   });
 });
 
@@ -113,24 +113,24 @@ describe("E. demand tracking failure remains non-fatal", () => {
   });
 });
 
-describe("F/G. a fresh cache hit (empty or not) still returns strictly before any Travelpayouts call, even after the Promise.all refactor", () => {
-  it("the Promise.all lookup/demand block, then the fresh-hit branch and its return, both sit entirely before the getFlightPrices call", () => {
+describe("F/G. a fresh cache hit (empty or not) still returns strictly before any provider call, even after the Promise.all refactor", () => {
+  it("the Promise.all lookup/demand block, then the fresh-hit branch and its return, both sit entirely before the provider.search() call", () => {
     const promiseAllIndex = indexSource.indexOf("await Promise.all([");
     const freshBranchStart = indexSource.indexOf('cacheLookup.type === "fresh"');
-    const getFlightPricesCall = indexSource.indexOf("await getFlightPrices(");
+    const providerSearchCall = indexSource.indexOf("await provider.search(");
 
     expect(promiseAllIndex).toBeGreaterThan(-1);
     expect(freshBranchStart).toBeGreaterThan(-1);
-    expect(getFlightPricesCall).toBeGreaterThan(-1);
+    expect(providerSearchCall).toBeGreaterThan(-1);
 
     expect(promiseAllIndex).toBeLessThan(freshBranchStart);
-    expect(freshBranchStart).toBeLessThan(getFlightPricesCall);
+    expect(freshBranchStart).toBeLessThan(providerSearchCall);
 
-    const freshBranchSource = indexSource.slice(freshBranchStart, getFlightPricesCall);
+    const freshBranchSource = indexSource.slice(freshBranchStart, providerSearchCall);
     expect(freshBranchSource).toMatch(/return jsonResponse\(/);
-    // total_found reflects the cached payload's own length (0 for an
-    // empty cached payload), never a call to getFlightPrices.
-    expect(freshBranchSource).toContain("total_found: payload.flights.length");
-    expect(freshBranchSource).not.toContain("getFlightPrices");
+    // totalFound reflects the cached payload's own offers length (0 for an
+    // empty cached payload), never a call to provider.search().
+    expect(freshBranchSource).toContain("totalFound: payload.offers.length");
+    expect(freshBranchSource).not.toContain("provider.search(");
   });
 });

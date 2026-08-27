@@ -32,7 +32,7 @@
  * migration file for why that's a deliberate, separate decision.
  */
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import type { FlightResult } from "./travelpayouts.ts";
+import type { FlightOffer } from "./flightProvider.ts";
 
 /** 6 hours — the default demand-driven freshness window (Phase G). Change this one constant to retune TTL sitewide; the table schema does not need to change. */
 export const FRESH_TTL_SEC = 6 * 60 * 60;
@@ -68,8 +68,18 @@ export function computeFlightSearchCacheKey(input: FlightSearchCacheKeyInput): s
   return `${origin}|${destination}|${input.departureDate}|${returnPart}|${currency}`;
 }
 
+/**
+ * payload_version 2 (BF1 main-integration reconciliation): caches the BF1-E
+ * normalized FlightOffer[] domain result — the same shape provider.search()
+ * returns and toWireFlightSearchResponse() serializes — rather than the
+ * pre-BF1-E travelpayouts.ts FlightResult wire-ish shape (payload_version 1,
+ * never applied/deployed). This keeps ONE source of truth for the wire
+ * contract: a cache hit/stale-if-error response is rebuilt by feeding the
+ * cached offers back through toWireFlightSearchResponse(), never by
+ * duplicating field mapping here.
+ */
 export interface FlightSearchCachePayload {
-  flights: FlightResult[];
+  offers: FlightOffer[];
 }
 
 export interface FlightSearchCacheRow {
@@ -184,7 +194,7 @@ export async function upsertFlightSearchCache(
         currency: params.currency.toUpperCase(),
         provider: "travelpayouts",
         payload: params.payload as unknown as Record<string, unknown>,
-        payload_version: 1,
+        payload_version: 2,
         fetched_at: now.toISOString(),
         expires_at: expiresAt.toISOString(),
         updated_at: now.toISOString(),

@@ -1,0 +1,48 @@
+{
+  "offers": [
+    {
+      "id": "LHR-PRG-2026-09-21",
+      "origin": "LHR",
+      "destination": "PRG",
+      "price": 64,
+      "airline": "FR",
+      "departure_date": "2026-09-21",
+      "return_date": null,
+      "stops": 0,
+      "found_at": "2026-08-25T12:40:22.579Z",
+      "flight_number": "FR3231",
+      "duration_minutes": 735,
+      "link": "https://www.aviasales.com/search/LHR2609PRG1?marker=TESTMARKER"
+    },
+    {
+      "id": "LHR-BCN-2026-09-10",
+      "origin": "LHR",
+      "destination": "BCN",
+      "price": 89,
+      "airline": "VY",
+      "departure_date": "2026-09-10",
+      "return_date": null,
+      "stops": 0,
+      "found_at": "2026-08-24T09:15:00Z",
+      "flight_number": "VY8422",
+      "duration_minutes": 795,
+      "link": "https://www.aviasales.com/search/LHR2609BCN1?marker=TESTMARKER"
+    },
+    {
+      "id": "LHR-ATH-2026-10-02T05:20:00Z",
+      "origin": "LHR",
+      "destination": "ATH",
+      "price": 112,
+      "airline": "A3",
+      "departure_date": "2026-10-02T05:20:00Z",
+      "return_date": null,
+      "stops": 1,
+      "found_at": "2026-08-25T12:40:22.579Z",
+      "flight_number": null,
+      "duration_minutes": 880,
+      "link": "https://www.aviasales.com/search/LHR2610ATH1?marker=TESTMARKER"
+    }
+  ],
+  "currency": "USD",
+  "source": "travelpayouts_latest"
+}

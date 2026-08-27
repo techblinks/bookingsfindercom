@@ -1,0 +1,481 @@
+diff --git a/src/hooks/useSpecialOffers.ts b/src/hooks/useSpecialOffers.ts
+index 30eb507..f8131a1 100644
+--- a/src/hooks/useSpecialOffers.ts
++++ b/src/hooks/useSpecialOffers.ts
+@@ -10,7 +10,7 @@ export interface SpecialOffer {
+   departure_date: string;
+   return_date: string | null;
+   stops: number;
+-  found_at: string;
++  found_at: string | null;
+   flight_number: string | null;
+   link: string;
+ }
+diff --git a/supabase/functions/get-popular-directions/index.ts b/supabase/functions/get-popular-directions/index.ts
+index ffd9581..55f80a0 100644
+--- a/supabase/functions/get-popular-directions/index.ts
++++ b/supabase/functions/get-popular-directions/index.ts
+@@ -1,29 +1,7 @@
+ import { corsHeaders } from "../_shared/cors.ts";
+-import { getConfig } from "../_shared/travelpayouts.ts";
+-
+-const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
+-
+-// City name lookup - common IATA codes
+-const cityNames: Record<string, string> = {
+-  SYD: "Sydney", MEL: "Melbourne", BNE: "Brisbane", PER: "Perth", ADL: "Adelaide",
+-  LHR: "London", LON: "London", MAN: "Manchester", EDI: "Edinburgh", LGW: "London Gatwick", STN: "London Stansted",
+-  JFK: "New York", NYC: "New York", LAX: "Los Angeles", SFO: "San Francisco", ORD: "Chicago", MIA: "Miami", ATL: "Atlanta", BOS: "Boston", SEA: "Seattle", DEN: "Denver", DFW: "Dallas",
+-  DEL: "Delhi", BOM: "Mumbai", BLR: "Bangalore", MAA: "Chennai", CCU: "Kolkata", HYD: "Hyderabad", GOI: "Goa",
+-  SIN: "Singapore", BKK: "Bangkok", HKG: "Hong Kong", NRT: "Tokyo", TYO: "Tokyo", KIX: "Osaka", ICN: "Seoul", SEL: "Seoul",
+-  DXB: "Dubai", AUH: "Abu Dhabi", DOH: "Doha", RUH: "Riyadh", BAH: "Bahrain",
+-  CDG: "Paris", PAR: "Paris", AMS: "Amsterdam", FRA: "Frankfurt", FCO: "Rome", ROM: "Rome", BCN: "Barcelona", MAD: "Madrid", LIS: "Lisbon", VIE: "Vienna", PRG: "Prague", BUD: "Budapest", WAW: "Warsaw", ZRH: "Zurich", MUC: "Munich", BER: "Berlin", CPH: "Copenhagen", OSL: "Oslo", HEL: "Helsinki", ATH: "Athens",
+-  IST: "Istanbul", CAI: "Cairo", JNB: "Johannesburg", NBO: "Nairobi", CMN: "Casablanca",
+-  YYZ: "Toronto", YVR: "Vancouver", YUL: "Montreal", MEX: "Mexico City", GRU: "São Paulo", EZE: "Buenos Aires", BOG: "Bogota", SCL: "Santiago", LIM: "Lima",
+-  KUL: "Kuala Lumpur", CGK: "Jakarta", MNL: "Manila", TPE: "Taipei", PVG: "Shanghai", PEK: "Beijing", BJS: "Beijing",
+-  DPS: "Bali", HNL: "Honolulu", CUN: "Cancun", PMI: "Palma", AGP: "Malaga",
+-  MLE: "Maldives", CMB: "Colombo", KTM: "Kathmandu",
+-  AKL: "Auckland", MOW: "Moscow", LED: "St Petersburg", BEG: "Belgrade", TAS: "Tashkent", AYT: "Antalya", BSZ: "Bishkek",
+-  LOS: "Lagos", ACC: "Accra", DAR: "Dar es Salaam",
+-};
+-
+-function getCityName(iata: string): string {
+-  return cityNames[iata?.toUpperCase()] || iata;
+-}
++import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
++import { TravelpayoutsError } from "../_shared/travelpayouts.ts";
++import { toWireRouteSuggestion } from "../_shared/flightWire.ts";
+ 
+ Deno.serve(async (req) => {
+   if (req.method === "OPTIONS") {
+@@ -40,56 +18,33 @@ Deno.serve(async (req) => {
+       );
+     }
+ 
+-    const config = getConfig();
+-
+-    // Fetch popular directions from the origin
+-    const params = new URLSearchParams({
+-      origin: origin.toUpperCase(),
++    // BF1-E: upstream call, fail-closed validation, the static display-name
++    // lookup and raw->domain mapping now live behind the FlightProvider
++    // adapter; the HTTP contract (including route field names and display
++    // names) is unchanged.
++    const provider = createTravelpayoutsProvider();
++    const routes = await provider.getRouteSuggestions({
++      origin,
+       currency,
+-      token: config.token,
++      limit,
+     });
+ 
+-    const url = `${TRAVELPAYOUTS_API}/v1/city-directions?${params.toString()}`;
+-    console.log(`Fetching popular directions from: ${origin}`);
+-
+-    const response = await fetch(url);
+-    const data = await response.json();
+-
+-    if (!response.ok) {
+-      console.error("API error:", data);
+-      return new Response(
+-        JSON.stringify({ error: "Failed to fetch popular directions" }),
+-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+-      );
+-    }
+-
+-    // data is { success: true, data: { "IATA": { ... }, ... }, currency }
+-    const directionsData = data.data || {};
+-    
+-    const routes = Object.entries(directionsData)
+-      .slice(0, limit)
+-      .map(([destCode, info]: [string, any]) => ({
+-        origin: info.origin || origin.toUpperCase(),
+-        originName: getCityName(info.origin || origin),
+-        destination: info.destination || destCode,
+-        destinationName: getCityName(info.destination || destCode),
+-        price: info.price || null,
+-        airline: info.airline || null,
+-        departureDate: info.departure_at || null,
+-        returnDate: info.return_at || null,
+-        stops: info.transfers ?? 0,
+-        flightNumber: info.flight_number || null,
+-        expiresAt: info.expires_at || null,
+-      }));
+-
+     return new Response(
+-      JSON.stringify({ routes, currency: data.currency || currency, success: true }),
++      JSON.stringify({ routes: routes.map(toWireRouteSuggestion), currency, success: true }),
+       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+     );
+   } catch (error) {
+     console.error("Popular directions error:", error);
++
++    if (error instanceof TravelpayoutsError) {
++      return new Response(
++        JSON.stringify({ error: error.message || "Failed to fetch popular directions" }),
++        { status: error.statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
++      );
++    }
++
+     return new Response(
+-      JSON.stringify({ error: error.message || "Internal error" }),
++      JSON.stringify({ error: error instanceof Error ? error.message : "Internal error" }),
+       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+     );
+   }
+diff --git a/supabase/functions/get-price-calendar/index.ts b/supabase/functions/get-price-calendar/index.ts
+index fb2ff76..ea3c366 100644
+--- a/supabase/functions/get-price-calendar/index.ts
++++ b/supabase/functions/get-price-calendar/index.ts
+@@ -1,7 +1,7 @@
+ import { corsHeaders } from "../_shared/cors.ts";
+-import { getConfig } from "../_shared/travelpayouts.ts";
+-
+-const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
++import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
++import { TravelpayoutsError } from "../_shared/travelpayouts.ts";
++import { toWireCalendarPrice } from "../_shared/flightWire.ts";
+ 
+ Deno.serve(async (req) => {
+   if (req.method === "OPTIONS") {
+@@ -18,50 +18,32 @@ Deno.serve(async (req) => {
+       );
+     }
+ 
+-    const config = getConfig();
+-
+-    // Use the month-matrix endpoint for calendar prices
+-    const params = new URLSearchParams({
+-      origin: origin.toUpperCase(),
+-      destination: destination.toUpperCase(),
++    // BF1-E: upstream call + fail-closed validation + raw->domain mapping now
++    // live behind the FlightProvider adapter; the HTTP contract is unchanged.
++    const provider = createTravelpayoutsProvider();
++    const calendar = await provider.getPriceCalendar({
++      origin,
++      destination,
+       month,
+       currency,
+-      token: config.token,
+-      show_to_affiliates: "true",
+     });
+ 
+-    const url = `${TRAVELPAYOUTS_API}/v2/prices/month-matrix?${params.toString()}`;
+-    console.log(`Fetching price calendar: ${origin} -> ${destination} for ${month}`);
+-
+-    const response = await fetch(url);
+-    const data = await response.json();
+-
+-    if (!response.ok) {
+-      console.error("API error:", data);
+-      return new Response(
+-        JSON.stringify({ error: data.error || "Failed to fetch price calendar" }),
+-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+-      );
+-    }
+-
+-    // data.data is an array of { depart_date, return_date, origin, destination, value, ... }
+-    const prices = (data.data || []).map((item: any) => ({
+-      date: item.depart_date,
+-      price: item.value,
+-      returnDate: item.return_date || null,
+-      airline: item.gate || null,
+-      stops: item.number_of_changes ?? 0,
+-      tripDuration: item.trip_duration ?? null,
+-    }));
+-
+     return new Response(
+-      JSON.stringify({ prices, success: true }),
++      JSON.stringify({ prices: calendar.entries.map(toWireCalendarPrice), success: true }),
+       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+     );
+   } catch (error) {
+     console.error("Price calendar error:", error);
++
++    if (error instanceof TravelpayoutsError) {
++      return new Response(
++        JSON.stringify({ error: error.message || "Failed to fetch price calendar" }),
++        { status: error.statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
++      );
++    }
++
+     return new Response(
+-      JSON.stringify({ error: error.message || "Internal error" }),
++      JSON.stringify({ error: error instanceof Error ? error.message : "Internal error" }),
+       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+     );
+   }
+diff --git a/supabase/functions/get-route-prices/index.ts b/supabase/functions/get-route-prices/index.ts
+index 2370378..0dc0764 100644
+--- a/supabase/functions/get-route-prices/index.ts
++++ b/supabase/functions/get-route-prices/index.ts
+@@ -1,6 +1,6 @@
+ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+ import { corsHeaders } from "../_shared/cors.ts";
+-import { getLowestPrice, getConfig } from "../_shared/travelpayouts.ts";
++import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
+ 
+ interface RouteRequest {
+   origin: string;
+@@ -32,7 +32,8 @@ Deno.serve(async (req) => {
+   }
+ 
+   try {
+-    const config = getConfig();
++    // BF1-E: Travelpayouts access now goes through the FlightProvider adapter.
++    const provider = createTravelpayoutsProvider();
+     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
+         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout per route
+ 
+         try {
+-          const price = await getLowestPrice(
++          const price = await provider.getLowestPrice(
+             {
+               origin: route.origin,
+               destination: route.destination,
+@@ -93,7 +94,6 @@ Deno.serve(async (req) => {
+               returnDate: route.returnDate || null,
+               currency,
+             },
+-            config
+           );
+ 
+           clearTimeout(timeoutId);
+diff --git a/supabase/functions/get-special-offers/index.ts b/supabase/functions/get-special-offers/index.ts
+index 28e7f6e..d85f79a 100644
+--- a/supabase/functions/get-special-offers/index.ts
++++ b/supabase/functions/get-special-offers/index.ts
+@@ -1,28 +1,7 @@
+-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+-import { getConfig } from "../_shared/travelpayouts.ts";
+-
+-const TRAVELPAYOUTS_API = "https://api.travelpayouts.com";
+-
+-function buildOffer(deal: any, origin: string, marker: string) {
+-  const dest = deal.destination || "";
+-  const dep = deal.depart_date || deal.departure_at || "";
+-  return {
+-    id: `${origin}-${dest}-${dep}`,
+-    origin: origin.toUpperCase(),
+-    destination: dest.toUpperCase(),
+-    price: deal.value || deal.price || 0,
+-    airline: deal.airline || deal.gate || "",
+-    departure_date: dep || null,
+-    return_date: deal.return_date || deal.return_at || null,
+-    stops: deal.number_of_changes ?? deal.transfers ?? 0,
+-    found_at: deal.found_at || new Date().toISOString(),
+-    flight_number: deal.flight_number || null,
+-    duration_minutes: deal.duration || 0,
+-    link: dest && dep
+-      ? `https://www.aviasales.com/search/${origin}${dep.replace(/-/g, "").slice(2, 6)}${dest}1?marker=${marker}`
+-      : "",
+-  };
+-}
++import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
++import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
++import { TravelpayoutsError } from "../_shared/travelpayouts.ts";
++import { toWireSpecialOffer } from "../_shared/flightWire.ts";
+ 
+ Deno.serve(async (req) => {
+   const corsResp = handleCors(req);
+@@ -30,49 +9,39 @@ Deno.serve(async (req) => {
+ 
+   try {
+     const { origin = "LHR", currency = "USD", limit = 8 } = await req.json();
+-    const config = getConfig();
+ 
+-    const searchParams = new URLSearchParams({
+-      origin: origin.toUpperCase(),
++    // BF1-E: upstream call, fail-closed validation, affiliate deep-link
++    // building and raw->domain mapping now live behind the FlightProvider
++    // adapter.
++    //
++    // SANCTIONED BF1-E HONESTY FIX: offers whose provider row carried no
++    // found_at timestamp now serialize found_at: null. The previous code
++    // fabricated `new Date().toISOString()` here, falsely implying the offer
++    // had been observed "just now". Nothing generates timestamps from the
++    // current time anymore; the frontend already renders absent stamps
++    // honestly (no "Found X ago" line).
++    const provider = createTravelpayoutsProvider();
++    const offers = await provider.getSpecialOffers({
++      origin,
+       currency,
+-      sorting: "price",
+-      limit: String(Math.min(limit, 20)),
+-      period_type: "year",
+-      show_to_affiliates: "true",
+-      token: config.token,
++      limit,
+     });
+ 
+-    const url = `${TRAVELPAYOUTS_API}/v2/prices/latest?${searchParams}`;
+-    console.log(`Fetching special offers from: ${origin}`);
+-
+-    const response = await fetch(url);
+-    if (!response.ok) {
+-      console.error(`API error: ${response.status}`);
+-      return errorResponse("Failed to fetch offers", response.status);
+-    }
+-
+-    const data = await response.json();
+-
+-    if (!data.success || !data.data) {
+-      return jsonResponse({ offers: [], source: "empty" });
+-    }
+-
+-    // All items are deal objects with destination inside each entry
+-    const rawDeals = Array.isArray(data.data) ? data.data : Object.values(data.data);
+-    let offers = rawDeals.map((deal: any) => buildOffer(deal, origin.toUpperCase(), config.marker));
+-
+-    offers = offers.filter((o: any) => o.destination && o.destination.length >= 2 && o.price > 0);
+-
+-    // Sort by price ascending
+-    offers.sort((a: any, b: any) => a.price - b.price);
+-
+     return jsonResponse({
+-      offers: offers.slice(0, limit),
++      offers: offers.map(toWireSpecialOffer),
+       currency,
+       source: "travelpayouts_latest",
+     });
+   } catch (error) {
+     console.error("Error in get-special-offers:", error);
+-    return errorResponse(error.message || "Internal error", 500);
++
++    if (error instanceof TravelpayoutsError) {
++      return errorResponse(error.message || "Failed to fetch offers", error.statusCode);
++    }
++
++    return errorResponse(
++      error instanceof Error ? error.message : "Internal error",
++      500
++    );
+   }
+ });
+diff --git a/supabase/functions/search-flights/index.ts b/supabase/functions/search-flights/index.ts
+index d597f78..7623f8f 100644
+--- a/supabase/functions/search-flights/index.ts
++++ b/supabase/functions/search-flights/index.ts
+@@ -1,25 +1,12 @@
+-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
++
+ import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+ import { validateRequest, ValidationError } from "../_shared/validation.ts";
+-import { getFlightPrices, deduplicateFlights, getConfig, TravelpayoutsError } from "../_shared/travelpayouts.ts";
+-import { isExactDateMatch } from "../_shared/flightDateMatch.ts";
++import { FlightSearchSchema } from "../_shared/flightSearchSchema.ts";
++import { createTravelpayoutsProvider } from "../_shared/travelpayoutsProvider.ts";
++import { TravelpayoutsError } from "../_shared/travelpayouts.ts";
++import { toWireFlightSearchResponse } from "../_shared/flightWire.ts";
+ 
+-// Zod schema for flight search request
+-const FlightSearchSchema = z.object({
+-  origin: z.string().min(3, "Origin must be a 3-letter airport code").max(3).toUpperCase(),
+-  destination: z.string().min(3, "Destination must be a 3-letter airport code").max(3).toUpperCase(),
+-  depart_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+-  return_date: z.union([
+-    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+-    z.literal(""),
+-    z.null(),
+-    z.undefined(),
+-  ]).optional().transform(val => val || undefined),
+-  adults: z.number().int().min(1).max(9).default(1),
+-  currency: z.string().length(3).default('USD'),
+-});
+ 
+-type FlightSearchRequest = z.infer<typeof FlightSearchSchema>;
+ 
+ Deno.serve(async (req) => {
+   // Handle CORS preflight
+@@ -31,64 +18,37 @@ Deno.serve(async (req) => {
+   }
+ 
+   try {
+-    // Get API config
+-    const config = getConfig();
+-
+     // Validate request body with Zod
+     const body = await validateRequest(req, FlightSearchSchema);
+ 
+     console.log(`Starting flight search: ${body.origin} -> ${body.destination} on ${body.depart_date}`);
+ 
+-    // Fetch flight prices using shared service
+-    const { flights } = await getFlightPrices(
+-      {
+-        origin: body.origin,
+-        destination: body.destination,
+-        departureDate: body.depart_date,
+-        returnDate: body.return_date,
+-        adults: body.adults,
+-        currency: body.currency,
+-      },
+-      config
+-    );
+-
+-    // Deduplicate flights
+-    const uniqueFlights = deduplicateFlights(flights);
+-
+-    // BF-0R-7 Phase D: Travelpayouts documents that prices_for_dates may
+-    // return the nearest available cached date when no result exists for
+-    // the exact requested dates. A result whose provider-stated calendar
+-    // date doesn't match what was actually searched is not a match for
+-    // this search and must not be displayed under the requested date —
+-    // exclude it rather than silently show a different date's price.
+-    const exactMatches = uniqueFlights.filter((flight) =>
+-      isExactDateMatch({
+-        requestedDepartureDate: body.depart_date,
+-        requestedReturnDate: body.return_date,
+-        providerDepartureAt: flight.provider_departure_at,
+-        providerReturnAt: flight.provider_return_at,
+-      })
+-    );
++    // BF1-E: all Travelpayouts specifics (transport call, dedupe, fail-closed
++    // row validation, exact-date filtering of nearest-date cache substitutes,
++    // raw->domain mapping) now live behind the FlightProvider adapter. The
++    // HTTP request/response contract below is unchanged.
++    const provider = createTravelpayoutsProvider();
++    const result = await provider.search({
++      origin: body.origin,
++      destination: body.destination,
++      departureDate: body.depart_date,
++      returnDate: body.return_date,
++      adults: body.adults,
++      currency: body.currency,
++    });
+ 
+-    const filteredOutCount = uniqueFlights.length - exactMatches.length;
+-    if (filteredOutCount > 0) {
++    if (result.excludedNearestDateCount > 0) {
+       console.log(
+-        `Excluded ${filteredOutCount} cached result(s) for a different date than requested (${body.depart_date}${body.return_date ? ` / ${body.return_date}` : ""})`
++        `Excluded ${result.excludedNearestDateCount} cached result(s) for a different date than requested (${body.depart_date}${body.return_date ? ` / ${body.return_date}` : ""})`
+       );
+     }
+ 
+-    console.log(`Search complete: found ${exactMatches.length} unique flights for the exact requested date(s)`);
++    console.log(`Search complete: found ${result.totalFound} unique flights for the exact requested date(s)`);
+ 
+     // Honest empty state: if every cached result was for a different date,
+     // this returns zero flights rather than silently substituting a
+     // nearest-date price under the requested search.
+-    return jsonResponse({
+-      flights: exactMatches,
+-      meta: {
+-        total_found: exactMatches.length,
+-        is_complete: true,
+-      },
+-    });
++    return jsonResponse(toWireFlightSearchResponse(result));
+   } catch (error) {
+     console.error('Flight search error:', error);
+ 
+@@ -105,4 +65,4 @@ Deno.serve(async (req) => {
+       500
+     );
+   }
+-});
+\ No newline at end of file
++});

@@ -1,0 +1,32 @@
+{
+  "flights": [
+    {
+      "id": "SYD-KTM-2026-09-03T09:40:00+10:00-QF-0",
+      "airline": "QF",
+      "airline_code": "QF",
+      "price": 634,
+      "currency": "USD",
+      "duration_minutes": 1140,
+      "stops": 2,
+      "segments": [
+        {
+          "from": "SYD",
+          "to": "KTM",
+          "depart_time": "2026-09-03T09:40:00+10:00",
+          "arrive_time": null,
+          "airline": "QF",
+          "flight_number": "QF1635"
+        }
+      ],
+      "link": "/search/SYD0309KTM1709",
+      "flight_number": "QF1635",
+      "provider_departure_at": "2026-09-03T09:40:00+10:00",
+      "provider_return_at": "2026-09-17T23:55:00+05:45",
+      "found_at": null
+    }
+  ],
+  "meta": {
+    "total_found": 1,
+    "is_complete": true
+  }
+}

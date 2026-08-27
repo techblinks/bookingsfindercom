@@ -41,16 +41,16 @@ function makeMockClient(queryResults: Array<{ data: unknown }>) {
 // ── A. zero exact results are persisted ──
 
 describe("A. zero exact results are persisted", () => {
-  it("upsertFlightSearchCache writes an empty flights payload the same way it writes a non-empty one", async () => {
+  it("upsertFlightSearchCache writes an empty offers payload the same way it writes a non-empty one", async () => {
     const client = makeMockClient([]);
     await upsertFlightSearchCache(client, {
       cacheKey: "SYD|MEL|2099-01-10||AUD",
       origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-      currency: "AUD", payload: { flights: [] },
+      currency: "AUD", payload: { offers: [] },
     });
 
     expect(client.__upsertSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ payload: { flights: [] } }),
+      expect.objectContaining({ payload: { offers: [] } }),
       expect.objectContaining({ onConflict: "cache_key" }),
     );
   });
@@ -59,35 +59,35 @@ describe("A. zero exact results are persisted", () => {
 // ── B. a fresh cached empty result is a cache HIT ──
 
 describe("B. a fresh cached empty result is a cache HIT", () => {
-  it("getFlightSearchCache classifies a fresh row with flights: [] as 'fresh', not 'miss'", async () => {
-    const row = { cache_key: "K", payload: { flights: [] }, fetched_at: new Date().toISOString(), expires_at: "x" };
+  it("getFlightSearchCache classifies a fresh row with offers: [] as 'fresh', not 'miss'", async () => {
+    const row = { cache_key: "K", payload: { offers: [] }, fetched_at: new Date().toISOString(), expires_at: "x" };
     const client = makeMockClient([{ data: row }]);
     const result = await getFlightSearchCache(client, "K");
     expect(result.type).toBe("fresh");
     if (result.type === "fresh") {
-      expect(result.row.payload.flights).toEqual([]);
+      expect(result.row.payload.offers).toEqual([]);
     }
   });
 });
 
-// ── C. fresh cached empty result performs zero Travelpayouts requests ──
+// ── C. fresh cached empty result performs zero provider requests ──
 
-describe("C. a fresh cache hit (empty or not) never reaches the Travelpayouts call", () => {
-  it("the 'fresh' branch in search-flights/index.ts returns before getFlightPrices is ever called, and returns whatever total_found the cached payload actually has (including 0)", () => {
+describe("C. a fresh cache hit (empty or not) never reaches the provider call", () => {
+  it("the 'fresh' branch in search-flights/index.ts returns before provider.search() is ever called, and returns whatever totalFound the cached payload actually has (including 0)", () => {
     const freshBranchStart = indexSource.indexOf('cacheLookup.type === "fresh"');
-    const getFlightPricesCall = indexSource.indexOf("await getFlightPrices(");
+    const providerSearchCall = indexSource.indexOf("await provider.search(");
     expect(freshBranchStart).toBeGreaterThan(-1);
-    expect(getFlightPricesCall).toBeGreaterThan(-1);
+    expect(providerSearchCall).toBeGreaterThan(-1);
     // The fresh-hit branch (and its own `return`) is positioned entirely
-    // before the code that calls getFlightPrices — there is no code path
+    // before the code that calls provider.search() — there is no code path
     // from a fresh hit into the upstream call.
-    expect(freshBranchStart).toBeLessThan(getFlightPricesCall);
+    expect(freshBranchStart).toBeLessThan(providerSearchCall);
 
-    const freshBranchSource = indexSource.slice(freshBranchStart, getFlightPricesCall);
+    const freshBranchSource = indexSource.slice(freshBranchStart, providerSearchCall);
     expect(freshBranchSource).toMatch(/return jsonResponse\(/);
-    // total_found reflects the cached payload's own length — never
+    // totalFound reflects the cached payload's own offers length — never
     // hardcoded to a nonzero value, so an empty cached payload reports 0.
-    expect(freshBranchSource).toContain("total_found: payload.flights.length");
+    expect(freshBranchSource).toContain("totalFound: payload.offers.length");
   });
 });
 
@@ -106,11 +106,13 @@ describe("D. 'unavailable' (provider failure) is structurally distinct from a ge
   it("the success paths ('hit' and 'refreshed') never set total_found to a value other than the actual result length", () => {
     expect(indexSource).toContain('cacheStatus: "hit"');
     expect(indexSource).toContain('cacheStatus: "refreshed"');
-    // Both success statuses derive total_found from real data
-    // (payload.flights.length or exactMatches.length), never a literal 0
-    // used to signal failure.
-    expect(indexSource).toMatch(/cacheStatus: "hit"/);
-    expect(indexSource).toMatch(/total_found: exactMatches\.length/);
+    // The 'refreshed' status serializes the provider's own result object
+    // through toWireFlightSearchResponse (whose total_found comes from
+    // result.totalFound), never a hand-rolled/hardcoded meta object.
+    expect(indexSource).toContain("toWireFlightSearchResponse(result)");
+    // The 'hit' status reconstructs totalFound from the cached payload's
+    // own offers length, never a literal.
+    expect(indexSource).toContain("totalFound: payload.offers.length");
   });
 });
 
@@ -147,10 +149,10 @@ describe("E. a nearby-date-only provider response filters down to zero exact mat
     await upsertFlightSearchCache(client, {
       cacheKey: "SYD|MEL|2099-01-10||AUD",
       origin: "SYD", destination: "MEL", departureDate: requestedDepartureDate, returnDate: null,
-      currency: "AUD", payload: { flights: exactMatches as any },
+      currency: "AUD", payload: { offers: exactMatches as any },
     });
     expect(client.__upsertSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ payload: { flights: [] } }),
+      expect.objectContaining({ payload: { offers: [] } }),
       expect.anything(),
     );
   });

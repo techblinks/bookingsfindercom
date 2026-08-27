@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": [
+    {
+      "depart_date": "2026-09-03",
+      "value": 412,
+      "return_date": null,
+      "gate": "OneTravel",
+      "number_of_changes": 0,
+      "trip_duration": 7
+    },
+    {
+      "depart_date": "2026-09-10",
+      "value": 388,
+      "return_date": "2026-09-17",
+      "gate": "Kiwi.com",
+      "number_of_changes": 1,
+      "trip_duration": 14
+    },
+    {
+      "depart_date": "2026-09-18",
+      "value": 501,
+      "return_date": null,
+      "gate": null,
+      "number_of_changes": 2,
+      "trip_duration": null
+    }
+  ]
+}

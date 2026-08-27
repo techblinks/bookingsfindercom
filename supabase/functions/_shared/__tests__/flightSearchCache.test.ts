@@ -100,7 +100,7 @@ describe("computeFlightSearchCacheKey", () => {
 
 describe("getFlightSearchCache", () => {
   it("returns 'fresh' when a row exists within the TTL window", async () => {
-    const row = { cache_key: "K", payload: { flights: [] }, fetched_at: new Date().toISOString(), expires_at: "x" };
+    const row = { cache_key: "K", payload: { offers: [] }, fetched_at: new Date().toISOString(), expires_at: "x" };
     const client = makeMockClient({ queryResults: [{ data: row }] });
     const result = await getFlightSearchCache(client, "K");
     expect(result.type).toBe("fresh");
@@ -108,7 +108,7 @@ describe("getFlightSearchCache", () => {
 
   it("returns 'stale' when the fresh query misses but a row exists within the 24h window", async () => {
     const staleFetchedAt = new Date(Date.now() - (FRESH_TTL_SEC + 3600) * 1000).toISOString();
-    const row = { cache_key: "K", payload: { flights: [] }, fetched_at: staleFetchedAt, expires_at: "x" };
+    const row = { cache_key: "K", payload: { offers: [] }, fetched_at: staleFetchedAt, expires_at: "x" };
     // First query (fresh) misses -> null; second query (stale) hits -> row
     const client = makeMockClient({ queryResults: [{ data: null }, { data: row }] });
     const result = await getFlightSearchCache(client, "K");
@@ -117,7 +117,7 @@ describe("getFlightSearchCache", () => {
 
   it("BF-FLIGHTS-CACHE-1 Phase 4: an 8h-old row is classified 'stale' and its fetched_at is returned unmodified — reading the cache never rewrites fetched_at", async () => {
     const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
-    const row = { cache_key: "K", payload: { flights: [] }, fetched_at: eightHoursAgo, expires_at: "x" };
+    const row = { cache_key: "K", payload: { offers: [] }, fetched_at: eightHoursAgo, expires_at: "x" };
     const client = makeMockClient({ queryResults: [{ data: null }, { data: row }] });
 
     const result = await getFlightSearchCache(client, "K");
@@ -160,7 +160,7 @@ describe("upsertFlightSearchCache", () => {
     await upsertFlightSearchCache(client, {
       cacheKey: "SYD|MEL|2099-01-10||AUD",
       origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-      currency: "AUD", payload: { flights: [] },
+      currency: "AUD", payload: { offers: [] },
     });
     expect(client.__upsertSpy).toHaveBeenCalledWith(
       expect.objectContaining({ cache_key: "SYD|MEL|2099-01-10||AUD", origin: "SYD", destination: "MEL", currency: "AUD" }),
@@ -173,7 +173,7 @@ describe("upsertFlightSearchCache", () => {
     await expect(
       upsertFlightSearchCache(client, {
         cacheKey: "K", origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-        currency: "AUD", payload: { flights: [] },
+        currency: "AUD", payload: { offers: [] },
       }),
     ).resolves.toBeUndefined();
   });
@@ -218,7 +218,7 @@ describe("getFlightSearchCache — returned (non-thrown) Supabase error", () => 
     const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(logged).toContain("permission denied");
     expect(logged).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
-    expect(logged).not.toMatch(/flights"?\s*:/); // never the raw cached payload
+    expect(logged).not.toMatch(/offers"?\s*:/); // never the raw cached payload
     warnSpy.mockRestore();
   });
 });
@@ -230,12 +230,12 @@ describe("upsertFlightSearchCache — returned (non-thrown) Supabase error", () 
     await expect(
       upsertFlightSearchCache(client, {
         cacheKey: "K", origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-        currency: "AUD", payload: { flights: [] },
+        currency: "AUD", payload: { offers: [] },
       }),
     ).resolves.toBeUndefined();
     const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(logged).toContain("duplicate key value");
-    expect(logged).not.toMatch(/flights"?\s*:/);
+    expect(logged).not.toMatch(/offers"?\s*:/);
     warnSpy.mockRestore();
   });
 });

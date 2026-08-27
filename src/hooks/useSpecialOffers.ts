@@ -10,7 +10,7 @@ export interface SpecialOffer {
   departure_date: string;
   return_date: string | null;
   stops: number;
-  found_at: string;
+  found_at: string | null;
   flight_number: string | null;
   link: string;
 }

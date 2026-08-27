@@ -1,0 +1,45 @@
+{
+  "success": true,
+  "data": [
+    {
+      "origin": "SYD",
+      "destination": "DPS",
+      "origin_airport": "SYD",
+      "destination_airport": "DPS",
+      "price": 389.4,
+      "airline": "JQ",
+      "flight_number": "JQ43",
+      "departure_at": "2026-10-01T11:05:00+10:00",
+      "transfers": 0,
+      "duration": 375,
+      "link": "/search/SYD0110DPS1",
+      "found_at": "2026-08-20T02:41:00Z"
+    },
+    {
+      "origin": "SYD",
+      "destination": "DPS",
+      "origin_airport": "SYD",
+      "destination_airport": "DPS",
+      "price": 402,
+      "airline": "VA",
+      "flight_number": "VA45",
+      "departure_at": "2026-10-01T16:40:00+10:00",
+      "transfers": 0,
+      "duration_to": 380,
+      "link": "/search/SYD0110DPS2"
+    },
+    {
+      "origin": "SYD",
+      "destination": "DPS",
+      "origin_airport": "SYD",
+      "destination_airport": "DPS",
+      "price": 341.1,
+      "airline": "QF",
+      "flight_number": "QF35",
+      "departure_at": "2026-10-02T09:55:00+10:00",
+      "transfers": 0,
+      "duration": 370,
+      "link": "/search/SYD0210DPS1"
+    }
+  ]
+}

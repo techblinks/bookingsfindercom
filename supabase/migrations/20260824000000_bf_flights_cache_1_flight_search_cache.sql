@@ -45,8 +45,8 @@ CREATE TABLE IF NOT EXISTS public.flight_search_cache (
   return_date        date,                       -- NULL = one-way
   currency           text NOT NULL,
   provider           text NOT NULL DEFAULT 'travelpayouts',
-  payload            jsonb NOT NULL,              -- normalized { flights: FlightResult[] }
-  payload_version    integer NOT NULL DEFAULT 1,  -- bump if the normalized payload shape changes
+  payload            jsonb NOT NULL,              -- normalized { offers: FlightOffer[] } (BF1-E domain shape; see _shared/flightSearchCache.ts payload_version 2 note)
+  payload_version    integer NOT NULL DEFAULT 1,  -- application always writes the current version explicitly (currently 2); bump further if the normalized payload shape changes again
   fetched_at         timestamptz NOT NULL,        -- when Travelpayouts was actually last called for this key
   expires_at         timestamptz NOT NULL,        -- fetched_at + the fresh TTL in effect at write time (informational; TTL constant is the source of truth for freshness decisions)
   last_requested_at  timestamptz NOT NULL DEFAULT now(),
