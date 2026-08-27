@@ -46,7 +46,7 @@ describe("A. zero exact results are persisted", () => {
     await upsertFlightSearchCache(client, {
       cacheKey: "SYD|MEL|2099-01-10||AUD",
       origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-      currency: "AUD", payload: { offers: [] },
+      currency: "AUD", payload: { offers: [] }, fetchedAt: "2099-01-01T00:00:00.000Z",
     });
 
     expect(client.__upsertSpy).toHaveBeenCalledWith(
@@ -149,7 +149,7 @@ describe("E. a nearby-date-only provider response filters down to zero exact mat
     await upsertFlightSearchCache(client, {
       cacheKey: "SYD|MEL|2099-01-10||AUD",
       origin: "SYD", destination: "MEL", departureDate: requestedDepartureDate, returnDate: null,
-      currency: "AUD", payload: { offers: exactMatches as any },
+      currency: "AUD", payload: { offers: exactMatches as any }, fetchedAt: "2099-01-01T00:00:00.000Z",
     });
     expect(client.__upsertSpy).toHaveBeenCalledWith(
       expect.objectContaining({ payload: { offers: [] } }),

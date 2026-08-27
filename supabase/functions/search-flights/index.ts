@@ -134,6 +134,13 @@ Deno.serve(async (req) => {
 
       console.log(`Search complete: found ${result.totalFound} unique flights for the exact requested date(s)`);
 
+      // Canonical refresh instant — generated ONCE, right after the
+      // provider result is in hand, and reused verbatim for both the
+      // persisted cache row and this response's meta.fetchedAt. A second,
+      // separately-generated timestamp here would let the two drift by
+      // however long the DB write takes (BF-FLIGHTS-CACHE-1 consistency fix).
+      const fetchedAt = new Date().toISOString();
+
       // Best-effort on failure (never turns a valid provider result into a
       // user-facing failure), but AWAITED so the write is allowed to
       // complete before the response returns — Edge Function runtime may
@@ -149,16 +156,16 @@ Deno.serve(async (req) => {
         returnDate: body.return_date ?? null,
         currency: body.currency,
         payload: { offers: result.offers },
+        fetchedAt,
       });
 
       const wire = toWireFlightSearchResponse(result);
-      const now = new Date().toISOString();
       return jsonResponse({
         flights: wire.flights,
         meta: {
           ...wire.meta,
           cacheStatus: "refreshed",
-          fetchedAt: now,
+          fetchedAt,
           ageSeconds: 0,
         },
       });

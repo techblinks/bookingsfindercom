@@ -55,16 +55,66 @@ describe("stale-if-error preserves the ORIGINAL fetched_at", () => {
   });
 });
 
-describe("upsertFlightSearchCache always stamps a fresh fetched_at (the only place fetched_at is written)", () => {
-  it("sets fetched_at from the current time at call time, not a caller-supplied value", () => {
+describe("upsertFlightSearchCache persists exactly the canonical fetchedAt it is given (BF-FLIGHTS-CACHE-1 consistency fix)", () => {
+  it("D. fetched_at/updated_at trace to params.fetchedAt, never a fresh now() generated inside the function", () => {
     const fnMatch = cacheModuleSource.match(/export async function upsertFlightSearchCache[\s\S]*?^}/m);
     expect(fnMatch).not.toBeNull();
-    expect(fnMatch![0]).toContain("fetched_at: now.toISOString()");
-    // The function signature accepts no fetchedAt/timestamp override —
-    // callers cannot backdate or preserve an old fetched_at through this path.
-    const paramsMatch = cacheModuleSource.match(/export interface UpsertFlightSearchCacheParams \{[\s\S]*?\}/);
+    expect(fnMatch![0]).toContain("fetched_at: params.fetchedAt");
+    expect(fnMatch![0]).toContain("updated_at: params.fetchedAt");
+    expect(fnMatch![0]).not.toMatch(/fetched_at:\s*now/);
+    // The function signature DOES accept a caller-supplied fetchedAt now —
+    // that is the whole point of the fix (previously it took no timestamp
+    // override at all and always minted its own).
+    const paramsMatch = cacheModuleSource.match(/export interface UpsertFlightSearchCacheParams \{[\s\S]*?\n\}/);
     expect(paramsMatch).not.toBeNull();
-    expect(paramsMatch![0]).not.toMatch(/fetched_?[aA]t/);
+    expect(paramsMatch![0]).toMatch(/fetchedAt:\s*string/);
+  });
+
+  it("E. expires_at is derived from params.fetchedAt, not from an independently-generated now()", () => {
+    const fnMatch = cacheModuleSource.match(/export async function upsertFlightSearchCache[\s\S]*?^}/m);
+    expect(fnMatch).not.toBeNull();
+    expect(fnMatch![0]).toMatch(/expiresAt\s*=\s*new Date\(new Date\(params\.fetchedAt\)\.getTime\(\)/);
+  });
+});
+
+describe("search-flights/index.ts generates ONE canonical fetchedAt per successful refresh and reuses it verbatim (BF-FLIGHTS-CACHE-1 consistency fix)", () => {
+  it("A. exactly one canonical fetchedAt is generated in the try-success block", () => {
+    const tryBlockStart = indexSource.indexOf("const provider = createTravelpayoutsProvider();");
+    const catchBlockStart = indexSource.indexOf("} catch (upstreamError) {");
+    const trySuccessSource = indexSource.slice(tryBlockStart, catchBlockStart);
+    expect([...trySuccessSource.matchAll(/const fetchedAt = new Date\(\)\.toISOString\(\);/g)]).toHaveLength(1);
+  });
+
+  it("B. that same fetchedAt variable is passed into upsertFlightSearchCache", () => {
+    const tryBlockStart = indexSource.indexOf("const provider = createTravelpayoutsProvider();");
+    const catchBlockStart = indexSource.indexOf("} catch (upstreamError) {");
+    const trySuccessSource = indexSource.slice(tryBlockStart, catchBlockStart);
+    const fetchedAtDeclIndex = trySuccessSource.indexOf("const fetchedAt = new Date().toISOString();");
+    const upsertCallIndex = trySuccessSource.indexOf("await upsertFlightSearchCache(");
+    expect(fetchedAtDeclIndex).toBeGreaterThan(-1);
+    expect(upsertCallIndex).toBeGreaterThan(fetchedAtDeclIndex);
+    const upsertCallSource = trySuccessSource.slice(upsertCallIndex, trySuccessSource.indexOf(");", upsertCallIndex));
+    expect(upsertCallSource).toMatch(/\bfetchedAt\b/);
+  });
+
+  it("C. response meta.fetchedAt reuses that same variable — no second timestamp is minted after the cache write", () => {
+    const tryBlockStart = indexSource.indexOf("const provider = createTravelpayoutsProvider();");
+    const catchBlockStart = indexSource.indexOf("} catch (upstreamError) {");
+    const trySuccessSource = indexSource.slice(tryBlockStart, catchBlockStart);
+    const upsertCallIndex = trySuccessSource.indexOf("await upsertFlightSearchCache(");
+    const afterUpsert = trySuccessSource.slice(upsertCallIndex);
+    expect(afterUpsert).not.toMatch(/new Date\(\)\.toISOString\(\)/);
+    expect(afterUpsert).toMatch(/cacheStatus:\s*"refreshed"/);
+    expect(afterUpsert).toMatch(/fetchedAt,/);
+  });
+
+  it("F. the unconditional cache write (including zero-result searches) shares this same canonical fetchedAt — no branch mints a separate timestamp for the empty-results case", () => {
+    const tryBlockStart = indexSource.indexOf("const provider = createTravelpayoutsProvider();");
+    const catchBlockStart = indexSource.indexOf("} catch (upstreamError) {");
+    const trySuccessSource = indexSource.slice(tryBlockStart, catchBlockStart);
+    expect([...trySuccessSource.matchAll(/upsertFlightSearchCache\(/g)]).toHaveLength(1);
+    expect([...trySuccessSource.matchAll(/const fetchedAt = /g)]).toHaveLength(1);
+    expect(trySuccessSource).not.toMatch(/if\s*\(\s*result\.(offers|totalFound)\.length/);
   });
 });
 

@@ -165,6 +165,15 @@ export interface UpsertFlightSearchCacheParams {
   returnDate: string | null;
   currency: string;
   payload: FlightSearchCachePayload;
+  /**
+   * Canonical refresh instant, generated ONCE by the caller (after
+   * provider.search() succeeds) and reused verbatim as the traveller-facing
+   * response's meta.fetchedAt. Persisting this exact value — rather than a
+   * second, separately-generated `new Date()` inside this function — is what
+   * guarantees response.meta.fetchedAt and the persisted fetched_at row can
+   * never diverge (BF-FLIGHTS-CACHE-1 consistency fix).
+   */
+  fetchedAt: string;
 }
 
 /**
@@ -181,8 +190,7 @@ export async function upsertFlightSearchCache(
   params: UpsertFlightSearchCacheParams,
 ): Promise<void> {
   try {
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + FRESH_TTL_SEC * 1000);
+    const expiresAt = new Date(new Date(params.fetchedAt).getTime() + FRESH_TTL_SEC * 1000);
 
     const { error } = await client.from("flight_search_cache").upsert(
       {
@@ -195,9 +203,9 @@ export async function upsertFlightSearchCache(
         provider: "travelpayouts",
         payload: params.payload as unknown as Record<string, unknown>,
         payload_version: 2,
-        fetched_at: now.toISOString(),
+        fetched_at: params.fetchedAt,
         expires_at: expiresAt.toISOString(),
-        updated_at: now.toISOString(),
+        updated_at: params.fetchedAt,
       },
       { onConflict: "cache_key" },
     );

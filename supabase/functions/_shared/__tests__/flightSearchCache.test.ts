@@ -7,6 +7,7 @@
  *   .rpc(name, args)
  */
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "fs";
 import {
   computeFlightSearchCacheKey,
   getFlightSearchCache,
@@ -160,7 +161,7 @@ describe("upsertFlightSearchCache", () => {
     await upsertFlightSearchCache(client, {
       cacheKey: "SYD|MEL|2099-01-10||AUD",
       origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-      currency: "AUD", payload: { offers: [] },
+      currency: "AUD", payload: { offers: [] }, fetchedAt: "2099-01-01T00:00:00.000Z",
     });
     expect(client.__upsertSpy).toHaveBeenCalledWith(
       expect.objectContaining({ cache_key: "SYD|MEL|2099-01-10||AUD", origin: "SYD", destination: "MEL", currency: "AUD" }),
@@ -173,9 +174,51 @@ describe("upsertFlightSearchCache", () => {
     await expect(
       upsertFlightSearchCache(client, {
         cacheKey: "K", origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-        currency: "AUD", payload: { offers: [] },
+        currency: "AUD", payload: { offers: [] }, fetchedAt: "2099-01-01T00:00:00.000Z",
       }),
     ).resolves.toBeUndefined();
+  });
+
+  // BF-FLIGHTS-CACHE-1 consistency fix — fetched_at must be EXACTLY the
+  // caller-supplied fetchedAt, never a separately-generated `new Date()`
+  // inside this function, so response.meta.fetchedAt (built from the same
+  // caller-side value) and the persisted row can never diverge.
+  describe("canonical fetchedAt contract", () => {
+    it("D. persists fetched_at and updated_at as EXACTLY the passed fetchedAt, not a freshly-generated timestamp", async () => {
+      const client = makeMockClient();
+      const fetchedAt = "2026-08-27T14:27:45.507Z";
+      await upsertFlightSearchCache(client, {
+        cacheKey: "K", origin: "SYD", destination: "BNE", departureDate: "2026-10-13", returnDate: null,
+        currency: "AUD", payload: { offers: [] }, fetchedAt,
+      });
+      expect(client.__upsertSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ fetched_at: fetchedAt, updated_at: fetchedAt }),
+        expect.anything(),
+      );
+    });
+
+    it("E. derives expires_at as fetchedAt + FRESH_TTL_SEC, not now() + FRESH_TTL_SEC", async () => {
+      const client = makeMockClient();
+      const fetchedAt = "2026-08-27T14:27:45.507Z";
+      await upsertFlightSearchCache(client, {
+        cacheKey: "K", origin: "SYD", destination: "BNE", departureDate: "2026-10-13", returnDate: null,
+        currency: "AUD", payload: { offers: [] }, fetchedAt,
+      });
+      const expectedExpiresAt = new Date(new Date(fetchedAt).getTime() + FRESH_TTL_SEC * 1000).toISOString();
+      expect(client.__upsertSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ expires_at: expectedExpiresAt }),
+        expect.anything(),
+      );
+    });
+
+    it("never calls `new Date()` with no arguments to derive fetched_at/expires_at — both must trace back to params.fetchedAt", () => {
+      const fnMatch = readFileSync("supabase/functions/_shared/flightSearchCache.ts", "utf8")
+        .match(/export async function upsertFlightSearchCache[\s\S]*?^}/m);
+      expect(fnMatch).not.toBeNull();
+      const fnBody = fnMatch![0];
+      expect(fnBody).toContain("params.fetchedAt");
+      expect(fnBody).not.toMatch(/fetched_at:\s*now/);
+    });
   });
 });
 
@@ -230,7 +273,7 @@ describe("upsertFlightSearchCache — returned (non-thrown) Supabase error", () 
     await expect(
       upsertFlightSearchCache(client, {
         cacheKey: "K", origin: "SYD", destination: "MEL", departureDate: "2099-01-10", returnDate: null,
-        currency: "AUD", payload: { offers: [] },
+        currency: "AUD", payload: { offers: [] }, fetchedAt: "2099-01-01T00:00:00.000Z",
       }),
     ).resolves.toBeUndefined();
     const logged = warnSpy.mock.calls.map((c) => c.join(" ")).join(" ");
