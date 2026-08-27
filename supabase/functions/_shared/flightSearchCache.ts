@@ -4,7 +4,7 @@
  * Mirrors the established DB-cache pattern in tiqets-public/index.ts
  * (fresh/stale/miss lookup, best-effort upsert, stale-if-error). See
  * supabase/migrations/20260824000000_bf_flights_cache_1_flight_search_cache.sql
- * for the table (NOT applied in this round — documentation-only migration).
+ * for the persistent cache table schema.
  *
  * Freshness contract (Phase G/H):
  *   fresh   — age < FRESH_TTL_SEC (6h): served directly, never calls upstream.

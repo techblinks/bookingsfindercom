@@ -26,7 +26,7 @@ import {
  * BF1-E FlightProvider contract (createTravelpayoutsProvider().search(...)).
  * See _shared/flightSearchCache.ts for the fresh/stale/miss contract and
  * supabase/migrations/20260824000000_bf_flights_cache_1_flight_search_cache.sql
- * for the table (documentation-only migration — NOT applied in this round).
+ * for the persistent cache table schema.
  *
  * BF1-E owns dedupe, fail-closed row validation and exact-date filtering of
  * nearest-date cache substitutes inside provider.search() itself — this
